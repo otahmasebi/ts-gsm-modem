@@ -1,0 +1,39 @@
+{
+  "name": "ts-gsm-modem",
+  "version": "0.1.0",
+  "description": "GSM Modem manager",
+  "main": "./out/lib/index.js",
+  "types": "./out/lib/index.d.ts",
+  "scripts": {
+    "postinstall": "npm run tsc",
+    "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
+    "test": "npm run test-pin-manager",
+    "test-modem-interface": "node ./out/test/modemInterface",
+    "test-pin-manager": "node ./out/test/pinManager"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/garronej/ts-gsm-modem.git"
+  },
+  "keywords": [
+    "typeScript",
+    "GSM",
+    "AT",
+    "serialport",
+    "PIN",
+    "PUK"
+  ],
+  "author": "Joseph Garrone",
+  "license": "MIT",
+  "dependencies": {
+    "@types/chai": "^3.4.34",
+    "@types/node": "^4.0.0",
+    "at-commands-parser": "garronej/at-commands-parser",
+    "at-messages-parser": "garronej/at-messages-parser",
+    "serialport": "^4.0.0",
+    "ts-events": "^3.1.4",
+    "ts-promisify": "^2.0.0",
+    "typescript": "^2.1.4"
+  },
+  "devDependencies": {}
+}
