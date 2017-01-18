@@ -5,7 +5,6 @@ import * as promisify from "ts-promisify";
 
 import { SyncEvent } from "ts-events";
 
-
 import { 
     atMessagesParser, 
     AtMessageId, 
@@ -23,7 +22,6 @@ import {
 //TODO: Quand il y a eut une parse error vider la stack de command
 //TODO: Les parse error n'on pas a être traité a l'exterieur, elle ne peuvent être traitée qu'en interne, faire crasher le program.
 //TODO: Gerer les exceptions en cas de déconéction inopiné de la clef.
-
 
 process.on("unhandledRejection", error=> { 
     console.log("INTERNAL ERROR MODEM INTERFACE");
@@ -310,7 +308,10 @@ export class ModemInterface {
 
             if( !output.isSuccess ){
 
-                console.log("on a eut une erreur", output.finalAtMessage);
+                console.log("retry error", {
+                    "rawAtCommand": rac,
+                    "finalMessage": output.finalAtMessage
+                });
 
             }
 

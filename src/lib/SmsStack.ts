@@ -1,29 +1,61 @@
+import { ModemInterface } from "./ModemInterface";
+import { 
+    AtMessageId, 
+    AtMessage, 
+    AtMessageImplementations 
+} from "at-messages-parser";
+import { SyncEvent } from "ts-events";
+import { smsDeliver, smsSubmit, Sms } from "node-python-messaging";
 
-import { ModemInterface, RunAtCommandError } from "./ModemInterface";
-import { AtMessageId, AtMessage, AtMessageImplementations, PinState, SimState } from "at-messages-parser";
-import { SyncEvent, VoidSyncEvent } from "ts-events";
-
-process.on("unhandledRejection", error=> { 
-    console.log("INTERNAL ERROR PIN MANAGER");
-    console.log(error);
-    throw error; 
-});
-
+export interface Message{
+    number: string;
+    date: Date;
+    text: string;
+}
 
 export class SmsStack{
 
-    public readonly evtNewSms= new SyncEvent<{pinState: PinState, times: number}>();
+    private evtSms= new SyncEvent<Sms>();
+    public evtMessage= new SyncEvent<Message>();
+    private readonly setSms: { [ref: number]: { [seq: number]: Sms } } = {};
 
     constructor(private readonly modemInterface: ModemInterface) {
+        //Assert sim ready
 
-        //'AT+CPMS="SM","SM","SM"\r' //Set memory storage, unrecovrable, warning sim busy.
-        // 'AT+CNMI=2,1,0,0,0\r' //Indicate new message to TE
+        modemInterface.runAtCommandExt('AT+CPMS="SM","SM","SM"\r');
+        modemInterface.runAtCommandExt('AT+CNMI=2,1,0,0,0\r');
 
         this.registerListeners();
+
     }
 
-
     private registerListeners(): void {
+
+        this.evtSms.attach(sms => {
+
+            if (typeof (sms.ref) !== "number") return this.evtMessage.post({
+                "number": sms.number,
+                "date": sms.date,
+                "text": sms.text
+            });
+
+            if (!this.setSms[sms.ref]) this.setSms[sms.ref] = {};
+
+            this.setSms[sms.ref][sms.seq] = sms;
+
+            if (Object.keys(this.setSms[sms.ref]).length !== sms.cnt) return;
+
+            let message: Message = {
+                "number": sms.number,
+                "date": sms.date,
+                "text": ""
+            };
+
+            for (let seq = 1; seq <= sms.cnt; seq++) message.text += this.setSms[sms.ref][seq].text;
+
+            this.evtMessage.post(message);
+
+        });
 
         this.modemInterface.evtUnsolicitedAtMessage.attach(atMessage => {
 
@@ -31,13 +63,7 @@ export class SmsStack{
 
                 let atMessageCMTI = <AtMessageImplementations.CMTI>atMessage;
 
-                this.modemInterface.runAtCommand(`AT+CMGR=${atMessageCMTI.index}\r`, output => {
-
-                    let atMessageCMGR = <AtMessageImplementations.CMGR>output.atMessage;
-
-                    console.log("new message received: ", atMessageCMGR);
-
-                });
+                this.retrieveSms(atMessageCMTI.index);
 
             }
 
@@ -45,6 +71,18 @@ export class SmsStack{
 
     }
 
+    private retrieveSms(index: number): void {
 
+        this.modemInterface.runAtCommandExt(`AT+CMGR=${index}\r`, output => {
+
+            let atMessageCMGR = <AtMessageImplementations.CMGR>output.atMessage;
+
+            smsDeliver(atMessageCMGR.pdu, (error, sms) => this.evtSms.post(sms));
+
+            this.modemInterface.runAtCommandExt(`AT+CMGD=${index}\r`);
+
+        });
+
+    }
 
 }

@@ -3,19 +3,16 @@ import { ModemWatcher } from "gsm-modem-connection";
 import {
     ModemInterface,
     PinManager,
-    AtMessageId,
-    AtMessageList,
-    AtMessageImplementations,
     ReportMode,
     PinState,
-    SimState
+    SmsStack
 } from "../lib/index";
-
 
 let modemWatcher = new ModemWatcher();
 
 console.log("Awaiting GSM modem connections...");
 
+modemWatcher.evtDisconnect.attach(modem => console.log("DISCONNECT", modem.infos));
 modemWatcher.evtConnect.attach(modem => {
 
     console.log("CONNECTION=>", modem.infos);
@@ -24,12 +21,11 @@ modemWatcher.evtConnect.attach(modem => {
         "reportMode": ReportMode.DEBUG_INFO_CODE
     });
 
-
     let pinManager = new PinManager(modemInterface);
 
     pinManager.evtRequestCode.attach((request) => {
 
-        console.log("=>REQUEST CODE<=", pinManager.getState());
+        console.log("=>REQUEST CODE<=", pinManager.state);
 
         switch (request.pinState) {
             case PinState.SIM_PIN:
@@ -76,7 +72,7 @@ modemWatcher.evtConnect.attach(modem => {
 
     pinManager.evtNoSim.attach(() => {
 
-        console.log("=>NO SIM<=", pinManager.getState());
+        console.log("=>NO SIM<=", pinManager.state);
 
         process.exit(0);
 
@@ -84,11 +80,14 @@ modemWatcher.evtConnect.attach(modem => {
 
     pinManager.evtSimValid.attach(() => {
 
-        console.log("=>SIM VALID<=", pinManager.getState());
+        console.log("=>SIM VALID<=", pinManager.state);
+
+        let smsStack= new SmsStack(modemInterface);
+
+        smsStack.evtMessage.attach(message=> console.log("NEW MESSAGE: ",message));
+
+        console.log("now send message");
 
     });
 
-
 });
-
-modemWatcher.evtDisconnect.attach(modem => console.log("DISCONNECT", modem.infos));

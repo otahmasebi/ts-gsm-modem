@@ -1,13 +1,13 @@
 
-import { ModemInterface, RunAtCommandError } from "./ModemInterface";
-import { AtMessageId, AtMessage, AtMessageImplementations, PinState, SimState } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events";
-
-process.on("unhandledRejection", error=> { 
-    console.log("INTERNAL ERROR PIN MANAGER");
-    console.log(error);
-    throw error; 
-});
+import { ModemInterface } from "./ModemInterface";
+import { 
+    AtMessageId, 
+    AtMessage, 
+    AtMessageImplementations, 
+    PinState, 
+    SimState 
+} from "at-messages-parser";
 
 export interface PinManagerState {
         hasSim: boolean,
@@ -26,7 +26,7 @@ export class PinManager{
 
     public get times(): number{ return this.atMessageHuaweiCPIN.times; }
 
-    public getState(): PinManagerState{
+    public get state(): PinManagerState{
 
         let pinManagerState: PinManagerState= {
             "hasSim": this.hasSim
