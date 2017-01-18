@@ -15,7 +15,9 @@
         "garronej",
         "readline",
         "CPIN",
-        "SYSINFO"
+        "SYSINFO",
+        "SIMST",
+        "CPMS"
     ],
     // flagWords - list of words to be always considered incorrect
     // This is useful for offensive words and common spelling errors.

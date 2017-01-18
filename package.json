@@ -1,6 +1,6 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GSM Modem manager",
   "main": "./out/lib/index.js",
   "types": "./out/lib/index.d.ts",
@@ -30,10 +30,13 @@
     "@types/node": "^4.0.0",
     "at-commands-parser": "garronej/at-commands-parser",
     "at-messages-parser": "garronej/at-messages-parser",
+    "node-python-messaging": "garronej/node-python-messaging",
     "serialport": "^4.0.0",
     "ts-events": "^3.1.4",
     "ts-promisify": "^2.0.0",
     "typescript": "^2.1.4"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "gsm-modem-connection": "garronej/gsm-modem-connection"
+  }
 }

@@ -7,8 +7,6 @@ console.log("Now send a SMS to your GSM modem");
 //Here put the serial port for at command of your modem (e.g. /dev/ttyUSB2)
 let modemInterface = new ModemInterface("/dev/serial/by-path/platform-3f980000.usb-usb-0:1.4:1.2-port0");
 
-modemInterface.evtError.attach(error => {throw error;});
-
 //Tell the modem to alert when there is a new SMS.
 modemInterface.runAtCommand("AT+CNMI=2,1,0,0,0\r");
 

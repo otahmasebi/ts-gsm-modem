@@ -4,22 +4,45 @@ import { AtMessageId, AtMessage, AtMessageImplementations, PinState, SimState } 
 import { SyncEvent, VoidSyncEvent } from "ts-events";
 
 process.on("unhandledRejection", error=> { 
-    console.log("INTERNAL ERROR");
+    console.log("INTERNAL ERROR PIN MANAGER");
     console.log(error);
     throw error; 
 });
 
+export interface PinManagerState {
+        hasSim: boolean,
+        simState?: string,
+        pinState?: string,
+        times?: number
+}
+
 export class PinManager{
 
     public get hasSim(): boolean{ return this.atMessageHuaweiSYSINFO.simState !== SimState.NO_SIM; }
-
-    public get isSimReady(): boolean{ return this.simState === SimState.VALID_SIM; }
 
     public get simState(): SimState{ return this.atMessageHuaweiSYSINFO.simState; }
 
     public get pinState(): PinState{ return this.atMessageHuaweiCPIN.pinState; }
 
     public get times(): number{ return this.atMessageHuaweiCPIN.times; }
+
+    public getState(): PinManagerState{
+
+        let pinManagerState: PinManagerState= {
+            "hasSim": this.hasSim
+        };
+
+        if( this.hasSim ){
+            Object.assign(pinManagerState, {
+                "simState": SimState[this.simState],
+                "pinState": PinState[this.pinState],
+            });
+
+            if( typeof(this.times) === "number" ) pinManagerState.times= this.times;
+        }
+
+        return pinManagerState;
+    }
 
 
     private unlocking= false;
@@ -33,11 +56,7 @@ export class PinManager{
 
         this.unlocking= true;
 
-        let rawAtCommand= `AT+CPIN=${pin}\r`;
-
-        this.modemInterface.runAtCommand(rawAtCommand, output => {
-
-                if( !output ) return;
+        this.modemInterface.runAtCommand(`AT+CPIN=${pin}\r`, output => {
 
                 this.unlocking= false;
 
@@ -57,11 +76,7 @@ export class PinManager{
 
         this.unlocking= true;
 
-        let rawAtCommand= `AT+CPIN=${puk},${newPin}\r`;
-
-        this.modemInterface.runAtCommand(rawAtCommand, output => {
-
-                if( !output ) return;
+        this.modemInterface.runAtCommand(`AT+CPIN=${puk},${newPin}\r`, output => {
 
                 this.unlocking= false;
 
@@ -107,29 +122,14 @@ export class PinManager{
 
     public readonly evtNoSim= new VoidSyncEvent();
     public readonly evtRequestCode= new SyncEvent<{pinState: PinState, times: number}>();
-    public readonly evtSimReady= new VoidSyncEvent();
+    public readonly evtSimValid= new VoidSyncEvent();
 
     constructor(private readonly modemInterface: ModemInterface) {
         this.retrieve();
         this.registerListeners();
     }
 
-    private registerListeners(): void{
-
-        this.modemInterface.evtUnsolicitedAtMessage.attach(atMessage => {
-
-            if (atMessage.id === AtMessageId.HUAWEI_SIMST ) {
-
-                this.retrieve();
-            }
-
-        });
-
-    }
-
-
     private retrieving= true;
-
     private retrieve(): void{
         (async () => {
 
@@ -154,51 +154,62 @@ export class PinManager{
                 return;
             }
 
-            if( this.isSimReady ) this.evtSimReady.post();
+            if( this.simState === SimState.VALID_SIM ) this.evtSimValid.post();
 
         })();
     }
 
+    private registerListeners(): void{
 
-    public atMessageHuaweiSYSINFO: AtMessageImplementations.HUAWEI_SYSINFO;
+        this.modemInterface.evtUnsolicitedAtMessage.attach(atMessage => {
+
+            if (atMessage.id === AtMessageId.HUAWEI_SIMST ){
+
+                if( this.retrieving ){
+                    console.log("============================================>regarde là");
+                    return;
+                }
+
+                 this.retrieve();
+
+            }
+
+        });
+
+    }
+
+
+
+
+    private atMessageHuaweiSYSINFO: AtMessageImplementations.HUAWEI_SYSINFO;
 
     public retrieveHuaweiSYSINFO(): Promise<void> {
         return new Promise<void>(resolve=>{
 
-            let rawAtCommand= "AT^SYSINFO\r";
+            this.modemInterface.runAtCommandExt("AT^SYSINFO\r", output => {
 
-            this.modemInterface.runAtCommand(rawAtCommand, output => {
-
-                if( !output ) return resolve();
-
-                if( !output.isSuccess ) throw new RunAtCommandError(rawAtCommand, output.finalAtMessage);
-
-                this.atMessageHuaweiSYSINFO= <AtMessageImplementations.HUAWEI_SYSINFO>output.atMessage;
+                this.atMessageHuaweiSYSINFO = <AtMessageImplementations.HUAWEI_SYSINFO>output.atMessage;
 
                 resolve();
 
             });
+
         });
     }
 
-    public atMessageHuaweiCPIN: AtMessageImplementations.HUAWEI_CPIN;
+    private atMessageHuaweiCPIN: AtMessageImplementations.HUAWEI_CPIN;
 
     private retrieveHuaweiCPIN(): Promise<void> {
-        return new Promise<void>(resolve=>{
+        return new Promise<void>(resolve => {
 
-            let rawAtCommand= "AT^CPIN?\r";
+            this.modemInterface.runAtCommandExt("AT^CPIN?\r", output => {
 
-            this.modemInterface.runAtCommand(rawAtCommand, output => {
-
-                if( !output ) return resolve();
-
-                if( !output.isSuccess ) throw new RunAtCommandError(rawAtCommand, output.finalAtMessage);
-
-                this.atMessageHuaweiCPIN= <AtMessageImplementations.HUAWEI_CPIN>output.atMessage;
+                this.atMessageHuaweiCPIN = <AtMessageImplementations.HUAWEI_CPIN>output.atMessage;
 
                 resolve();
 
             });
+
 
         });
     }
