@@ -2,7 +2,9 @@ import { ModemInterface } from "./ModemInterface";
 import { 
     AtMessageId, 
     AtMessage, 
-    AtMessageImplementations 
+    AtMessageList,
+    AtMessageImplementations,
+    MessageStat
 } from "at-messages-parser";
 import { SyncEvent } from "ts-events";
 import { smsDeliver, smsSubmit, Sms } from "node-python-messaging";
@@ -12,6 +14,8 @@ export interface Message{
     date: Date;
     text: string;
 }
+
+//TODO: Think again about potential concurrency problem on message received.
 
 export class SmsStack{
 
@@ -25,7 +29,26 @@ export class SmsStack{
         modemInterface.runAtCommandExt('AT+CPMS="SM","SM","SM"\r');
         modemInterface.runAtCommandExt('AT+CNMI=2,1,0,0,0\r');
 
+        //AT+CNMI=mode=2,mt=1,bm=0,ds=0,bfr=0
+        //mode==2+3 => mt!=2&3
+
         this.registerListeners();
+
+        modemInterface.runAtCommandExt(`AT+CMGL=${MessageStat.RECEIVED_UNREAD}\r`, output =>{
+
+            let atMessageList= <AtMessageList>output.atMessage;
+
+            if( !atMessageList ) return;
+
+            for(let atMessage of atMessageList.atMessages){
+
+                let atMessageCMGL= <AtMessageImplementations.CMGL>atMessage;
+
+                this.retrieveSms(atMessageCMGL.index);
+
+            }
+
+        });
 
     }
 
@@ -61,6 +84,8 @@ export class SmsStack{
 
             if (atMessage.id === AtMessageId.CMTI) {
 
+                console.log("=====================>CMTI");
+
                 let atMessageCMTI = <AtMessageImplementations.CMTI>atMessage;
 
                 this.retrieveSms(atMessageCMTI.index);
@@ -79,9 +104,8 @@ export class SmsStack{
 
             smsDeliver(atMessageCMGR.pdu, (error, sms) => this.evtSms.post(sms));
 
-            this.modemInterface.runAtCommandExt(`AT+CMGD=${index}\r`);
-
         });
+        this.modemInterface.runAtCommandExt(`AT+CMGD=${index}\r`);
 
     }
 

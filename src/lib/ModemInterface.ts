@@ -70,6 +70,15 @@ export interface RunAtCommandOutput {
     finalAtMessage: AtMessage;
 }
 
+export interface RunAtCommandExtParam {
+        unrecoverable?: boolean;
+        retryCount?: number;
+        delay?: number;
+        reportMode?: ReportMode;
+        unrecoverableCommandError?: boolean;
+}
+
+
 export class ModemInterface {
 
     private readonly serialPort: SerialPort;
@@ -171,7 +180,7 @@ export class ModemInterface {
 
 
 
-    private stack: (() => void)[] = [];
+    private callStackRunAtCommand: (() => void)[] = [];
     private isRunAtCommandReady = true;
 
     public runAtCommand(rawAtCommand: string, callback?: (output: RunAtCommandOutput) => void): void {
@@ -181,7 +190,7 @@ export class ModemInterface {
 
             if (!this.isRunAtCommandReady) {
 
-                this.stack.push(this.runAtCommand.bind(this, rawAtCommand, callback));
+                this.callStackRunAtCommand.push(this.runAtCommand.bind(this, rawAtCommand, callback));
 
                 return;
 
@@ -189,13 +198,13 @@ export class ModemInterface {
 
             this.isRunAtCommandReady = false;
 
-            let [output] = await promisify.typed(this, this.__runAtCommand__)(rawAtCommand);
+            let [output] = await promisify.typed(this, this.runAtCommand_stacked)(rawAtCommand);
 
             callback(output);
 
             this.isRunAtCommandReady = true;
 
-            if (this.stack.length) this.stack.shift()();
+            if (this.callStackRunAtCommand.length) this.callStackRunAtCommand.shift()();
 
         })();
     }
@@ -203,7 +212,7 @@ export class ModemInterface {
 
     private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
 
-    private __runAtCommand__(rawAtCommand: string, callback: (output: RunAtCommandOutput) => void): void {
+    private runAtCommand_stacked(rawAtCommand: string, callback: (output: RunAtCommandOutput) => void): void {
         (async () => {
 
             await promisify.typed(this, this.write)(rawAtCommand);
@@ -334,15 +343,7 @@ export class ModemInterface {
 
     }
 
-    private runAtCommandExt_(rawAtCommand: string, param: {
-        unrecoverable?: boolean,
-        retryCount?: number,
-        delay?: number,
-        reportMode?: ReportMode,
-        unrecoverableCommandError?: boolean
-    }, callback: (output: RunAtCommandOutput) => void): void {
-
-        callback = callback || function () { };
+    private runAtCommandExt_stacked(rawAtCommand: string, param: RunAtCommandExtParam, callback: (output: RunAtCommandOutput) => void): void {
 
         if (typeof (param.unrecoverable) !== "boolean") param.unrecoverable = true;
         if (typeof (param.retryCount) !== "number") param.retryCount = 10;
@@ -359,18 +360,46 @@ export class ModemInterface {
 
     }
 
-    public runAtCommandExt(rawAtCommand: string, param: {
-        unrecoverable?: boolean,
-        retryCount?: number,
-        delay?: number,
-        reportMode?: ReportMode,
-        unrecoverableCommandError?: boolean
-    }, callback?: (output: RunAtCommandOutput) => void): void;
+    private callStackRunAtCommandExt: (() => void)[] = [];
+    private isRunAtCommandExtReady = true;
+
+    private runAtCommandExt_(rawAtCommand: string, param: RunAtCommandExtParam, callback: (output: RunAtCommandOutput) => void): void {
+        (async () => {
+
+            callback = callback || function () { };
+
+            if (!this.isRunAtCommandExtReady) {
+
+                this.callStackRunAtCommandExt.push(this.runAtCommandExt_.bind(this, rawAtCommand, param, callback));
+
+                return;
+
+            }
+
+            this.isRunAtCommandExtReady = false;
+
+            console.log("=============================>running", rawAtCommand);
+
+            let [output] = await promisify.typed(this, this.runAtCommandExt_stacked)(rawAtCommand, param);
+
+            console.log("=============================>done", rawAtCommand);
+
+            callback(output);
+
+            this.isRunAtCommandExtReady = true;
+
+            if (this.callStackRunAtCommandExt.length) this.callStackRunAtCommandExt.shift()();
+
+        })();
+    }
+
+    public runAtCommandExt(rawAtCommand: string, param: RunAtCommandExtParam, callback?: (output: RunAtCommandOutput) => void): void;
     public runAtCommandExt(rawAtCommand: string, callback?: (output: RunAtCommandOutput) => void): void;
     public runAtCommandExt(...inputs: any[]): void {
 
         if( typeof(inputs[1]) === "object" ) this.runAtCommandExt_(inputs[0], inputs[1], inputs[2]);
         else this.runAtCommandExt_(inputs[0], {}, inputs[1]);
+
 
     }
 

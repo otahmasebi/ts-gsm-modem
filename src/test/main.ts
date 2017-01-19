@@ -8,6 +8,7 @@ import {
     SmsStack
 } from "../lib/index";
 
+
 let modemWatcher = new ModemWatcher();
 
 console.log("Awaiting GSM modem connections...");
@@ -86,7 +87,8 @@ modemWatcher.evtConnect.attach(modem => {
 
         smsStack.evtMessage.attach(message=> console.log("NEW MESSAGE: ",message));
 
-        console.log("now send message");
+        console.log("now send message =>");
+
 
     });
 
