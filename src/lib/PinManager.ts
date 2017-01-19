@@ -6,7 +6,7 @@ import {
     AtMessage, 
     AtMessageImplementations, 
     PinState, 
-    SimState 
+    SimState
 } from "at-messages-parser";
 
 export interface PinManagerState {
@@ -56,7 +56,10 @@ export class PinManager{
 
         this.unlocking= true;
 
-        this.modemInterface.runAtCommand(`AT+CPIN=${pin}\r`, output => {
+        this.modemInterface.runCommand(`AT+CPIN=${pin}\r`,{
+            "unrecoverable": false,
+            "retryCount": 0
+         }, output => {
 
                 this.unlocking= false;
 
@@ -76,7 +79,10 @@ export class PinManager{
 
         this.unlocking= true;
 
-        this.modemInterface.runAtCommand(`AT+CPIN=${puk},${newPin}\r`, output => {
+        this.modemInterface.runCommand(`AT+CPIN=${puk},${newPin}\r`,{
+            "unrecoverable": false,
+            "retryCount": 0
+         }, output => {
 
                 this.unlocking= false;
 
@@ -186,7 +192,7 @@ export class PinManager{
     public retrieveHuaweiSYSINFO(): Promise<void> {
         return new Promise<void>(resolve=>{
 
-            this.modemInterface.runAtCommandExt("AT^SYSINFO\r", output => {
+            this.modemInterface.runCommand("AT^SYSINFO\r", output => {
 
                 this.atMessageHuaweiSYSINFO = <AtMessageImplementations.HUAWEI_SYSINFO>output.atMessage;
 
@@ -202,7 +208,7 @@ export class PinManager{
     private retrieveHuaweiCPIN(): Promise<void> {
         return new Promise<void>(resolve => {
 
-            this.modemInterface.runAtCommandExt("AT^CPIN?\r", output => {
+            this.modemInterface.runCommand("AT^CPIN?\r", output => {
 
                 this.atMessageHuaweiCPIN = <AtMessageImplementations.HUAWEI_CPIN>output.atMessage;
 

@@ -26,15 +26,15 @@ export class SmsStack{
     constructor(private readonly modemInterface: ModemInterface) {
         //Assert sim ready
 
-        modemInterface.runAtCommandExt('AT+CPMS="SM","SM","SM"\r');
-        modemInterface.runAtCommandExt('AT+CNMI=2,1,0,0,0\r');
+        modemInterface.runCommand('AT+CPMS="SM","SM","SM"\r');
+        modemInterface.runCommand('AT+CNMI=2,1,0,0,0\r');
 
         //AT+CNMI=mode=2,mt=1,bm=0,ds=0,bfr=0
         //mode==2+3 => mt!=2&3
 
         this.registerListeners();
 
-        modemInterface.runAtCommandExt(`AT+CMGL=${MessageStat.RECEIVED_UNREAD}\r`, output =>{
+        modemInterface.runCommand(`AT+CMGL=${MessageStat.RECEIVED_UNREAD}\r`, output =>{
 
             let atMessageList= <AtMessageList>output.atMessage;
 
@@ -98,14 +98,14 @@ export class SmsStack{
 
     private retrieveSms(index: number): void {
 
-        this.modemInterface.runAtCommandExt(`AT+CMGR=${index}\r`, output => {
+        this.modemInterface.runCommand(`AT+CMGR=${index}\r`, output => {
 
             let atMessageCMGR = <AtMessageImplementations.CMGR>output.atMessage;
 
             smsDeliver(atMessageCMGR.pdu, (error, sms) => this.evtSms.post(sms));
 
         });
-        this.modemInterface.runAtCommandExt(`AT+CMGD=${index}\r`);
+        this.modemInterface.runCommand(`AT+CMGD=${index}\r`);
 
     }
 
