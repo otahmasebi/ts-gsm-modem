@@ -84,8 +84,6 @@ export class SmsStack{
 
             if (atMessage.id === AtMessageId.CMTI) {
 
-                console.log("=====================>CMTI");
-
                 let atMessageCMTI = <AtMessageImplementations.CMTI>atMessage;
 
                 this.retrieveSms(atMessageCMTI.index);

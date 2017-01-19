@@ -338,15 +338,6 @@ export class ModemInterface {
 
             if (output.isSuccess || retryCount === 0) return cb(output);
 
-            if( !output.isSuccess ){
-
-                console.log("retry error", {
-                    "rawAtCommand": rac,
-                    "finalMessage": output.finalAtMessage
-                });
-
-            }
-
             setTimeout(() => this.runCommand_4(retryCount - 1, delay, rm, uce, rac, cb), delay);
 
         });

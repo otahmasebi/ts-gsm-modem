@@ -1,15 +1,13 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "GSM Modem manager",
   "main": "./out/lib/index.js",
   "types": "./out/lib/index.d.ts",
   "scripts": {
     "postinstall": "npm run tsc",
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
-    "test": "npm run test-pin-manager",
-    "test-modem-interface": "node ./out/test/modemInterface",
-    "test-pin-manager": "node ./out/test/pinManager"
+    "test": "node ./out/test/main"
   },
   "repository": {
     "type": "git",

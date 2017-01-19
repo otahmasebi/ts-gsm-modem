@@ -52,16 +52,21 @@ modemWatcher.evtConnect.attach(modem => {
                 break;
             case PinState.SIM_PUK:
 
-                console.log("sim locked, PUK requested");
+                console.log("sim locked, PUK requested", request.times);
 
                 switch (request.times) {
                     case 10:
-                        console.log("10 try left entering wrong puk 12345678");
-                        pinManager.enterPuk("12345678", "0000");
+                        console.log("10 try left entering wrong puk 62217721");
+                        pinManager.enterPuk("62217721", "1234");
                         break;
                     case 9:
                         console.log("9 try left, Finally, entering the true PUK code, 89390485 and set pin to 0001");
                         pinManager.enterPuk("89390485", "0001");
+                        break;
+                    case 8:
+                        console.log("9 try left, Finally, entering the true PUK code, 62217721 and set pin to 0001");
+                        pinManager.enterPuk("62217721", "1234");
+                        break;
                     default:
                 }
 
