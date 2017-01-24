@@ -1,6 +1,6 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.3.2",
+  "version": "0.4.1",
   "description": "GSM Modem manager",
   "main": "./out/lib/index.js",
   "types": "./out/lib/index.d.ts",
@@ -25,9 +25,11 @@
   "license": "MIT",
   "dependencies": {
     "@types/chai": "^3.4.34",
+    "@types/colors": "^1.1.1",
     "@types/node": "^4.0.0",
     "at-commands-parser": "garronej/at-commands-parser",
     "at-messages-parser": "garronej/at-messages-parser",
+    "colors": "^1.1.2",
     "node-python-messaging": "garronej/node-python-messaging",
     "serialport": "^4.0.0",
     "ts-events": "^3.1.4",

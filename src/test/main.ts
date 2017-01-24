@@ -8,6 +8,8 @@ import {
     SmsStack
 } from "../lib/index";
 
+require("colors");
+
 
 let modemWatcher = new ModemWatcher();
 
@@ -90,10 +92,18 @@ modemWatcher.evtConnect.attach(modem => {
 
         let smsStack= new SmsStack(modemInterface);
 
-        smsStack.evtMessage.attach(message=> console.log("NEW MESSAGE: ",message));
+        smsStack.evtMessage.attach(message=> console.log("NEW MESSAGE: ".green,message));
+        smsStack.evtMessageStatusReport.attach( statusReport => console.log("status report received".yellow, statusReport));
 
-        console.log("now send message =>");
+        console.log("now send message =>".yellow);
 
+        let messageText = "My message \n";
+
+        for (let i = 0; i < 3; i++) messageText += messageText;
+
+        console.log(`Sending message : ${JSON.stringify(messageText)}`);
+
+        smsStack.sendMessage("+33636786385", messageText, messageId => console.log("message id: ".red, messageId));
 
     });
 

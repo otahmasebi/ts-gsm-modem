@@ -1,4 +1,4 @@
-import { ModemInterface } from "./ModemInterface";
+import { ModemInterface, RunCommandOutput } from "./ModemInterface";
 import { 
     AtMessageId, 
     AtMessage, 
@@ -7,7 +7,19 @@ import {
     MessageStat
 } from "at-messages-parser";
 import { SyncEvent } from "ts-events";
-import { smsDeliver, smsSubmit, Sms } from "node-python-messaging";
+import { 
+    decodePdu , 
+    buildSmsSubmitPdus, 
+    Sms, 
+    TP_ST, 
+    TP_MTI,
+    ST_CLASS,
+    stClassOf
+} from "node-python-messaging";
+
+import * as promisify from "ts-promisify";
+
+require("colors");
 
 export interface Message{
     number: string;
@@ -15,58 +27,167 @@ export interface Message{
     text: string;
 }
 
-//TODO: Think again about potential concurrency problem on message received.
-
 export class SmsStack{
 
-    private evtSms= new SyncEvent<Sms>();
     public evtMessage= new SyncEvent<Message>();
-    private readonly setSms: { [ref: number]: { [seq: number]: Sms } } = {};
+    public readonly evtMessageStatusReport = new SyncEvent<{ 
+        messageId: number, 
+        dischargeTime: Date, 
+        isDelivered: boolean,
+        status: string
+    }>();
+
+    private evtSmsDeliver= new SyncEvent<Sms>();
+    private evtSmsStatusReport= new SyncEvent<Sms>();
+    private readonly concatenatedSmsMap: { 
+        [ref: number]: { 
+            [seq: number]: Sms 
+        } 
+    } = {};
 
     constructor(private readonly modemInterface: ModemInterface) {
         //Assert sim ready
 
         modemInterface.runCommand('AT+CPMS="SM","SM","SM"\r');
-        modemInterface.runCommand('AT+CNMI=2,1,0,0,0\r');
+        //modemInterface.runCommand('AT+CNMI=2,1,0,0,0\r');
+        modemInterface.runCommand('AT+CNMI=1,1,0,2,0\r');
 
-        //AT+CNMI=mode=2,mt=1,bm=0,ds=0,bfr=0
-        //mode==2+3 => mt!=2&3
 
         this.registerListeners();
+        this.retrieveUnreadSms();
 
-        modemInterface.runCommand(`AT+CMGL=${MessageStat.RECEIVED_UNREAD}\r`, output =>{
+    }
 
-            let atMessageList= <AtMessageList>output.atMessage;
+    private retrieveUnreadSms(): void{
 
-            if( !atMessageList ) return;
+        this.modemInterface.runCommand(`AT+CMGL=${MessageStat.RECEIVED_UNREAD}\r`, output => {
 
-            for(let atMessage of atMessageList.atMessages){
+            let atMessageList = <AtMessageList>output.atMessage;
 
-                let atMessageCMGL= <AtMessageImplementations.CMGL>atMessage;
+            if (!atMessageList) return;
 
-                this.retrieveSms(atMessageCMGL.index);
+            for (let atMessage of atMessageList.atMessages) {
+
+                let atMessageCMGL = <AtMessageImplementations.CMGL>atMessage;
+
+                decodePdu(atMessageCMGL.pdu, (error, sms) => {
+
+                    if (sms.type === TP_MTI.SMS_DELIVER) this.evtSmsDeliver.post(sms);
+
+                });
+                this.modemInterface.runCommand(`AT+CMGD=${atMessageCMGL.index}\r`);
 
             }
 
         });
-
     }
+
+
+    private generateMessageId: () => number = (() => {
+        let id = 0;
+        return () => { return id++; }
+    })();
+
+    private readonly statusReportMap: {
+        [messageId: number]: {
+            cnt: number,
+            completed: number
+        }
+    } = {};
+
+    private readonly mrMessageIdMap: {
+        [mr: number]: number;
+    } = {};
+
+    public sendMessage(
+        number: string,
+        text: string,
+        callback?: (messageId: number) => void
+    ): void {
+        (async () => {
+
+                callback = callback || function () { };
+
+                let [error, pdus] = await promisify.typed(buildSmsSubmitPdus)({
+                    "number": number,
+                    "text": text,
+                    "request_status": true
+                });
+
+                if (error) throw error;
+
+                let messageId = this.generateMessageId();
+
+                this.statusReportMap[messageId] = {
+                    "cnt": pdus.length,
+                    "completed": 0
+                };
+
+                for (let pduWrap of pdus) {
+
+                    this.modemInterface.runCommand(`AT+CMGS=${pduWrap.length}\r`);
+
+                    let [output] = <[RunCommandOutput]>await promisify.generic(
+                        this.modemInterface,
+                        this.modemInterface.runCommand
+                    )(`${pduWrap.pdu}\u001a`);
+
+                    let atMessageCMGS = <AtMessageImplementations.CMGS>output.atMessage;
+
+                    this.mrMessageIdMap[atMessageCMGS.mr] = messageId;
+
+                }
+
+                callback(messageId);
+
+        })();
+    }
+
 
     private registerListeners(): void {
 
-        this.evtSms.attach(sms => {
+        this.evtSmsStatusReport.attach(sms => {
 
-            if (typeof (sms.ref) !== "number") return this.evtMessage.post({
-                "number": sms.number,
-                "date": sms.date,
-                "text": sms.text
+            let messageId = this.mrMessageIdMap[sms.ref];
+
+            /*
+            console.log("Status report".green, {
+                "ST_CLASS": ST_CLASS[stClassOf(sms.sr.status)],
+                "TP_ST": TP_ST[sms.sr.status],
+                "messageId": messageId,
+                "statusReportMap": this.statusReportMap,
+                "mrMessageIdMap": this.mrMessageIdMap
             });
+            */
 
-            if (!this.setSms[sms.ref]) this.setSms[sms.ref] = {};
+            switch (stClassOf(sms.sr.status)) {
+                case ST_CLASS.RESERVED:
+                case ST_CLASS.STILL_TRYING: return;
+                case ST_CLASS.PERMANENT_ERROR:
+                case ST_CLASS.TEMPORARY_ERROR:
+                case ST_CLASS.SPECIFIC_TO_SC:
+                    this.evtMessageStatusReport.post({
+                        "messageId": messageId,
+                        "dischargeTime": sms.sr.dt,
+                        "isDelivered": false,
+                        "status": TP_ST[sms.sr.status]
+                    });
+                    delete this.statusReportMap[messageId];
+                    return;
+                case ST_CLASS.COMPLETED:
+                    if (++this.statusReportMap[messageId].completed !== this.statusReportMap[messageId].cnt) return;
+                    this.evtMessageStatusReport.post({
+                        "messageId": messageId,
+                        "dischargeTime": sms.sr.dt,
+                        "isDelivered": true,
+                        "status": TP_ST[sms.sr.status]
+                    });
+                    delete this.statusReportMap[messageId];
+            }
 
-            this.setSms[sms.ref][sms.seq] = sms;
+        });
 
-            if (Object.keys(this.setSms[sms.ref]).length !== sms.cnt) return;
+        this.evtSmsDeliver.attach(sms => {
 
             let message: Message = {
                 "number": sms.number,
@@ -74,20 +195,39 @@ export class SmsStack{
                 "text": ""
             };
 
-            for (let seq = 1; seq <= sms.cnt; seq++) message.text += this.setSms[sms.ref][seq].text;
+            if (typeof (sms.ref) !== "number") {
+
+                message.text = sms.text;
+                this.evtMessage.post(message);
+                return;
+
+            }
+
+            if (!this.concatenatedSmsMap[sms.ref]) this.concatenatedSmsMap[sms.ref] = {};
+
+            this.concatenatedSmsMap[sms.ref][sms.seq] = sms;
+
+            if (Object.keys(this.concatenatedSmsMap[sms.ref]).length !== sms.cnt) return;
+
+            for (let seq = 1; seq <= sms.cnt; seq++) message.text += this.concatenatedSmsMap[sms.ref][seq].text;
 
             this.evtMessage.post(message);
+
+            delete this.concatenatedSmsMap[sms.ref];
 
         });
 
         this.modemInterface.evtUnsolicitedAtMessage.attach(atMessage => {
 
-            if (atMessage.id === AtMessageId.CMTI) {
-
-                let atMessageCMTI = <AtMessageImplementations.CMTI>atMessage;
-
-                this.retrieveSms(atMessageCMTI.index);
-
+            switch (atMessage.id) {
+                case AtMessageId.CMTI:
+                    let atMessageCMTI = <AtMessageImplementations.CMTI>atMessage;
+                    this.retrieveSms(atMessageCMTI.index);
+                    break;
+                case AtMessageId.CDSI:
+                    let atMessageCDSI = <AtMessageImplementations.CDSI>atMessage;
+                    this.retrieveSms(atMessageCDSI.index);
+                    break;
             }
 
         });
@@ -100,11 +240,22 @@ export class SmsStack{
 
             let atMessageCMGR = <AtMessageImplementations.CMGR>output.atMessage;
 
-            smsDeliver(atMessageCMGR.pdu, (error, sms) => this.evtSms.post(sms));
+            if (atMessageCMGR.stat !== MessageStat.RECEIVED_UNREAD) return;
+
+            decodePdu(atMessageCMGR.pdu, (error, sms) => {
+
+                switch (sms.type) {
+                    case TP_MTI.SMS_DELIVER: return this.evtSmsDeliver.post(sms);
+                    case TP_MTI.SMS_STATUS_REPORT: return this.evtSmsStatusReport.post(sms);
+                }
+
+            });
 
         });
-        this.modemInterface.runCommand(`AT+CMGD=${index}\r`);
+        this.modemInterface.runCommand(`AT+CMGD=${index}\r`, { "unrecoverable": false });
 
     }
+
+
 
 }
