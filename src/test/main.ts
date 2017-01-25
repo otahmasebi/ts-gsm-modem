@@ -97,7 +97,7 @@ modemWatcher.evtConnect.attach(modem => {
 
         console.log("now send message =>".yellow);
 
-        let messageText = "My message \n";
+        let messageText = "He ho!\n";
 
         for (let i = 0; i < 3; i++) messageText += messageText;
 

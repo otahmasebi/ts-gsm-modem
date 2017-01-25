@@ -46,10 +46,8 @@ export class SmsStack{
     } = {};
 
     constructor(private readonly modemInterface: ModemInterface) {
-        //Assert sim ready
 
         modemInterface.runCommand('AT+CPMS="SM","SM","SM"\r');
-        //modemInterface.runCommand('AT+CNMI=2,1,0,0,0\r');
         modemInterface.runCommand('AT+CNMI=1,1,0,2,0\r');
 
 
@@ -150,15 +148,6 @@ export class SmsStack{
 
             let messageId = this.mrMessageIdMap[sms.ref];
 
-            /*
-            console.log("Status report".green, {
-                "ST_CLASS": ST_CLASS[stClassOf(sms.sr.status)],
-                "TP_ST": TP_ST[sms.sr.status],
-                "messageId": messageId,
-                "statusReportMap": this.statusReportMap,
-                "mrMessageIdMap": this.mrMessageIdMap
-            });
-            */
 
             switch (stClassOf(sms.sr.status)) {
                 case ST_CLASS.RESERVED:
@@ -255,7 +244,5 @@ export class SmsStack{
         this.modemInterface.runCommand(`AT+CMGD=${index}\r`, { "unrecoverable": false });
 
     }
-
-
 
 }
