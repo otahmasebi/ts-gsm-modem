@@ -1,8 +1,8 @@
 import { ModemWatcher } from "gsm-modem-connection";
 
 import {
-    ModemInterface,
-    PinManager,
+    AtStack,
+    SimLockStack,
     ReportMode,
     SmsStack
 } from "../lib/index";
@@ -19,13 +19,13 @@ modemWatcher.evtConnect.attach(modem => {
 
     console.log("CONNECTION=>", modem.infos);
 
-    let modemInterface = new ModemInterface(modem.atInterface, {
+    let modemInterface = new AtStack(modem.atInterface, {
         "reportMode": ReportMode.DEBUG_INFO_CODE
     });
 
-    let pinManager = new PinManager(modemInterface);
+    let pinManager = new SimLockStack(modemInterface);
 
-    pinManager.evtRequestCode.attach((request) => {
+    pinManager.evtUnlockCodeRequest.attach((request) => {
 
         console.log("=>REQUEST CODE<=", pinManager.state);
 

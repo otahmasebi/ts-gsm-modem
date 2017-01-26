@@ -1,4 +1,4 @@
-import { ModemInterface, RunCommandOutput } from "./ModemInterface";
+import { AtStack, CommandResp } from "./AtStack";
 import { 
     atIds, 
     AtMessage, 
@@ -27,15 +27,17 @@ export interface Message{
     text: string;
 }
 
+export interface StatusReport {
+        messageId: number;
+        dischargeTime: Date;
+        isDelivered: boolean;
+        status: string;
+}
+
 export class SmsStack{
 
-    public evtMessage= new SyncEvent<Message>();
-    public readonly evtMessageStatusReport = new SyncEvent<{ 
-        messageId: number, 
-        dischargeTime: Date, 
-        isDelivered: boolean,
-        status: string
-    }>();
+    public readonly evtMessage= new SyncEvent<Message>();
+    public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
 
     private evtSmsDeliver= new SyncEvent<Sms>();
     private evtSmsStatusReport= new SyncEvent<Sms>();
@@ -45,10 +47,10 @@ export class SmsStack{
         } 
     } = {};
 
-    constructor(private readonly modemInterface: ModemInterface) {
+    constructor(private readonly atStack: AtStack) {
 
-        modemInterface.runCommand('AT+CPMS="SM","SM","SM"\r');
-        modemInterface.runCommand('AT+CNMI=1,1,0,2,0\r');
+        atStack.runCommand('AT+CPMS="SM","SM","SM"\r');
+        atStack.runCommand('AT+CNMI=1,1,0,2,0\r');
 
         this.registerListeners();
         this.retrieveUnreadSms();
@@ -57,7 +59,7 @@ export class SmsStack{
 
     private retrieveUnreadSms(): void{
 
-        this.modemInterface.runCommand(`AT+CMGL=${MessageStat.RECEIVED_UNREAD}\r`, output => {
+        this.atStack.runCommand(`AT+CMGL=${MessageStat.RECEIVED_UNREAD}\r`, output => {
 
             let atMessageList = output.atMessage as AtMessageList;
 
@@ -72,7 +74,7 @@ export class SmsStack{
                     if (sms.type === TP_MTI.SMS_DELIVER) this.evtSmsDeliver.post(sms);
 
                 });
-                this.modemInterface.runCommand(`AT+CMGD=${atMessageCMGL.index}\r`);
+                this.atStack.runCommand(`AT+CMGD=${atMessageCMGL.index}\r`);
 
             }
 
@@ -122,15 +124,15 @@ export class SmsStack{
 
                 for (let pduWrap of pdus) {
 
-                    this.modemInterface.runCommand(`AT+CMGS=${pduWrap.length}\r`);
+                    this.atStack.runCommand(`AT+CMGS=${pduWrap.length}\r`);
 
                     let [output] = await promisify.generic(
-                        this.modemInterface,
-                        this.modemInterface.runCommand
+                        this.atStack,
+                        this.atStack.runCommand
                     )(`${pduWrap.pdu}\u001a`, {
                         "unrecoverable": false,
                         "retryCount": 0
-                    }) as [RunCommandOutput];
+                    }) as [CommandResp];
 
                     if( !output.isSuccess ){ 
 
@@ -215,7 +217,7 @@ export class SmsStack{
 
         });
 
-        this.modemInterface.evtUnsolicitedAtMessage.attach(atMessage => {
+        this.atStack.evtUnsolicitedMessage.attach(atMessage => {
 
             switch (atMessage.id) {
                 case atIds.CMTI:
@@ -234,7 +236,7 @@ export class SmsStack{
 
     private retrieveSms(index: number): void {
 
-        this.modemInterface.runCommand(`AT+CMGR=${index}\r`, output => {
+        this.atStack.runCommand(`AT+CMGR=${index}\r`, output => {
 
             let atMessageCMGR = output.atMessage as AtMessageImplementations.CMGR;
 
@@ -250,7 +252,7 @@ export class SmsStack{
             });
 
         });
-        this.modemInterface.runCommand(`AT+CMGD=${index}\r`, { "unrecoverable": false });
+        this.atStack.runCommand(`AT+CMGD=${index}\r`, { "unrecoverable": false });
 
     }
 

@@ -23,13 +23,8 @@ import {
 //TODO: Les parse error n'on pas a être traité a l'exterieur, elle ne peuvent être traitée qu'en interne, faire crasher le program.
 //TODO: Gerer les exceptions en cas de déconéction inopiné de la clef.
 
-process.on("unhandledRejection", error=> { 
-    console.log("INTERNAL ERROR MODEM INTERFACE".red);
-    console.log(error);
-    throw error; 
-});
 
-export class RunAtCommandError extends Error{
+export class CommandError extends Error{
 
     //public readonly parsedAtCommand: ParsedAtCommand;
     public readonly rawAtCommand: string;
@@ -37,7 +32,7 @@ export class RunAtCommandError extends Error{
     constructor(rawAtCommand: string,
     public readonly atMessageError: AtMessage){
         super("RunAtCommandError");
-        Object.setPrototypeOf(this, RunAtCommandError.prototype)
+        Object.setPrototypeOf(this, CommandError.prototype)
 
         //this.parsedAtCommand= atCommandsParser(rawAtCommand);
         this.rawAtCommand= rawAtCommand;
@@ -63,7 +58,7 @@ export class SerialPortError extends Error{
 
 }
 
-export interface RunCommandOutput {
+export interface CommandResp {
     raw: string;
     atMessage: AtMessage;
     isSuccess: boolean;
@@ -79,12 +74,12 @@ export interface RunCommandParam {
 }
 
 
-export class ModemInterface {
+export class AtStack {
 
     private readonly serialPort: SerialPort;
-    public readonly evtUnsolicitedAtMessage = new SyncEvent<AtMessage>();
+    public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
     private readonly evtError = new SyncEvent<Error>();
-    public readonly evtRunAtCommandError= new SyncEvent<RunAtCommandError>();
+    public readonly evtCommandError= new SyncEvent<CommandError>();
 
     public readonly baudRate?: number;
 
@@ -111,7 +106,7 @@ export class ModemInterface {
     }
 
 
-    public static checkAtCommand(rawAtCommand): ParsedAtCommand {
+    public static checkCommand(rawAtCommand): ParsedAtCommand {
 
         let parsedAtCommand: ParsedAtCommand;
 
@@ -168,7 +163,7 @@ export class ModemInterface {
                 if (atMessage.isUnsolicited ||
                     !this.evtResponseAtMessage.listenerCount()) {
 
-                    this.evtUnsolicitedAtMessage.post(atMessage);
+                    this.evtUnsolicitedMessage.post(atMessage);
 
                 } else {
 
@@ -202,12 +197,12 @@ export class ModemInterface {
 
     private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
 
-    private runCommand_0(rawAtCommand: string, callback: (output: RunCommandOutput) => void): void {
+    private runCommand_0(rawAtCommand: string, callback: (output: CommandResp) => void): void {
         (async () => {
 
             await promisify.typed(this, this.write)(rawAtCommand);
 
-            let output: RunCommandOutput = {
+            let output: CommandResp = {
                 "raw": "",
                 "isSuccess": true,
                 "atMessage": undefined,
@@ -221,7 +216,7 @@ export class ModemInterface {
                 if (atMessage.id === atIds.ECHO) {
 
                     if (output.atMessage) {
-                        this.evtUnsolicitedAtMessage.post(output.atMessage);
+                        this.evtUnsolicitedMessage.post(output.atMessage);
                         output.atMessage = undefined;
                         output.raw = atMessage.raw;
                     }
@@ -238,7 +233,7 @@ export class ModemInterface {
                 output.finalAtMessage = atMessage;
 
                 if (atMessage.isError){ 
-                    this.evtRunAtCommandError.post(new RunAtCommandError(rawAtCommand, atMessage));
+                    this.evtCommandError.post(new CommandError(rawAtCommand, atMessage));
                     output.isSuccess = false;
                 }
 
@@ -254,7 +249,7 @@ export class ModemInterface {
     private callStack_runCommand_1: (() => void)[] = [];
     private isReady_runAtCommand_1 = true;
 
-    private runCommand_1(rac: string, cb: (o: RunCommandOutput) => void): void {
+    private runCommand_1(rac: string, cb: (o: CommandResp) => void): void {
         (async () => {
 
             if (!this.isReady_runAtCommand_1) {
@@ -278,11 +273,11 @@ export class ModemInterface {
         })();
     }
 
-    private runCommand_2( unrecoverableCommandError: boolean, rac: string, cb: (o: RunCommandOutput)=> void ):void {
+    private runCommand_2( unrecoverableCommandError: boolean, rac: string, cb: (o: CommandResp)=> void ):void {
 
         try {
 
-            ModemInterface.checkAtCommand(rac);
+            AtStack.checkCommand(rac);
 
         } catch (error) {
 
@@ -296,24 +291,24 @@ export class ModemInterface {
     }
 
 
-    private runCommand_3(reportMode: ReportMode, uce: boolean, rac: string, cb: (o: RunCommandOutput) => void): void {
+    private runCommand_3(reportMode: ReportMode, uce: boolean, rac: string, cb: (o: CommandResp) => void): void {
 
         if ( reportMode !== undefined ) {
 
             this.runCommand_2(true, "AT+CMEE?\r", o => {
 
-                if (!o.isSuccess) this.evtError.post(new RunAtCommandError("AT+CMEE?\r", o.finalAtMessage));
+                if (!o.isSuccess) this.evtError.post(new CommandError("AT+CMEE?\r", o.finalAtMessage));
 
                 let currentReportMode = (<AtMessageImplementations.CMEE>o.atMessage).reportMode;
 
                 if (currentReportMode !== reportMode) this.runCommand_2(true, `AT+CMEE=${reportMode}\r`, o => {
-                    if (!o.isSuccess) this.evtError.post(new RunAtCommandError(`AT+CMEE=${reportMode}\r`, o.finalAtMessage));
+                    if (!o.isSuccess) this.evtError.post(new CommandError(`AT+CMEE=${reportMode}\r`, o.finalAtMessage));
                 })
 
                 this.runCommand_2(uce, rac, cb);
 
                 if (currentReportMode !== reportMode) this.runCommand_2(true, `AT+CMEE=${currentReportMode}\r`, o => {
-                    if (!o.isSuccess) this.evtError.post(new RunAtCommandError(`AT+CMEE=${currentReportMode}\r`, o.finalAtMessage));
+                    if (!o.isSuccess) this.evtError.post(new CommandError(`AT+CMEE=${currentReportMode}\r`, o.finalAtMessage));
                 })
 
             });
@@ -326,7 +321,7 @@ export class ModemInterface {
 
     }
 
-    private runCommand_4(retryCount: number, delay: number, rm: ReportMode, uce: boolean, rac: string, cb: (o: RunCommandOutput) => void): void {
+    private runCommand_4(retryCount: number, delay: number, rm: ReportMode, uce: boolean, rac: string, cb: (o: CommandResp) => void): void {
 
         this.runCommand_3(rm, uce, rac, o => {
 
@@ -341,11 +336,11 @@ export class ModemInterface {
     }
 
 
-    private runCommand_5(unrecoverable: boolean, rc: number, d: number, rm: ReportMode, uce: boolean, rac: string, cb: (o: RunCommandOutput) => void): void {
+    private runCommand_5(unrecoverable: boolean, rc: number, d: number, rm: ReportMode, uce: boolean, rac: string, cb: (o: CommandResp) => void): void {
 
         this.runCommand_4(rc, d, rm, uce, rac, o=>{
 
-                    if (unrecoverable && !o.isSuccess) this.evtError.post(new RunAtCommandError(rac, o.finalAtMessage));
+                    if (unrecoverable && !o.isSuccess) this.evtError.post(new CommandError(rac, o.finalAtMessage));
 
                     cb(o);
 
@@ -353,7 +348,7 @@ export class ModemInterface {
 
     }
 
-    private runCommand_6(rac: string, p: RunCommandParam, cb: (o: RunCommandOutput) => void): void {
+    private runCommand_6(rac: string, p: RunCommandParam, cb: (o: CommandResp) => void): void {
 
         if (typeof (p.unrecoverable) !== "boolean") p.unrecoverable = true;
         if (typeof (p.retryCount) !== "number") p.retryCount = 10;
@@ -368,7 +363,7 @@ export class ModemInterface {
     private callStack_runCommand_7: (() => void)[] = [];
     private isReady_runCommand_7 = true;
 
-    private runCommand_7(rac: string, p: RunCommandParam, cb: (o: RunCommandOutput) => void): void {
+    private runCommand_7(rac: string, p: RunCommandParam, cb: (o: CommandResp) => void): void {
         (async () => {
 
             cb = cb || function () { };
@@ -394,8 +389,8 @@ export class ModemInterface {
         })();
     }
 
-    public runCommand(rawAtCommand: string, param: RunCommandParam, callback?: (output: RunCommandOutput) => void): void;
-    public runCommand(rawAtCommand: string, callback?: (output: RunCommandOutput) => void): void;
+    public runCommand(rawAtCommand: string, param: RunCommandParam, callback?: (output: CommandResp) => void): void;
+    public runCommand(rawAtCommand: string, callback?: (output: CommandResp) => void): void;
     public runCommand(...inputs: any[]): void {
 
         if( typeof(inputs[1]) === "object" ) this.runCommand_7(inputs[0], inputs[1], inputs[2]);
