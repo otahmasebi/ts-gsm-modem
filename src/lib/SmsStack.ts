@@ -50,7 +50,6 @@ export class SmsStack{
         modemInterface.runCommand('AT+CPMS="SM","SM","SM"\r');
         modemInterface.runCommand('AT+CNMI=1,1,0,2,0\r');
 
-
         this.registerListeners();
         this.retrieveUnreadSms();
 
@@ -60,13 +59,13 @@ export class SmsStack{
 
         this.modemInterface.runCommand(`AT+CMGL=${MessageStat.RECEIVED_UNREAD}\r`, output => {
 
-            let atMessageList = <AtMessageList>output.atMessage;
+            let atMessageList = output.atMessage as AtMessageList;
 
             if (!atMessageList) return;
 
             for (let atMessage of atMessageList.atMessages) {
 
-                let atMessageCMGL = <AtMessageImplementations.CMGL>atMessage;
+                let atMessageCMGL = atMessage as AtMessageImplementations.CMGL;
 
                 decodePdu(atMessageCMGL.pdu, (error, sms) => {
 
@@ -125,13 +124,13 @@ export class SmsStack{
 
                     this.modemInterface.runCommand(`AT+CMGS=${pduWrap.length}\r`);
 
-                    let [output] = <[RunCommandOutput]>await promisify.generic(
+                    let [output] = await promisify.generic(
                         this.modemInterface,
                         this.modemInterface.runCommand
                     )(`${pduWrap.pdu}\u001a`, {
                         "unrecoverable": false,
                         "retryCount": 0
-                    });
+                    }) as [RunCommandOutput];
 
                     if( !output.isSuccess ){ 
 
@@ -140,7 +139,7 @@ export class SmsStack{
                         return;
                     }
 
-                    let atMessageCMGS = <AtMessageImplementations.CMGS>output.atMessage;
+                    let atMessageCMGS = output.atMessage as AtMessageImplementations.CMGS;
 
                     this.mrMessageIdMap[atMessageCMGS.mr] = messageId;
 
@@ -220,11 +219,11 @@ export class SmsStack{
 
             switch (atMessage.id) {
                 case atIds.CMTI:
-                    let atMessageCMTI = <AtMessageImplementations.CMTI>atMessage;
+                    let atMessageCMTI= atMessage as AtMessageImplementations.CMTI;
                     this.retrieveSms(atMessageCMTI.index);
                     break;
                 case atIds.CDSI:
-                    let atMessageCDSI = <AtMessageImplementations.CDSI>atMessage;
+                    let atMessageCDSI = atMessage as AtMessageImplementations.CDSI;
                     this.retrieveSms(atMessageCDSI.index);
                     break;
             }
@@ -237,7 +236,7 @@ export class SmsStack{
 
         this.modemInterface.runCommand(`AT+CMGR=${index}\r`, output => {
 
-            let atMessageCMGR = <AtMessageImplementations.CMGR>output.atMessage;
+            let atMessageCMGR = output.atMessage as AtMessageImplementations.CMGR;
 
             if (atMessageCMGR.stat !== MessageStat.RECEIVED_UNREAD) return;
 
