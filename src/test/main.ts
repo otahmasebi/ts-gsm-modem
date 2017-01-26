@@ -4,7 +4,6 @@ import {
     ModemInterface,
     PinManager,
     ReportMode,
-    PinState,
     SmsStack
 } from "../lib/index";
 
@@ -31,7 +30,7 @@ modemWatcher.evtConnect.attach(modem => {
         console.log("=>REQUEST CODE<=", pinManager.state);
 
         switch (request.pinState) {
-            case PinState.SIM_PIN:
+            case "SIM PIN":
 
                 console.log("SIM PIN requested");
 
@@ -52,7 +51,7 @@ modemWatcher.evtConnect.attach(modem => {
                 }
 
                 break;
-            case PinState.SIM_PUK:
+            case "SIM PUK":
 
                 console.log("sim locked, PUK requested", request.times);
 
@@ -97,9 +96,9 @@ modemWatcher.evtConnect.attach(modem => {
 
         console.log("now send message =>".yellow);
 
-        let messageText = "He ho!\n";
+        let messageText = "I build a long message!\n";
 
-        for (let i = 0; i < 3; i++) messageText += messageText;
+        for (let i = 0; i < 1; i++) messageText += messageText;
 
         console.log(`Sending message : ${JSON.stringify(messageText)}`);
 

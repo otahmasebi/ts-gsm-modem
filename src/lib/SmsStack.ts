@@ -1,6 +1,6 @@
 import { ModemInterface, RunCommandOutput } from "./ModemInterface";
 import { 
-    AtMessageId, 
+    atIds, 
     AtMessage, 
     AtMessageList,
     AtMessageImplementations,
@@ -128,7 +128,17 @@ export class SmsStack{
                     let [output] = <[RunCommandOutput]>await promisify.generic(
                         this.modemInterface,
                         this.modemInterface.runCommand
-                    )(`${pduWrap.pdu}\u001a`);
+                    )(`${pduWrap.pdu}\u001a`, {
+                        "unrecoverable": false,
+                        "retryCount": 0
+                    });
+
+                    if( !output.isSuccess ){ 
+
+                        callback(null);
+
+                        return;
+                    }
 
                     let atMessageCMGS = <AtMessageImplementations.CMGS>output.atMessage;
 
@@ -209,11 +219,11 @@ export class SmsStack{
         this.modemInterface.evtUnsolicitedAtMessage.attach(atMessage => {
 
             switch (atMessage.id) {
-                case AtMessageId.CMTI:
+                case atIds.CMTI:
                     let atMessageCMTI = <AtMessageImplementations.CMTI>atMessage;
                     this.retrieveSms(atMessageCMTI.index);
                     break;
-                case AtMessageId.CDSI:
+                case atIds.CDSI:
                     let atMessageCDSI = <AtMessageImplementations.CDSI>atMessage;
                     this.retrieveSms(atMessageCDSI.index);
                     break;

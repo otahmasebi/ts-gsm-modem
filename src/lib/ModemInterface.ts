@@ -7,7 +7,7 @@ require("colors");
 
 import { 
     atMessagesParser, 
-    AtMessageId, 
+    atIds, 
     AtMessage, 
     AtMessageImplementations, 
     ReportMode 
@@ -24,7 +24,7 @@ import {
 //TODO: Gerer les exceptions en cas de déconéction inopiné de la clef.
 
 process.on("unhandledRejection", error=> { 
-    console.log("INTERNAL ERROR MODEM INTERFACE");
+    console.log("INTERNAL ERROR MODEM INTERFACE".red);
     console.log(error);
     throw error; 
 });
@@ -139,9 +139,8 @@ export class ModemInterface {
     private registerListeners(): void {
 
         this.evtError.attach(error => {
-
-            console.log("UNRECOVERABLE ERROR MODEM INTERFACE", error); 
-            setTimeout(()=> process.exit(1), 10);
+            console.log("UNRECOVERABLE ERROR MODEM INTERFACE".yellow, error); 
+            process.exit(1);
         });
 
         this.serialPort.on("error", error => this.evtError.post(new SerialPortError(error)));
@@ -149,11 +148,7 @@ export class ModemInterface {
         this.serialPort.on("close", error => this.evtError.post(new Error("Serial port closed")));
         this.serialPort.on("data", (data: Buffer) => {
 
-
-
             let rawAtMessages = data.toString("utf8");
-
-            //console.log(JSON.stringify(rawAtMessages).blue);
 
             let atMessages: AtMessage[];
 
@@ -166,6 +161,7 @@ export class ModemInterface {
                 this.evtError.post(new ParseError(rawAtMessages, error));
 
             }
+
 
             for (let atMessage of atMessages) {
 
@@ -193,8 +189,6 @@ export class ModemInterface {
             this.serialPort.on("open", () => this.write(rawAtCommand, callback));
             return;
         }
-
-        //console.log(JSON.stringify(rawAtCommand).green);
 
         this.serialPort.write(rawAtCommand, errorStr => {
 
@@ -224,7 +218,7 @@ export class ModemInterface {
 
                 output.raw += atMessage.raw;
 
-                if (atMessage.id === AtMessageId.ECHO) {
+                if (atMessage.id === atIds.ECHO) {
 
                     if (output.atMessage) {
                         this.evtUnsolicitedAtMessage.post(output.atMessage);
@@ -338,9 +332,7 @@ export class ModemInterface {
 
             if (o.isSuccess || retryCount === 0) return cb(o);
 
-            /*
-            console.log("error retry", output.finalAtMessage);
-            */
+            //console.log("error retry".red, rac, o);
 
             setTimeout(() => this.runCommand_4(retryCount - 1, delay, rm, uce, rac, cb), delay);
 

@@ -2,7 +2,7 @@
 import { SyncEvent, VoidSyncEvent } from "ts-events";
 import { ModemInterface } from "./ModemInterface";
 import { 
-    AtMessageId, 
+    atIds, 
     AtMessage, 
     AtMessageImplementations, 
     PinState, 
@@ -15,6 +15,8 @@ export interface PinManagerState {
         pinState?: string,
         times?: number
 }
+
+require("colors");
 
 export class PinManager{
 
@@ -35,7 +37,7 @@ export class PinManager{
         if( this.hasSim ){
             Object.assign(pinManagerState, {
                 "simState": SimState[this.simState],
-                "pinState": PinState[this.pinState],
+                "pinState": this.pinState,
             });
 
             if( typeof(this.times) === "number" ) pinManagerState.times= this.times;
@@ -94,14 +96,14 @@ export class PinManager{
 
     public enterPin(pin: string): void{ 
 
-        if( this.pinState !== PinState.SIM_PIN ) throw new Error();
+        if( this.pinState !== "SIM PIN" ) throw new Error();
 
         this.__enterPin__(pin); 
 
     }
     public enterPin2(pin2: string): void{ 
 
-        if( this.pinState !== PinState.SIM_PIN2 ) throw new Error();
+        if( this.pinState !== "SIM PIN2" ) throw new Error();
 
         this.__enterPin__(pin2); 
 
@@ -110,7 +112,7 @@ export class PinManager{
 
     public enterPuk(puk: string, newPin: string): void{
 
-        if( this.pinState !== PinState.SIM_PUK ) throw new Error();
+        if( this.pinState !== "SIM PUK" ) throw new Error();
 
         this.__enterPuk__(puk, newPin);
 
@@ -119,7 +121,7 @@ export class PinManager{
 
     public enterPuk2(puk: string, newPin2: string): void{
 
-        if( this.pinState !== PinState.SIM_PUK2 ) throw new Error();
+        if( this.pinState !== "SIM PUK2" ) throw new Error();
 
         this.__enterPuk__(puk, newPin2);
 
@@ -152,7 +154,7 @@ export class PinManager{
             await this.retrieveHuaweiCPIN();
             this.retrieving = false;
 
-            if (this.pinState !== PinState.READY){ 
+            if (this.pinState !== "READY"){ 
                 this.evtRequestCode.post({
                     "pinState": this.pinState,
                     "times": this.times
@@ -169,7 +171,7 @@ export class PinManager{
 
         this.modemInterface.evtUnsolicitedAtMessage.attach(atMessage => {
 
-            if (atMessage.id === AtMessageId.HUAWEI_SIMST ){
+            if (atMessage.id === atIds.HUAWEI_SIMST ){
 
                 if( this.retrieving ){
                     console.log("============================================>regarde là");
@@ -189,12 +191,12 @@ export class PinManager{
 
     private atMessageHuaweiSYSINFO: AtMessageImplementations.HUAWEI_SYSINFO;
 
-    public retrieveHuaweiSYSINFO(): Promise<void> {
+    private retrieveHuaweiSYSINFO(): Promise<void> {
         return new Promise<void>(resolve=>{
 
             this.modemInterface.runCommand("AT^SYSINFO\r", output => {
 
-                this.atMessageHuaweiSYSINFO = <AtMessageImplementations.HUAWEI_SYSINFO>output.atMessage;
+                this.atMessageHuaweiSYSINFO = output.atMessage as AtMessageImplementations.HUAWEI_SYSINFO;
 
                 resolve();
 
@@ -210,7 +212,7 @@ export class PinManager{
 
             this.modemInterface.runCommand("AT^CPIN?\r", output => {
 
-                this.atMessageHuaweiCPIN = <AtMessageImplementations.HUAWEI_CPIN>output.atMessage;
+                this.atMessageHuaweiCPIN = output.atMessage as AtMessageImplementations.HUAWEI_CPIN;
 
                 resolve();
 
