@@ -4,14 +4,14 @@ GSM Modem manager for HUAWEI 3G dongles.
 
 This module can be used alongside with chan_dongle.
 
-*Manage card lock, ( PIN PUK )
-*Send and receive SMS ( support multiparts SMS )
-*Get status report for SMS sent.
+* Manage card lock, ( PIN PUK )
+* Send and receive SMS ( support multiparts SMS )
+* Get status report for SMS sent.
 
 *Incoming features:*
 
-*Bridge to chan dongle for VOICE features.
-*Manage SIM storage, contacts, write subscriber number ect...
+* Bridge to chan dongle for VOICE features.
+* Manage SIM storage, contacts, write subscriber number ect...
 
 #Install
 
