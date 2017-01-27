@@ -34,42 +34,52 @@ export class Modem {
         else return this.systemState.isRoaming;
     }
 
-
     constructor( atInterface: string, private readonly pin?: string ){
 
         this.atStack= new AtStack(atInterface, { "reportMode": ReportMode.NO_DEBUG_INFO });
 
-        this.systemState= new SystemState(this.atStack);
+        this.initSystemState();
 
     }
 
-    private registerListener(): void{
+    private initSystemState(): void {
+
+        this.systemState = new SystemState(this.atStack);
 
         this.systemState.evtHasSim.attach(hasSim => {
 
             if (!hasSim) return this.evtNoSim.post();
 
-            this.cardLockFacility = new CardLockFacility(this.atStack);
-
-            this.cardLockFacility.evtUnlockCodeRequest.attach(unlockCodeRequest => {
-
-                if (
-                    unlockCodeRequest.pinState === "SIM PIN" &&
-                    unlockCodeRequest.times === 3 &&
-                    this.pin
-                ) {
-                    this.enterPin(this.pin);
-                    return;
-                }
-
-                this.evtUnlockCodeRequest.post(unlockCodeRequest);
-            });
-
-            this.cardLockFacility.evtPinStateReady.attach(() => this.smsStack = new SmsStack(this.atStack));
+            this.initCardLockFacility();
 
         });
 
-        this.systemState.evtReady.attach(()=> this.evtReady.post() );
+        this.systemState.evtReady.attach(() => this.evtReady.post());
+    }
+
+    private initCardLockFacility(): void {
+
+        this.cardLockFacility = new CardLockFacility(this.atStack);
+
+        this.cardLockFacility.evtUnlockCodeRequest.attach(unlockCodeRequest => {
+
+            if ( this.pin &&
+                unlockCodeRequest.pinState === "SIM PIN" &&
+                unlockCodeRequest.times === 3
+            ) this.enterPin(this.pin);
+            else this.evtUnlockCodeRequest.post(unlockCodeRequest);
+
+        });
+
+        this.cardLockFacility.evtPinStateReady.attach(() => this.initSmsStack());
+    }
+
+    private initSmsStack(): void {
+
+        this.smsStack= new SmsStack(this.atStack);
+
+        this.smsStack.evtMessage.attach( message => this.evtMessage.post( message ));
+        this.smsStack.evtMessageStatusReport.attach( statusReport => this.evtMessageStatusReport.post( statusReport ));
 
     }
 
@@ -127,11 +137,13 @@ export class Modem {
         callback?: (messageId: number) => void) {
 
         if (!this.systemState.isReady) {
-
             this.systemState.evtReady.attach(() => this.sendMessage_0(number, text, callback));
-
             return;
+        }
 
+        if( !this.smsStack ){
+            this.cardLockFacility.evtPinStateReady.attach(()=> this.sendMessage_0(number, text, callback));
+            return;
         }
 
         this.smsStack.sendMessage(number, text, callback);
