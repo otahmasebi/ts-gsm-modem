@@ -111,8 +111,7 @@ SIM PIN requested, 3 try left, entering PIN code: 0001
 SIM PIN requested, 2 try left, entering PIN code: 1234
 Modem ready
 Sending:
- "I build a long message!\nI build a long message!\nI build a long message!\nI build a long message!\nI build a long message!\nI build a long message!\nI build a long message!\nI buil
-d a long message!\n"
+ "I build a long message!\nI build a long message!\nI build a long message!\nI build a long message!\nI build a long message!\nI build a long message!\nI build a long message!\nI build a long message!\n"
 MESSAGE ID:  0
 MESSAGE STATUS REPORT:  { messageId: 0,
   dischargeTime: Fri Jan 27 2017 19:21:13 GMT+0000 (UTC),
