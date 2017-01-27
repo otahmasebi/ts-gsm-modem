@@ -23,8 +23,6 @@ modemWatcher.evtConnect.attach( accessPoint => {
 
     modem.evtUnlockCodeRequest.attach(request => {
 
-        console.log("UNLOCK code request".yellow);
-
         switch (request.pinState) {
             case pinStates.SIM_PIN:
                 let pin: string;
@@ -65,7 +63,9 @@ modemWatcher.evtConnect.attach( accessPoint => {
 
         let messageText = "I build a long message!\n";
 
-        for (let i = 0; i < 4; i++) messageText += messageText;
+        for (let i = 0; i < 3; i++) messageText += messageText;
+
+        console.log("Sending: \n".green, JSON.stringify(messageText));
 
         modem.sendMessage("+33636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
 
