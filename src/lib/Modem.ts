@@ -1,5 +1,6 @@
-import { Modem as ModemAccessPoint } from "gsm-modem-connection";
 import { AtStack } from "./AtStack";
+import { ReportMode } from "at-messages-parser";
+
 import { StatusStack } from "./StatusStack";
 
 import { SimLockStack, UnlockCodeRequest } from "./SimLockStack";
@@ -29,9 +30,9 @@ export class Modem {
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
 
 
-    constructor( public readonly accessPoint: ModemAccessPoint, private readonly pin?: string ){
+    constructor( atInterface: string, private readonly pin?: string ){
 
-        this.atStack= new AtStack(accessPoint.atInterface);
+        this.atStack= new AtStack(atInterface, { "reportMode": ReportMode.NO_DEBUG_INFO });
 
         this.statusStack= new StatusStack(this.atStack);
 
