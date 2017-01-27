@@ -1,108 +1,69 @@
-import { ModemWatcher } from "gsm-modem-connection";
-
-import {
-    AtStack,
-    SimLockStack,
-    ReportMode,
-    SmsStack
-} from "../lib/index";
+import { ModemWatcher, Modem as ModemAccessPoint } from "gsm-modem-connection";
+import { Modem, pinStates } from "../lib/index";
 
 require("colors");
-
 
 let modemWatcher = new ModemWatcher();
 
 console.log("Awaiting GSM modem connections...");
 
-modemWatcher.evtDisconnect.attach(modem => console.log("DISCONNECT", modem.infos));
-modemWatcher.evtConnect.attach(modem => {
+modemWatcher.evtConnect.attach( accessPoint => {
 
-    console.log("CONNECTION=>", modem.infos);
+    console.log("CONNECTION".green, accessPoint.infos);
 
-    let modemInterface = new AtStack(modem.atInterface, {
-        "reportMode": ReportMode.DEBUG_INFO_CODE
-    });
+    let modem = new Modem(accessPoint.atInterface);
 
-    let pinManager = new SimLockStack(modemInterface);
+    modem.evtNoSim.attach(() => {
 
-    pinManager.evtUnlockCodeRequest.attach((request) => {
-
-        console.log("=>REQUEST CODE<=", pinManager.state);
-
-        switch (request.pinState) {
-            case "SIM PIN":
-
-                console.log("SIM PIN requested");
-
-                switch (request.times) {
-                    case 3:
-                        console.log("3 try left, entering 0001");
-                        pinManager.enterPin("0001");
-                        break;
-                    case 2:
-                        console.log("2 try left, entering 1234");
-                        pinManager.enterPin("1234");
-                        break;
-                    case 1:
-                        console.log("1 try left, entering pin 0000");
-                        pinManager.enterPin("0000");
-                        break;
-                    default:
-                }
-
-                break;
-            case "SIM PUK":
-
-                console.log("sim locked, PUK requested", request.times);
-
-                switch (request.times) {
-                    case 10:
-                        console.log("10 try left entering wrong puk 62217721");
-                        pinManager.enterPuk("62217721", "1234");
-                        break;
-                    case 9:
-                        console.log("9 try left, Finally, entering the true PUK code, 89390485 and set pin to 0001");
-                        pinManager.enterPuk("89390485", "0001");
-                        break;
-                    case 8:
-                        console.log("9 try left, Finally, entering the true PUK code, 62217721 and set pin to 0001");
-                        pinManager.enterPuk("62217721", "1234");
-                        break;
-                    default:
-                }
-
-                break;
-            default:
-        }
-
-    });
-
-    pinManager.evtNoSim.attach(() => {
-
-        console.log("=>NO SIM<=", pinManager.state);
+        console.log("There is no SIM card in the modem, exiting".green);
 
         process.exit(0);
 
     });
 
-    pinManager.evtSimValid.attach(() => {
+    modem.evtUnlockCodeRequest.attach(request => {
 
-        console.log("=>SIM VALID<=", pinManager.state);
+        switch (request.pinState) {
+            case pinStates.SIM_PIN:
+                let pin: string;
+                switch (request.times) {
+                    case 3: pin = "0001"; break;
+                    case 2: pin = "1234"; break;
+                    case 1: pin = "0000"; break;
+                }
+                console.log(`SIM PIN requested, ${request.times} try left, entering PIN code: ${pin}`.cyan);
+                modem.enterPin(pin);
+                break;
+            case pinStates.SIM_PUK:
+                let puk: string;
+                let newPin = "1234";
+                switch (request.times) {
+                    case 10: puk = "62217721"; break;
+                    case 9: puk = "89390485"; break;
+                    case 8: puk = "62217721"; break;
+                    default:
+                        console.log(`SIM PUK requested, ${request.times} try left, we stop here`.red);
+                        process.exit(1);
+                }
+                console.log(`SIM PUK requested, ${request.times} try left, entering PUK code ${puk}, and setting the new PIN as ${newPin}`.blue);
+                break;
+            default:
+                console.log(`${request.pinState} requested, exiting`.red);
+                process.exit(1);
+        }
 
-        let smsStack= new SmsStack(modemInterface);
+    });
 
-        smsStack.evtMessage.attach(message=> console.log("NEW MESSAGE: ".green,message));
-        smsStack.evtMessageStatusReport.attach( statusReport => console.log("status report received".yellow, statusReport));
+    modem.evtReady.attach(() => {
 
-        console.log("now send message =>".yellow);
+        modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
+        modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
         let messageText = "I build a long message!\n";
 
         for (let i = 0; i < 1; i++) messageText += messageText;
 
-        console.log(`Sending message : ${JSON.stringify(messageText)}`);
-
-        smsStack.sendMessage("+33636786385", messageText, messageId => console.log("message id: ".red, messageId));
+        modem.sendMessage("+33636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
 
     });
 

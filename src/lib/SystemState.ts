@@ -5,22 +5,20 @@ import {
     AtMessage,
     AtMessageImplementations,
     ServiceStatus,
-    ServiceDomain,
     SysMode,
     SimState
 } from "at-messages-parser";
 
-export class StatusStack {
+export class SystemState {
 
     public readonly evtHasSim= new SyncEvent<boolean>();
     public readonly evtReady= new VoidSyncEvent();
-    public readonly evtAlertRoaming= new VoidSyncEvent();
 
     public isReady: boolean= false;
+    public isRoaming: boolean= undefined;
 
 
     public serviceStatus: ServiceStatus;
-    //public serviceDomain: ServiceDomain;
     public sysMode: SysMode;
     public simState: SimState;
 
@@ -40,13 +38,11 @@ export class StatusStack {
             let atMessageHuaweiSYSINFO = output.atMessage as AtMessageImplementations.HUAWEI_SYSINFO;
 
             this.serviceStatus= atMessageHuaweiSYSINFO.serviceStatus;
-            //this.serviceDomain= atMessageHuaweiSYSINFO.serviceDomain;
             this.sysMode= atMessageHuaweiSYSINFO.sysMode;
             this.simState= atMessageHuaweiSYSINFO.simState;
+            this.isRoaming= atMessageHuaweiSYSINFO.isRoaming;
 
             this.evtHasSim.post(this.simState !== SimState.NO_SIM );
-
-            if( atMessageHuaweiSYSINFO.isRoaming ) this.evtAlertRoaming.post();
 
             this.checks();
 
@@ -65,6 +61,9 @@ export class StatusStack {
                 case atIds.HUAWEI_SIMST:
                     this.simState = (atMessage as AtMessageImplementations.HUAWEI_SIMST).simState
                     break;
+                case atIds.HUAWEI_MODE:
+                    this.sysMode = (atMessage as AtMessageImplementations.HUAWEI_MODE).sysMode;
+                    break;
                 default: return;
             }
 
@@ -74,14 +73,11 @@ export class StatusStack {
 
     }
 
-    
-
     private checks(): void{
 
         this.isReady= false;
 
         if( this.serviceStatus !== ServiceStatus.VALID_SERVICES ) return;
-        //if( this.serviceDomain !== ServiceDomain.PS_AND_CS_SERVICES ) return;
         if( this.sysMode === SysMode.NO_SERVICES ) return;
         if( this.simState !== SimState.VALID_SIM ) return;
 

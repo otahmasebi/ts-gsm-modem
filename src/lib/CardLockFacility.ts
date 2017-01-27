@@ -1,20 +1,12 @@
-
 import { SyncEvent, VoidSyncEvent } from "ts-events";
 import { AtStack } from "./AtStack";
 import {
     atIds,
     AtMessage,
     AtMessageImplementations,
-    PinState,
-    SimState
+    PinState
 } from "at-messages-parser";
 
-export interface PinManagerState {
-    hasSim: boolean,
-    simState?: string,
-    pinState?: string,
-    times?: number
-}
 
 export interface UnlockCodeRequest {
     pinState: PinState;
@@ -23,7 +15,7 @@ export interface UnlockCodeRequest {
 
 require("colors");
 
-export class SimLockStack {
+export class CardLockFacility {
 
     public readonly evtUnlockCodeRequest = new SyncEvent<UnlockCodeRequest>();
 
@@ -66,8 +58,6 @@ export class SimLockStack {
         this.__enterPuk__(puk, newPin2);
 
     }
-
-
 
     private atMessageHuaweiCPIN: AtMessageImplementations.HUAWEI_CPIN;
 
@@ -146,7 +136,5 @@ export class SimLockStack {
         });
 
     }
-
-
 
 }

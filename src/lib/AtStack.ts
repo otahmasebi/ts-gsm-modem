@@ -19,11 +19,6 @@ import {
     AtCommandImplementations 
 } from "at-commands-parser";
 
-//TODO: Quand il y a eut une parse error vider la stack de command
-//TODO: Les parse error n'on pas a être traité a l'exterieur, elle ne peuvent être traitée qu'en interne, faire crasher le program.
-//TODO: Gerer les exceptions en cas de déconéction inopiné de la clef.
-
-
 export class CommandError extends Error{
 
     //public readonly parsedAtCommand: ParsedAtCommand;
@@ -31,7 +26,7 @@ export class CommandError extends Error{
     
     constructor(rawAtCommand: string,
     public readonly atMessageError: AtMessage){
-        super("RunAtCommandError");
+        super(CommandError.name);
         Object.setPrototypeOf(this, CommandError.prototype)
 
         //this.parsedAtCommand= atCommandsParser(rawAtCommand);
@@ -43,7 +38,7 @@ export class ParseError extends Error{
 
     constructor(public readonly input: string, 
     public readonly originalError: Error){
-        super("ParseError");
+        super(ParseError.name);
         Object.setPrototypeOf(this, ParseError.prototype)
     }
 
@@ -52,7 +47,7 @@ export class ParseError extends Error{
 export class SerialPortError extends Error{
 
     constructor( public readonly originalError: Error ){
-        super("SerialPortError");
+        super(SerialPortError.name);
         Object.setPrototypeOf(this, SerialPortError.prototype)
     }
 
@@ -98,10 +93,7 @@ export class AtStack {
 
         this.registerListeners();
 
-
         if (typeof (options.reportMode) === "number") this.runCommand(`AT+CMEE=${options.reportMode}\r`);
-
-
 
     }
 

@@ -1,9 +1,9 @@
 import { AtStack } from "./AtStack";
 import { ReportMode } from "at-messages-parser";
 
-import { StatusStack } from "./StatusStack";
+import { SystemState } from "./SystemState";
 
-import { SimLockStack, UnlockCodeRequest } from "./SimLockStack";
+import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events";
@@ -19,34 +19,39 @@ process.on("unhandledRejection", error=> {
 export class Modem {
 
     private atStack: AtStack;
-    private statusStack: StatusStack;
-    private simLockStack: SimLockStack;
+    private systemState: SystemState;
+    private cardLockFacility: CardLockFacility;
     private smsStack: SmsStack;
 
     public readonly evtNoSim= new VoidSyncEvent();
     public readonly evtUnlockCodeRequest= new SyncEvent<UnlockCodeRequest>();
-    public readonly evtSimValid= new VoidSyncEvent();
+    public readonly evtReady= new VoidSyncEvent();
     public readonly evtMessage= new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
+
+    public get isRoaming(): boolean {
+        if( !this.systemState ) return undefined;
+        else return this.systemState.isRoaming;
+    }
 
 
     constructor( atInterface: string, private readonly pin?: string ){
 
         this.atStack= new AtStack(atInterface, { "reportMode": ReportMode.NO_DEBUG_INFO });
 
-        this.statusStack= new StatusStack(this.atStack);
+        this.systemState= new SystemState(this.atStack);
 
     }
 
     private registerListener(): void{
 
-        this.statusStack.evtHasSim.attach(hasSim => {
+        this.systemState.evtHasSim.attach(hasSim => {
 
             if (!hasSim) return this.evtNoSim.post();
 
-            this.simLockStack = new SimLockStack(this.atStack);
+            this.cardLockFacility = new CardLockFacility(this.atStack);
 
-            this.simLockStack.evtUnlockCodeRequest.attach(unlockCodeRequest => {
+            this.cardLockFacility.evtUnlockCodeRequest.attach(unlockCodeRequest => {
 
                 if (
                     unlockCodeRequest.pinState === "SIM PIN" &&
@@ -60,16 +65,18 @@ export class Modem {
                 this.evtUnlockCodeRequest.post(unlockCodeRequest);
             });
 
-            this.simLockStack.evtPinStateReady.attach(() => this.smsStack = new SmsStack(this.atStack));
+            this.cardLockFacility.evtPinStateReady.attach(() => this.smsStack = new SmsStack(this.atStack));
 
         });
 
+        this.systemState.evtReady.attach(()=> this.evtReady.post() );
+
     }
 
-    public enterPin(pin: string): void { this.simLockStack.enterPin(pin); }
-    public enterPin2(pin2: string): void { this.simLockStack.enterPin2(pin2); }
-    public enterPuk(puk: string, newPin: string): void { this.simLockStack.enterPuk(puk, newPin); }
-    public enterPuk2(puk: string, newPin2: string): void { this.simLockStack.enterPuk2(puk, newPin2); }
+    public enterPin(pin: string): void { this.cardLockFacility.enterPin(pin); }
+    public enterPin2(pin2: string): void { this.cardLockFacility.enterPin2(pin2); }
+    public enterPuk(puk: string, newPin: string): void { this.cardLockFacility.enterPuk(puk, newPin); }
+    public enterPuk2(puk: string, newPin2: string): void { this.cardLockFacility.enterPuk2(puk, newPin2); }
 
     public sendMessage(
         number: string,
@@ -119,9 +126,9 @@ export class Modem {
         text: string,
         callback?: (messageId: number) => void) {
 
-        if (!this.statusStack.isReady) {
+        if (!this.systemState.isReady) {
 
-            this.statusStack.evtReady.attach(() => this.sendMessage_0(number, text, callback));
+            this.systemState.evtReady.attach(() => this.sendMessage_0(number, text, callback));
 
             return;
 
