@@ -58,9 +58,10 @@ modemWatcher.evtConnect.attach( accessPoint => {
 
         console.log("Modem ready");
         
-        //modem.runCommand("AT+CPBR=?\r", output => console.log("CPBR test command".green, output));
-        //modem.runCommand("AT+CPBR=1,250\r", output => console.log("CPBR Exec command".cyan, output));
+        modem.runCommand("AT+CPBR=?\r", output => console.log("CPBR test command".green, output));
+        modem.runCommand("AT+CPBR=1,250\r", output => console.log("CPBR Exec command".cyan, output));
 
+        /*
         modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
         modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
@@ -71,6 +72,7 @@ modemWatcher.evtConnect.attach( accessPoint => {
         console.log("Sending: \n".green, JSON.stringify(messageText));
 
         modem.sendMessage("+33636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+        */
 
 
     });
