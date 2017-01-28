@@ -7,6 +7,7 @@ This module can be used alongside with chan_dongle.
 * Manage card lock, ( PIN PUK )
 * Send and receive SMS ( support multiparts SMS )
 * Get status report for SMS sent.
+* Send raw at command and receive unsolicited AT messages events.
 
 *Incoming features:*
 

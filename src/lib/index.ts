@@ -1,2 +1,2 @@
 export { Modem } from "./Modem";
-export { pinStates } from "at-messages-parser";
+export * from "at-messages-parser";

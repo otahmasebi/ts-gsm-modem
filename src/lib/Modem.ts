@@ -1,5 +1,5 @@
-import { AtStack } from "./AtStack";
-import { ReportMode } from "at-messages-parser";
+import { AtStack, RunCommandParam, CommandResp } from "./AtStack";
+import { AtMessage, ReportMode } from "at-messages-parser";
 
 import { SystemState } from "./SystemState";
 
@@ -28,6 +28,7 @@ export class Modem {
     public readonly evtReady= new VoidSyncEvent();
     public readonly evtMessage= new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
+    public readonly evtUnsolicitedAtMessage= new SyncEvent<AtMessage>();
 
     public get isRoaming(): boolean {
         if( !this.systemState ) return undefined;
@@ -37,6 +38,8 @@ export class Modem {
     constructor( atInterface: string, private readonly pin?: string ){
 
         this.atStack= new AtStack(atInterface, { "reportMode": ReportMode.NO_DEBUG_INFO });
+
+        this.atStack.evtUnsolicitedMessage.attach( atMessage => this.evtUnsolicitedAtMessage.post(atMessage) );
 
         this.initSystemState();
 
@@ -82,6 +85,17 @@ export class Modem {
         this.smsStack.evtMessageStatusReport.attach( statusReport => this.evtMessageStatusReport.post( statusReport ));
 
     }
+
+
+    public runCommand(rawAtCommand: string, param: RunCommandParam, callback?: (output: CommandResp) => void): void;
+    public runCommand(rawAtCommand: string, callback?: (output: CommandResp) => void): void;
+    public runCommand(...inputs: any[]): void {
+
+        if( typeof(inputs[1]) === "object" ) this.atStack.runCommand(inputs[0], inputs[1], inputs[2]);
+        else this.atStack.runCommand(inputs[0], {}, inputs[1]);
+
+    }
+
 
     public enterPin(pin: string): void { this.cardLockFacility.enterPin(pin); }
     public enterPin2(pin2: string): void { this.cardLockFacility.enterPin2(pin2); }
