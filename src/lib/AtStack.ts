@@ -123,6 +123,8 @@ export class AtStack {
 
     }
 
+    
+
     private registerListeners(): void {
 
         this.evtError.attach(error => {
@@ -133,22 +135,31 @@ export class AtStack {
         this.serialPort.on("error", error => this.evtError.post(new SerialPortError(error)));
         this.serialPort.on("disconnect", error => this.evtError.post(new SerialPortError(error)));
         this.serialPort.on("close", error => this.evtError.post(new Error("Serial port closed")));
+
+        let rawAtMessagesBuffer= "";
+        let timer: NodeJS.Timer= null;
+
         this.serialPort.on("data", (data: Buffer) => {
 
-            let rawAtMessages = data.toString("utf8");
+            if( timer ) clearTimeout(timer);
+
+            rawAtMessagesBuffer+= data.toString("utf8");
 
             let atMessages: AtMessage[];
 
             try {
 
-                atMessages = atMessagesParser(rawAtMessages);
+                atMessages = atMessagesParser(rawAtMessagesBuffer);
 
             } catch (error) {
 
-                this.evtError.post(new ParseError(rawAtMessages, error));
+                timer= setTimeout(()=> this.evtError.post(new ParseError(rawAtMessagesBuffer, error)) ,150);
+                
+                return;
 
             }
 
+            rawAtMessagesBuffer= "";
 
             for (let atMessage of atMessages) {
 
