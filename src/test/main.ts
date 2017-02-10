@@ -1,6 +1,17 @@
 import { ModemWatcher, Modem as ModemAccessPoint } from "gsm-modem-connection";
 import { Modem, pinStates } from "../lib/index";
 import { MessageStat, AtMessageList, AtImps } from "at-messages-parser";
+import { CardStorage } from "../lib/CardStorage";
+
+
+let hexStr= CardStorage.encodeUCS2("Je suis dans le putin de truck, je suis dans le bailles @ moi le pouvoir");
+
+console.log(hexStr);
+
+let text= CardStorage.decodeUCS2(hexStr);
+
+console.log(text);
+
 
 require("colors");
 
@@ -60,8 +71,54 @@ modemWatcher.evtConnect.attach(accessPoint => {
 
         console.log("=>Modem ready");
 
-        /*
 
+        /*
+        modem.runCommand(`AT+CPBW=150,"+33636786385",,"${"Joseph"}"\r`);
+        modem.runCommand("AT+CPMS?\r", output => console.log(output));
+
+        modem.runCommand("AT+CPBR=?\r", output => {
+
+            let p_CPBR_TEST= output.atMessage as AtImps.P_CPBR_TEST;
+
+            console.log("ok: ", p_CPBR_TEST);
+
+            for( let i= p_CPBR_TEST.range[0]; i<= p_CPBR_TEST.range[1]; i++){
+
+                modem.runCommand(`AT+CPBR=${i}\r`,{ "unrecoverable": false, "retryCount": 0 }, output => {
+
+                    if( !output.isSuccess ) return;
+
+                    console.log(JSON.stringify(output, null, 2).blue);
+
+                });
+
+            }
+
+        });
+        */
+
+
+        /*
+        modem.runCommand(`AT+CSCS="${"UCS2"}"\r`);
+        modem.runCommand(`AT+CPBW=150,"+33636786385",,"${"610072006f00620061007300650020004000"}"\r`);
+        modem.runCommand("AT+CPBR=150\r", {
+            "unrecoverable": false,
+            "retryCount": 0
+        }, output => {
+
+            if (!output.isSuccess) {
+
+                console.log("ERROR: ".red, output.finalAtMessage);
+
+                return;
+            }
+
+            console.log(`SUCCESS:`.cyan, output.atMessage.raw)
+        });
+        */
+
+
+        /*
         for (let from of ["IRA", "GSM"]) {
 
             for (let text of ["arobase @", "et comercial &", "euro €"]) {
@@ -74,15 +131,13 @@ modemWatcher.evtConnect.attach(accessPoint => {
                 for (let to of ["IRA", "GSM", "UCS2"]) {
                     modem.runCommand(`AT+CSCS="${to}"\r`);
                     modem.runCommand("AT+CPBR=150\r", {
-                        "unrecoverable": false
+                        "unrecoverable": false,
+                        "retryCount": 0
                     }, output => {
 
-                        if( !output.isSuccess ){
+                        if (!output.isSuccess) {
 
-                            console.log("ERREUR: ".red, output);
-
-                            modem.runCommand("AT+CPBW=147,150\r", output => console.log("147,150=>", output));
-                            modem.runCommand("AT+CPBW=150,150\r", output => console.log("150,150=>", output));
+                            console.log("ERREUR: ".red, output.finalAtMessage);
 
                             return;
                         }
@@ -93,8 +148,8 @@ modemWatcher.evtConnect.attach(accessPoint => {
 
             }
         }
-
         */
+
 
         /*
         for (let from of ["IRA"]) {
@@ -147,6 +202,7 @@ modemWatcher.evtConnect.attach(accessPoint => {
         modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
 
+        /*
 
         let messageText = "I build a message\n";
 
@@ -155,6 +211,8 @@ modemWatcher.evtConnect.attach(accessPoint => {
         console.log("Sending: \n".green, JSON.stringify(messageText));
 
         modem.sendMessage("+33636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+
+        */
 
 
 

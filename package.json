@@ -1,6 +1,6 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "GSM Modem manager",
   "main": "./out/lib/index.js",
   "types": "./out/lib/index.d.ts",
@@ -30,6 +30,7 @@
     "at-commands-parser": "garronej/at-commands-parser",
     "at-messages-parser": "garronej/at-messages-parser#dev",
     "colors": "^1.1.2",
+    "legacy-encoding": "^3.0.0",
     "node-python-messaging": "garronej/node-python-messaging",
     "serialport": "^4.0.0",
     "ts-events": "^3.1.4",
