@@ -28,7 +28,7 @@
     "@types/colors": "^1.1.1",
     "@types/node": "^4.0.0",
     "at-commands-parser": "garronej/at-commands-parser",
-    "at-messages-parser": "garronej/at-messages-parser",
+    "at-messages-parser": "garronej/at-messages-parser#dev",
     "colors": "^1.1.2",
     "node-python-messaging": "garronej/node-python-messaging",
     "serialport": "^4.0.0",

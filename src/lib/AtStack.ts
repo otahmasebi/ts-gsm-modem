@@ -7,9 +7,9 @@ require("colors");
 
 import { 
     atMessagesParser, 
-    atIds, 
+    atIdDict, 
     AtMessage, 
-    AtMessageImplementations, 
+    AtImps, 
     ReportMode 
 } from "at-messages-parser";
 
@@ -68,7 +68,6 @@ export interface RunCommandParam {
         unrecoverableCommandError?: boolean;
 }
 
-
 export class AtStack {
 
     private readonly serialPort: SerialPort;
@@ -93,10 +92,11 @@ export class AtStack {
 
         this.registerListeners();
 
+        this.runCommand('ATE0\r');
         if (typeof (options.reportMode) === "number") this.runCommand(`AT+CMEE=${options.reportMode}\r`);
 
-    }
 
+    }
 
     public static checkCommand(rawAtCommand): ParsedAtCommand {
 
@@ -123,8 +123,6 @@ export class AtStack {
 
     }
 
-    
-
     private registerListeners(): void {
 
         this.evtError.attach(error => {
@@ -141,6 +139,8 @@ export class AtStack {
 
         this.serialPort.on("data", (data: Buffer) => {
 
+            //console.log(JSON.stringify(data.toString("utf8")).red);
+
             if( timer ) clearTimeout(timer);
 
             rawAtMessagesBuffer+= data.toString("utf8");
@@ -153,11 +153,17 @@ export class AtStack {
 
             } catch (error) {
 
-                timer= setTimeout(()=> this.evtError.post(new ParseError(rawAtMessagesBuffer, error)) ,150);
+                //console.log(`Parse error: \n${JSON.stringify(rawAtMessagesBuffer)}`.red );
+                //console.log(`Parse error:`.red);
+
+                timer= setTimeout(()=> this.evtError.post(new ParseError(rawAtMessagesBuffer, error)) , 10000);
                 
                 return;
 
             }
+
+            //console.log(`Parsed: ${JSON.stringify(atMessages, null, 2)}`.green);
+            //console.log("parsed!".green);
 
             rawAtMessagesBuffer= "";
 
@@ -188,6 +194,8 @@ export class AtStack {
             return;
         }
 
+        //console.log(`write rawAtCommand: ${JSON.stringify(rawAtCommand)}`.blue);
+
         this.serialPort.write(rawAtCommand, errorStr => {
 
             if (errorStr) this.evtError.post(new SerialPortError(new Error(errorStr)));
@@ -216,7 +224,7 @@ export class AtStack {
 
                 output.raw += atMessage.raw;
 
-                if (atMessage.id === atIds.ECHO) {
+                if (atMessage.id === atIdDict.ECHO) {
 
                     if (output.atMessage) {
                         this.evtUnsolicitedMessage.post(output.atMessage);
@@ -247,7 +255,6 @@ export class AtStack {
 
         })();
     }
-
 
     private callStack_runCommand_1: (() => void)[] = [];
     private isReady_runAtCommand_1 = true;
@@ -280,7 +287,7 @@ export class AtStack {
 
         try {
 
-            AtStack.checkCommand(rac);
+            //AtStack.checkCommand(rac);
 
         } catch (error) {
 
@@ -293,7 +300,6 @@ export class AtStack {
 
     }
 
-
     private runCommand_3(reportMode: ReportMode, uce: boolean, rac: string, cb: (o: CommandResp) => void): void {
 
         if ( reportMode !== undefined ) {
@@ -302,7 +308,7 @@ export class AtStack {
 
                 if (!o.isSuccess) this.evtError.post(new CommandError("AT+CMEE?\r", o.finalAtMessage));
 
-                let currentReportMode = (<AtMessageImplementations.CMEE>o.atMessage).reportMode;
+                let currentReportMode = (o.atMessage as AtImps.P_CMEE_READ).reportMode;
 
                 if (currentReportMode !== reportMode) this.runCommand_2(true, `AT+CMEE=${reportMode}\r`, o => {
                     if (!o.isSuccess) this.evtError.post(new CommandError(`AT+CMEE=${reportMode}\r`, o.finalAtMessage));
@@ -337,7 +343,6 @@ export class AtStack {
         });
 
     }
-
 
     private runCommand_5(unrecoverable: boolean, rc: number, d: number, rm: ReportMode, uce: boolean, rac: string, cb: (o: CommandResp) => void): void {
 
@@ -400,5 +405,4 @@ export class AtStack {
         else this.runCommand_7(inputs[0], {}, inputs[1]);
 
     }
-
 }

@@ -1,17 +1,17 @@
 import { AtStack, CommandResp } from "./AtStack";
-import { 
-    atIds, 
-    AtMessage, 
+import {
+    atIdDict,
+    AtMessage,
     AtMessageList,
-    AtMessageImplementations,
+    AtImps,
     MessageStat
 } from "at-messages-parser";
 import { SyncEvent } from "ts-events";
-import { 
-    decodePdu , 
-    buildSmsSubmitPdus, 
-    Sms, 
-    TP_ST, 
+import {
+    decodePdu,
+    buildSmsSubmitPdus,
+    Sms,
+    TP_ST,
     TP_MTI,
     ST_CLASS,
     stClassOf
@@ -21,30 +21,30 @@ import * as promisify from "ts-promisify";
 
 require("colors");
 
-export interface Message{
+export interface Message {
     number: string;
     date: Date;
     text: string;
 }
 
 export interface StatusReport {
-        messageId: number;
-        dischargeTime: Date;
-        isDelivered: boolean;
-        status: string;
+    messageId: number;
+    dischargeTime: Date;
+    isDelivered: boolean;
+    status: string;
 }
 
-export class SmsStack{
+export class SmsStack {
 
-    public readonly evtMessage= new SyncEvent<Message>();
+    public readonly evtMessage = new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
 
-    private evtSmsDeliver= new SyncEvent<Sms>();
-    private evtSmsStatusReport= new SyncEvent<Sms>();
-    private readonly concatenatedSmsMap: { 
-        [ref: number]: { 
-            [seq: number]: Sms 
-        } 
+    private evtSmsDeliver = new SyncEvent<[number, Sms]>();
+    private evtSmsStatusReport = new SyncEvent<Sms>();
+    private readonly concatenatedSmsMap: {
+        [ref: number]: {
+            [seq: number]: [number, Sms]
+        }
     } = {};
 
     constructor(private readonly atStack: AtStack) {
@@ -57,33 +57,50 @@ export class SmsStack{
 
     }
 
-    private retrieveUnreadSms(): void{
+    private retrieveUnreadSms(): void {
 
-        this.atStack.runCommand(`AT+CMGL=${MessageStat.RECEIVED_UNREAD}\r`, output => {
+        this.atStack.runCommand(`AT+CMGL=${MessageStat.ALL}\r`, output => {
 
-            let atMessageList = output.atMessage as AtMessageList;
+            let atList = output.atMessage as AtMessageList;
 
-            if (!atMessageList) return;
+            if (!atList) return;
 
-            for (let atMessage of atMessageList.atMessages) {
+            for (let atMessage of atList.atMessages) {
 
-                let atMessageCMGL = atMessage as AtMessageImplementations.CMGL;
+                let p_CMGL_SET = atMessage as AtImps.P_CMGL_SET;
 
-                decodePdu(atMessageCMGL.pdu, (error, sms) => {
+                if (
+                    p_CMGL_SET.stat !== MessageStat.REC_READ &&
+                    p_CMGL_SET.stat !== MessageStat.REC_UNREAD
+                ) {
 
-                    if (sms.type === TP_MTI.SMS_DELIVER) this.evtSmsDeliver.post(sms);
+                    this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
+                    return;
+                }
+
+                decodePdu(p_CMGL_SET.pdu, (error, sms) => {
+
+                    switch (sms.type) {
+                        case TP_MTI.SMS_DELIVER:
+                            this.evtSmsDeliver.post([p_CMGL_SET.index, sms]);
+                            return;
+                        case TP_MTI.SMS_STATUS_REPORT:
+                            this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
+                            return;
+                    }
+
 
                 });
-                this.atStack.runCommand(`AT+CMGD=${atMessageCMGL.index}\r`);
 
             }
 
         });
+
+
     }
 
-
     private generateMessageId: () => number = (() => {
-        let id = 0;
+        let id = 1;
         return () => { return id++; }
     })();
 
@@ -105,49 +122,53 @@ export class SmsStack{
     ): void {
         (async () => {
 
-                callback = callback || function () { };
+            callback = callback || function () { };
 
-                let [error, pdus] = await promisify.typed(buildSmsSubmitPdus)({
-                    "number": number,
-                    "text": text,
-                    "request_status": true
-                });
+            let [error, pdus] = await promisify.typed(buildSmsSubmitPdus)({
+                "number": number,
+                "text": text,
+                "request_status": true
+            });
 
-                if (error) throw error;
+            if (error) throw error;
 
-                let messageId = this.generateMessageId();
+            let messageId = this.generateMessageId();
 
-                this.statusReportMap[messageId] = {
-                    "cnt": pdus.length,
-                    "completed": 0
-                };
+            for (let pduWrap of pdus) {
 
-                for (let pduWrap of pdus) {
+                this.atStack.runCommand(`AT+CMGS=${pduWrap.length}\r`);
 
-                    this.atStack.runCommand(`AT+CMGS=${pduWrap.length}\r`);
+                let [output] = await promisify.generic(
+                    this.atStack,
+                    this.atStack.runCommand
+                )(`${pduWrap.pdu}\u001a`, {
+                    "unrecoverable": false,
+                    "retryCount": 0
+                }) as [CommandResp];
 
-                    let [output] = await promisify.generic(
-                        this.atStack,
-                        this.atStack.runCommand
-                    )(`${pduWrap.pdu}\u001a`, {
-                        "unrecoverable": false,
-                        "retryCount": 0
-                    }) as [CommandResp];
+                if (!output.isSuccess) {
 
-                    if( !output.isSuccess ){ 
+                    for (let mr of Object.keys(this.mrMessageIdMap))
+                        if (this.mrMessageIdMap[mr] === messageId)
+                            delete this.mrMessageIdMap[mr];
 
-                        callback(null);
+                    callback(null);
 
-                        return;
-                    }
-
-                    let atMessageCMGS = output.atMessage as AtMessageImplementations.CMGS;
-
-                    this.mrMessageIdMap[atMessageCMGS.mr] = messageId;
-
+                    return;
                 }
 
-                callback(messageId);
+                let atMessageCMGS = output.atMessage as AtImps.P_CMGS_SET;
+
+                this.mrMessageIdMap[atMessageCMGS.mr] = messageId;
+
+            }
+
+            this.statusReportMap[messageId] = {
+                "cnt": pdus.length,
+                "completed": 0
+            };
+
+            callback(messageId);
 
         })();
     }
@@ -159,6 +180,9 @@ export class SmsStack{
 
             let messageId = this.mrMessageIdMap[sms.ref];
 
+            if (!messageId) return;
+
+            let statusReport: StatusReport;
 
             switch (stClassOf(sms.sr.status)) {
                 case ST_CLASS.RESERVED:
@@ -166,66 +190,86 @@ export class SmsStack{
                 case ST_CLASS.PERMANENT_ERROR:
                 case ST_CLASS.TEMPORARY_ERROR:
                 case ST_CLASS.SPECIFIC_TO_SC:
-                    this.evtMessageStatusReport.post({
+                    statusReport = {
                         "messageId": messageId,
                         "dischargeTime": sms.sr.dt,
                         "isDelivered": false,
                         "status": TP_ST[sms.sr.status]
-                    });
-                    delete this.statusReportMap[messageId];
-                    return;
+                    };
+                    break;
                 case ST_CLASS.COMPLETED:
-                    if (++this.statusReportMap[messageId].completed !== this.statusReportMap[messageId].cnt) return;
-                    this.evtMessageStatusReport.post({
+                    let elem = this.statusReportMap[messageId];
+                    if (++elem.completed !== elem.cnt)
+                        return;
+                    statusReport = {
                         "messageId": messageId,
                         "dischargeTime": sms.sr.dt,
                         "isDelivered": true,
                         "status": TP_ST[sms.sr.status]
-                    });
-                    delete this.statusReportMap[messageId];
+                    };
             }
+
+            for (let mr of Object.keys(this.mrMessageIdMap))
+                if (this.mrMessageIdMap[mr] === messageId)
+                    delete this.mrMessageIdMap[mr];
+
+            delete this.statusReportMap[messageId];
+
+            this.evtMessageStatusReport.post(statusReport);
 
         });
 
-        this.evtSmsDeliver.attach(sms => {
+        this.evtSmsDeliver.attach(([index, sms]) => {
 
-            let message: Message = {
+            if (typeof (sms.ref) !== "number") {
+
+                this.evtMessage.post({
+                    "number": sms.number,
+                    "date": sms.date,
+                    "text": sms.text
+                });
+                this.atStack.runCommand(`AT+CMGD=${index}\r`);
+                return;
+
+            }
+
+            if (!this.concatenatedSmsMap[sms.ref])
+                this.concatenatedSmsMap[sms.ref] = {};
+
+            this.concatenatedSmsMap[sms.ref][sms.seq] = [index, sms]
+
+            if (Object.keys(this.concatenatedSmsMap[sms.ref]).length !== sms.cnt)
+                return;
+
+            let concatMessage: Message = {
                 "number": sms.number,
                 "date": sms.date,
                 "text": ""
             };
 
-            if (typeof (sms.ref) !== "number") {
+            let ref = sms.ref;
 
-                message.text = sms.text;
-                this.evtMessage.post(message);
-                return;
-
+            for (let seq = 1; seq <= sms.cnt; seq++) {
+                let [index, sms] = this.concatenatedSmsMap[ref][seq];
+                concatMessage.text += sms.text;
+                this.atStack.runCommand(`AT+CMGD=${index}\r`);
             }
 
-            if (!this.concatenatedSmsMap[sms.ref]) this.concatenatedSmsMap[sms.ref] = {};
+            delete this.concatenatedSmsMap[ref];
 
-            this.concatenatedSmsMap[sms.ref][sms.seq] = sms;
-
-            if (Object.keys(this.concatenatedSmsMap[sms.ref]).length !== sms.cnt) return;
-
-            for (let seq = 1; seq <= sms.cnt; seq++) message.text += this.concatenatedSmsMap[sms.ref][seq].text;
-
-            this.evtMessage.post(message);
-
-            delete this.concatenatedSmsMap[sms.ref];
+            this.evtMessage.post(concatMessage);
 
         });
 
         this.atStack.evtUnsolicitedMessage.attach(atMessage => {
 
             switch (atMessage.id) {
-                case atIds.CMTI:
-                    let atMessageCMTI= atMessage as AtMessageImplementations.CMTI;
+                case atIdDict.P_CMTI_URC:
+                    let atMessageCMTI = atMessage as AtImps.P_CMTI_URC;
                     this.retrieveSms(atMessageCMTI.index);
                     break;
-                case atIds.CDSI:
-                    let atMessageCDSI = atMessage as AtMessageImplementations.CDSI;
+                case atIdDict.P_CDSI_URC:
+                    let atMessageCDSI = atMessage as AtImps.P_CDSI_URC;
                     this.retrieveSms(atMessageCDSI.index);
                     break;
             }
@@ -238,21 +282,28 @@ export class SmsStack{
 
         this.atStack.runCommand(`AT+CMGR=${index}\r`, output => {
 
-            let atMessageCMGR = output.atMessage as AtMessageImplementations.CMGR;
+            let p_CMGR_SET = output.atMessage as AtImps.P_CMGR_SET;
 
-            if (atMessageCMGR.stat !== MessageStat.RECEIVED_UNREAD) return;
+            if (!p_CMGR_SET) return;
 
-            decodePdu(atMessageCMGR.pdu, (error, sms) => {
+            if (p_CMGR_SET.stat !== MessageStat.REC_UNREAD) return;
+
+            decodePdu(p_CMGR_SET.pdu, (error, sms) => {
 
                 switch (sms.type) {
-                    case TP_MTI.SMS_DELIVER: return this.evtSmsDeliver.post(sms);
-                    case TP_MTI.SMS_STATUS_REPORT: return this.evtSmsStatusReport.post(sms);
+
+                    case TP_MTI.SMS_DELIVER:
+                        this.evtSmsDeliver.post([index, sms]);
+                        return;
+                    case TP_MTI.SMS_STATUS_REPORT:
+                        this.evtSmsStatusReport.post(sms);
+                        this.atStack.runCommand(`AT+CMGD=${index}\r`);
+                        return;
                 }
 
             });
 
         });
-        this.atStack.runCommand(`AT+CMGD=${index}\r`, { "unrecoverable": false });
 
     }
 

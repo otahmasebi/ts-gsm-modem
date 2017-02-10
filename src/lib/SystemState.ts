@@ -1,9 +1,9 @@
 import { AtStack } from "./AtStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events";
 import {
-    atIds,
+    atIdDict,
     AtMessage,
-    AtMessageImplementations,
+    AtImps,
     ServiceStatus,
     SysMode,
     SimState
@@ -35,7 +35,7 @@ export class SystemState {
 
         this.atStack.runCommand("AT^SYSINFO\r", output => {
 
-            let atMessageHuaweiSYSINFO = output.atMessage as AtMessageImplementations.HUAWEI_SYSINFO;
+            let atMessageHuaweiSYSINFO = output.atMessage as AtImps.CX_SYSINFO_EXEC;
 
             this.serviceStatus= atMessageHuaweiSYSINFO.serviceStatus;
             this.sysMode= atMessageHuaweiSYSINFO.sysMode;
@@ -55,14 +55,14 @@ export class SystemState {
         this.atStack.evtUnsolicitedMessage.attach( atMessage => {
 
             switch( atMessage.id ){
-                case atIds.HUAWEI_SRVST:
-                    this.serviceStatus = (atMessage as AtMessageImplementations.HUAWEI_SRVST).serviceStatus;
+                case atIdDict.CX_SRVST_URC:
+                    this.serviceStatus = (atMessage as AtImps.CX_SRVST_URC).serviceStatus;
                     break;
-                case atIds.HUAWEI_SIMST:
-                    this.simState = (atMessage as AtMessageImplementations.HUAWEI_SIMST).simState
+                case atIdDict.CX_SIMST_URC:
+                    this.simState = (atMessage as AtImps.CX_SIMST_URC).simState
                     break;
-                case atIds.HUAWEI_MODE:
-                    this.sysMode = (atMessage as AtMessageImplementations.HUAWEI_MODE).sysMode;
+                case atIdDict.CX_MODE_URC:
+                    this.sysMode = (atMessage as AtImps.CX_MODE_URC).sysMode;
                     break;
                 default: return;
             }
@@ -73,17 +73,29 @@ export class SystemState {
 
     }
 
-    private checks(): void{
+    private checks(): void {
 
-        this.isReady= false;
+        if (this.serviceStatus !== ServiceStatus.VALID_SERVICES) {
+            this.isReady = false;
+            return;
+        }
 
-        if( this.serviceStatus !== ServiceStatus.VALID_SERVICES ) return;
-        if( this.sysMode === SysMode.NO_SERVICES ) return;
-        if( this.simState !== SimState.VALID_SIM ) return;
+        if (this.sysMode === SysMode.NO_SERVICES) {
+            this.isReady = false;
+            return;
+        }
 
-        this.isReady= true;
+        if (this.simState !== SimState.VALID_SIM) {
+            this.isReady = false;
+            return;
+        }
 
-        this.evtReady.post();
+        if (!this.isReady) {
+
+            this.isReady = true;
+            this.evtReady.post();
+
+        }
 
     }
 

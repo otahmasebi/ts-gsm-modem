@@ -37,7 +37,7 @@ export class Modem {
 
     constructor( atInterface: string, private readonly pin?: string ){
 
-        this.atStack= new AtStack(atInterface, { "reportMode": ReportMode.NO_DEBUG_INFO });
+        this.atStack= new AtStack(atInterface, { "reportMode": ReportMode.DEBUG_INFO_CODE });
 
         this.atStack.evtUnsolicitedMessage.attach( atMessage => this.evtUnsolicitedAtMessage.post(atMessage) );
 
@@ -57,7 +57,16 @@ export class Modem {
 
         });
 
-        this.systemState.evtReady.attach(() => this.evtReady.post());
+        let self= this;
+
+        this.systemState.evtReady.attach(function onReady(): void{
+            
+            self.evtReady.post();
+
+            self.systemState.evtReady.detach(onReady);
+
+        });
+
     }
 
     private initCardLockFacility(): void {

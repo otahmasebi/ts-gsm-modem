@@ -1,12 +1,11 @@
 import { SyncEvent, VoidSyncEvent } from "ts-events";
 import { AtStack } from "./AtStack";
 import {
-    atIds,
+    atIdDict,
     AtMessage,
-    AtMessageImplementations,
+    AtImps,
     PinState
 } from "at-messages-parser";
-
 
 export interface UnlockCodeRequest {
     pinState: PinState;
@@ -59,7 +58,7 @@ export class CardLockFacility {
 
     }
 
-    private atMessageHuaweiCPIN: AtMessageImplementations.HUAWEI_CPIN;
+    private atMessageHuaweiCPIN: AtImps.CX_CPIN_READ;
 
     private get pinState(): PinState { return this.atMessageHuaweiCPIN.pinState; }
 
@@ -75,7 +74,7 @@ export class CardLockFacility {
 
             this.retrieving = false;
 
-            this.atMessageHuaweiCPIN = output.atMessage as AtMessageImplementations.HUAWEI_CPIN;
+            this.atMessageHuaweiCPIN = output.atMessage as AtImps.CX_CPIN_READ;
 
             if (this.pinState === "READY") return this.evtPinStateReady.post();
 
