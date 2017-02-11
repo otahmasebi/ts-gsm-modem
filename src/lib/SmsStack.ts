@@ -80,6 +80,14 @@ export class SmsStack {
 
                 decodePdu(p_CMGL_SET.pdu, (error, sms) => {
 
+
+                    if (error) {
+                        console.log("PDU not decrypted: ".red, p_CMGL_SET.pdu, error);
+                        this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
+                        return;
+
+                    }
+
                     switch (sms.type) {
                         case TP_MTI.SMS_DELIVER:
                             this.evtSmsDeliver.post([p_CMGL_SET.index, sms]);
@@ -289,6 +297,13 @@ export class SmsStack {
             if (p_CMGR_SET.stat !== MessageStat.REC_UNREAD) return;
 
             decodePdu(p_CMGR_SET.pdu, (error, sms) => {
+
+                if (error) {
+                    console.log("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
+                    this.atStack.runCommand(`AT+CMGD=${index}\r`);
+                    return;
+
+                }
 
                 switch (sms.type) {
 
