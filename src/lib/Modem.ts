@@ -2,11 +2,12 @@ import { AtStack, RunCommandParam, CommandResp } from "./AtStack";
 import { AtMessage, ReportMode } from "at-messages-parser";
 
 import { SystemState } from "./SystemState";
-
 import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
+import { CardStorage, Contact } from "./CardStorage";
 
 import { SmsStack, Message, StatusReport } from "./SmsStack";
-import { SyncEvent, VoidSyncEvent } from "ts-events";
+import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import { execStack } from "ts-exec-stack";
 
 require("colors");
 
@@ -22,24 +23,28 @@ export class Modem {
     private systemState: SystemState;
     private cardLockFacility: CardLockFacility;
     private smsStack: SmsStack;
+    private cardStorage: CardStorage;
 
-    public readonly evtNoSim= new VoidSyncEvent();
-    public readonly evtUnlockCodeRequest= new SyncEvent<UnlockCodeRequest>();
-    public readonly evtReady= new VoidSyncEvent();
-    public readonly evtMessage= new SyncEvent<Message>();
+    public readonly evtNoSim = new VoidSyncEvent();
+
+    //public readonly evtUnlockCodeRequest= new SyncEvent<UnlockCodeRequest>();
+    public readonly evtUnlockCodeRequest: typeof CardLockFacility.prototype.evtUnlockCodeRequest =
+    new SyncEvent<UnlockCodeRequest>();
+
+
+    public readonly evtUnsolicitedAtMessage: typeof AtStack.prototype.evtUnsolicitedMessage =
+    new SyncEvent<AtMessage>();
+
+    public readonly evtReady = new VoidSyncEvent();
+    public readonly evtMessage = new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
-    public readonly evtUnsolicitedAtMessage= new SyncEvent<AtMessage>();
 
-    public get isRoaming(): boolean {
-        if( !this.systemState ) return undefined;
-        else return this.systemState.isRoaming;
-    }
 
-    constructor( atInterface: string, private readonly pin?: string ){
+    constructor(atInterface: string, private readonly pin?: string) {
 
-        this.atStack= new AtStack(atInterface, { "reportMode": ReportMode.DEBUG_INFO_CODE });
+        this.atStack = new AtStack(atInterface, { "reportMode": ReportMode.DEBUG_INFO_CODE });
 
-        this.atStack.evtUnsolicitedMessage.attach( atMessage => this.evtUnsolicitedAtMessage.post(atMessage) );
+        this.atStack.evtUnsolicitedMessage.attach(atMessage => this.evtUnsolicitedAtMessage.post(atMessage));
 
         this.initSystemState();
 
@@ -49,21 +54,22 @@ export class Modem {
 
         this.systemState = new SystemState(this.atStack);
 
-        this.systemState.evtHasSim.attach(hasSim => {
+        this.systemState.evtReportSimPresence.attachOnce(hasSim => {
 
-            if (!hasSim) return this.evtNoSim.post();
+            if (!hasSim) {
+                this.evtNoSim.post();
+                return;
+            }
 
             this.initCardLockFacility();
 
         });
 
-        let self= this;
+        this.systemState.evtNetworkReady.attach(() => {
 
-        this.systemState.evtReady.attach(function onReady(): void{
-            
-            self.evtReady.post();
-
-            self.systemState.evtReady.detach(onReady);
+            if (!this.cardStorage.isReady)
+                this.cardStorage.evtReady.attachOnce(() => this.evtReady.post());
+            else this.evtReady.post();
 
         });
 
@@ -75,7 +81,7 @@ export class Modem {
 
         this.cardLockFacility.evtUnlockCodeRequest.attach(unlockCodeRequest => {
 
-            if ( this.pin &&
+            if (this.pin &&
                 unlockCodeRequest.pinState === "SIM PIN" &&
                 unlockCodeRequest.times === 3
             ) this.enterPin(this.pin);
@@ -83,94 +89,74 @@ export class Modem {
 
         });
 
-        this.cardLockFacility.evtPinStateReady.attach(() => this.initSmsStack());
-    }
+        this.cardLockFacility.evtPinStateReady.attachOnce(() => {
 
-    private initSmsStack(): void {
-
-        this.smsStack= new SmsStack(this.atStack);
-
-        this.smsStack.evtMessage.attach( message => this.evtMessage.post( message ));
-        this.smsStack.evtMessageStatusReport.attach( statusReport => this.evtMessageStatusReport.post( statusReport ));
-
-    }
-
-
-    public runCommand(rawAtCommand: string, param: RunCommandParam, callback?: (output: CommandResp) => void): void;
-    public runCommand(rawAtCommand: string, callback?: (output: CommandResp) => void): void;
-    public runCommand(...inputs: any[]): void {
-
-        if( typeof(inputs[1]) === "object" ) this.atStack.runCommand(inputs[0], inputs[1], inputs[2]);
-        else this.atStack.runCommand(inputs[0], {}, inputs[1]);
-
-    }
-
-
-    public enterPin(pin: string): void { this.cardLockFacility.enterPin(pin); }
-    public enterPin2(pin2: string): void { this.cardLockFacility.enterPin2(pin2); }
-    public enterPuk(puk: string, newPin: string): void { this.cardLockFacility.enterPuk(puk, newPin); }
-    public enterPuk2(puk: string, newPin2: string): void { this.cardLockFacility.enterPuk2(puk, newPin2); }
-
-    public sendMessage(
-        number: string,
-        text: string,
-        callback?: (messageId: number) => void
-    ): void {
-
-        callback = callback || function () { };
-
-        this.sendMessage_1(number, text, callback);
-
-    }
-
-    private callStack_sendMessage_1: Function[] = [];
-    private isReady_sendMessage_1 = true;
-
-    private sendMessage_1(
-        number: string,
-        text: string,
-        callback: (messageId: number) => void
-    ): void {
-
-        if (!this.isReady_sendMessage_1) {
-
-            this.callStack_sendMessage_1.push(this.sendMessage_1.bind(this, number, text, callback));
-
-            return;
-
-        }
-
-        this.isReady_sendMessage_1 = false;
-
-        this.sendMessage_0(number, text, messageId => {
-
-            callback(messageId);
-
-            this.isReady_sendMessage_1 = true;
-
-            if (this.callStack_sendMessage_1.length) this.callStack_sendMessage_1.shift()();
-
+            //ToDO attendre sim ready
+            this.initSmsStack();
+            this.initCardStorage();
         });
 
     }
 
-    public sendMessage_0(
-        number: string,
-        text: string,
-        callback?: (messageId: number) => void) {
+    private initSmsStack(): void {
 
-        if (!this.systemState.isReady) {
-            this.systemState.evtReady.attach(() => this.sendMessage_0(number, text, callback));
-            return;
-        }
+        this.smsStack = new SmsStack(this.atStack);
 
-        if( !this.smsStack ){
-            this.cardLockFacility.evtPinStateReady.attach(()=> this.sendMessage_0(number, text, callback));
-            return;
-        }
-
-        this.smsStack.sendMessage(number, text, callback);
+        this.smsStack.evtMessage.attach(message => this.evtMessage.post(message));
+        this.smsStack.evtMessageStatusReport.attach(statusReport => this.evtMessageStatusReport.post(statusReport));
 
     }
+
+    private initCardStorage(): void {
+            this.cardStorage = new CardStorage(this.atStack);
+    }
+
+
+    public get contacts(): typeof CardStorage.prototype.contacts {
+        return this.cardStorage.contacts;
+    }
+
+    public getContact: typeof CardStorage.prototype.getContact =
+    (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
+
+    public runCommand: typeof AtStack.prototype.runCommand =
+    (...inputs) => this.atStack.runCommand.apply(this.atStack, inputs);
+
+    public enterPin: typeof CardLockFacility.prototype.enterPin =
+    (...inputs) => this.cardLockFacility.enterPin.apply(this.cardLockFacility, inputs);
+
+    public enterPin2: typeof CardLockFacility.prototype.enterPin2 =
+    (...inputs) => this.cardLockFacility.enterPin2.apply(this.cardLockFacility, inputs);
+
+    public enterPuk: typeof CardLockFacility.prototype.enterPuk =
+    (...inputs) => this.cardLockFacility.enterPuk.apply(this.cardLockFacility, inputs);
+
+    public enterPuk2: typeof CardLockFacility.prototype.enterPuk2 =
+    (...inputs) => this.cardLockFacility.enterPuk2.apply(this.cardLockFacility, inputs);
+
+    public sendMessage = execStack(function callee(...inputs) {
+
+        let self = this as Modem;
+
+        if (!self.systemState.isNetworkReady) {
+            self.systemState.evtNetworkReady.attachOnce(() => callee.apply(self, inputs));
+            return;
+        }
+
+        if (!self.smsStack) {
+            self.cardLockFacility.evtPinStateReady.attachOnce(() => callee.apply(self, inputs));
+            return;
+        }
+
+        self.smsStack.sendMessage.apply(self.smsStack, inputs);
+
+
+    } as typeof SmsStack.prototype.sendMessage);
+
+
+
+
+
+
 
 }

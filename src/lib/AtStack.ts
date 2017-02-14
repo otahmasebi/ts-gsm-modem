@@ -1,7 +1,7 @@
 /// <reference path="./ambient/serialport.d.ts"/>
 import * as SerialPort from "serialport";
 import * as promisify from "ts-promisify";
-import { SyncEvent } from "ts-events";
+import { SyncEvent } from "ts-events-extended";
 
 require("colors");
 

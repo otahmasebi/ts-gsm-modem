@@ -33,7 +33,8 @@
     "legacy-encoding": "^3.0.0",
     "node-python-messaging": "garronej/node-python-messaging",
     "serialport": "^4.0.0",
-    "ts-events": "^3.1.4",
+    "ts-events-extended": "garronej/ts-events-extended",
+    "ts-exec-stack": "github:garronej/ts-exec-stack",
     "ts-promisify": "^2.0.0",
     "typescript": "^2.1.4"
   },

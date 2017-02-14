@@ -6,7 +6,6 @@ import {
     AtImps,
     MessageStat
 } from "at-messages-parser";
-import { SyncEvent } from "ts-events";
 import {
     decodePdu,
     buildSmsSubmitPdus,
@@ -16,6 +15,7 @@ import {
     ST_CLASS,
     stClassOf
 } from "node-python-messaging";
+import { SyncEvent } from "ts-events-extended";
 
 import * as promisify from "ts-promisify";
 

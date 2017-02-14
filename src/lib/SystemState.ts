@@ -1,5 +1,4 @@
 import { AtStack } from "./AtStack";
-import { SyncEvent, VoidSyncEvent } from "ts-events";
 import {
     atIdDict,
     AtMessage,
@@ -8,15 +7,15 @@ import {
     SysMode,
     SimState
 } from "at-messages-parser";
+import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 
 export class SystemState {
 
-    public readonly evtHasSim= new SyncEvent<boolean>();
-    public readonly evtReady= new VoidSyncEvent();
+    public readonly evtReportSimPresence= new SyncEvent<boolean>();
+    public readonly evtNetworkReady= new VoidSyncEvent();
 
-    public isReady: boolean= false;
+    public isNetworkReady: boolean= false;
     public isRoaming: boolean= undefined;
-
 
     public serviceStatus: ServiceStatus;
     public sysMode: SysMode;
@@ -35,31 +34,33 @@ export class SystemState {
 
         this.atStack.runCommand("AT^SYSINFO\r", output => {
 
-            let atMessageHuaweiSYSINFO = output.atMessage as AtImps.CX_SYSINFO_EXEC;
+            let cx_SYSINFO_EXEC = output.atMessage as AtImps.CX_SYSINFO_EXEC;
 
-            this.serviceStatus= atMessageHuaweiSYSINFO.serviceStatus;
-            this.sysMode= atMessageHuaweiSYSINFO.sysMode;
-            this.simState= atMessageHuaweiSYSINFO.simState;
-            this.isRoaming= atMessageHuaweiSYSINFO.isRoaming;
+            this.serviceStatus= cx_SYSINFO_EXEC.serviceStatus;
+            this.sysMode= cx_SYSINFO_EXEC.sysMode;
+            this.simState= cx_SYSINFO_EXEC.simState;
+            this.isRoaming= cx_SYSINFO_EXEC.isRoaming;
 
-            this.evtHasSim.post(this.simState !== SimState.NO_SIM );
+            this.evtReportSimPresence.post(this.simState !== SimState.NO_SIM );
 
-            this.checks();
+            this.checkIfReady();
 
         });
 
     }
 
-    private registerListeners(): void{
 
-        this.atStack.evtUnsolicitedMessage.attach( atMessage => {
 
-            switch( atMessage.id ){
-                case atIdDict.CX_SRVST_URC:
-                    this.serviceStatus = (atMessage as AtImps.CX_SRVST_URC).serviceStatus;
-                    break;
+    private registerListeners(): void {
+
+        this.atStack.evtUnsolicitedMessage.attach(atMessage => {
+
+            switch (atMessage.id) {
                 case atIdDict.CX_SIMST_URC:
                     this.simState = (atMessage as AtImps.CX_SIMST_URC).simState
+                    break;
+                case atIdDict.CX_SRVST_URC:
+                    this.serviceStatus = (atMessage as AtImps.CX_SRVST_URC).serviceStatus;
                     break;
                 case atIdDict.CX_MODE_URC:
                     this.sysMode = (atMessage as AtImps.CX_MODE_URC).sysMode;
@@ -67,37 +68,45 @@ export class SystemState {
                 default: return;
             }
 
-            this.checks();
+            console.log({
+                "simState": SimState[this.simState],
+                "serviceStatus": ServiceStatus[this.serviceStatus],
+                "sysMode": SysMode[this.sysMode]
+            });
+
+            this.checkIfReady();
 
         });
 
     }
 
-    private checks(): void {
-
-        if (this.serviceStatus !== ServiceStatus.VALID_SERVICES) {
-            this.isReady = false;
-            return;
-        }
-
-        if (this.sysMode === SysMode.NO_SERVICES) {
-            this.isReady = false;
-            return;
-        }
+    private checkIfReady(): void {
 
         if (this.simState !== SimState.VALID_SIM) {
-            this.isReady = false;
+            this.isNetworkReady = false;
             return;
         }
 
-        if (!this.isReady) {
+        if (this.serviceStatus !== ServiceStatus.VALID_SERVICES) {
+            this.isNetworkReady = false;
+            return;
+        }
 
-            this.isReady = true;
-            this.evtReady.post();
+
+        if (this.sysMode === SysMode.NO_SERVICES) {
+            this.isNetworkReady = false;
+            return;
+        }
+
+
+        if (!this.isNetworkReady) {
+
+            this.isNetworkReady = true;
+            this.evtNetworkReady.post();
+
 
         }
 
     }
-
 
 }

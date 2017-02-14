@@ -1,19 +1,12 @@
-import { ModemWatcher, Modem as ModemAccessPoint } from "gsm-modem-connection";
-import { Modem, pinStates } from "../lib/index";
+import { ModemWatcher, Modem as ModemAccessPoint} from "gsm-modem-connection";
+import { Modem, pinStates, CommandResp } from "../lib/index";
 import { MessageStat, AtMessageList, AtImps } from "at-messages-parser";
 import { CardStorage } from "../lib/CardStorage";
-
-
-let hexStr= CardStorage.encodeUCS2("Je suis dans le putin de truck, je suis dans le bailles @ moi le pouvoir");
-
-console.log(hexStr);
-
-let text= CardStorage.decodeUCS2(hexStr);
-
-console.log(text);
-
-
+import * as pr from "ts-promisify";
 require("colors");
+
+import { NumberingPlanIdentification, TypeOfNumber } from "at-messages-parser";
+
 
 let modemWatcher = new ModemWatcher();
 
@@ -72,135 +65,302 @@ modemWatcher.evtConnect.attach(accessPoint => {
         console.log("=>Modem ready");
 
 
-        /*
-        modem.runCommand(`AT+CPBW=150,"+33636786385",,"${"Joseph"}"\r`);
-        modem.runCommand("AT+CPMS?\r", output => console.log(output));
 
-        modem.runCommand("AT+CPBR=?\r", output => {
+        let allowedChar = [
+            'abcdefghijk',
+            'lmnopqrst',
+            'uvwxyz',
+            'ABCDEFG',
+            'HIJKLMNOP',
+            'QRSTUVWXYZ',
+            '0123456789',
+            '0 <',
+            '1 >',
+            '2 !',
+            '4 &',
+            '5 *',
+            '6 #',
+            '7 %',
+            '8 ,',
+            '9 ;',
+            '11 .',
+            "12 '",
+            "13 (",
+            "14 )",
+            "19 ?",
+            "22 -"
+        ];
 
-            let p_CPBR_TEST= output.atMessage as AtImps.P_CPBR_TEST;
+        let allowedAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789<>!&*#%,;.'()?-";
 
-            console.log("ok: ", p_CPBR_TEST);
+        let contactNames = [
+            "e",
+            "ae",
+            "aae",
+            "aaae",
+            "aaaae",
+            "aaaaae",
+            "aaaaaae",
+            "aaaaaaae",
+            "aaaaaaaae",
+            "aaaaaaaaae",
+            "aaaaaaaaaae",
+            "aaaaaaaaaaae",
+            "aaaaaaaaaaaaae",
+            "Joseph Garrone",
+            "Alex prepa 2",
+            "My love <3",
+            "Pascal @Boulot",
+            "Marie-Luce",
+            "Francoi_fillon"
+        ];
 
-            for( let i= p_CPBR_TEST.range[0]; i<= p_CPBR_TEST.range[1]; i++){
+        let generate = (length: number) => {
 
-                modem.runCommand(`AT+CPBR=${i}\r`,{ "unrecoverable": false, "retryCount": 0 }, output => {
+            let out: string[] = [];
 
-                    if( !output.isSuccess ) return;
+            let str = "";
 
-                    console.log(JSON.stringify(output, null, 2).blue);
+            for (let char of allowedAlphabet) {
 
-                });
+                str += char;
+
+                if (str.length === length) {
+
+                    out.push(str);
+
+                    str = "";
+
+                }
 
             }
 
-        });
-        */
+            if (str) out.push(str);
+
+            return out;
+
+        };
+
+        contactNames = contactNames.concat(generate(10));
+        contactNames = contactNames.concat(generate(11));
+        contactNames = contactNames.concat(generate(12));
+        contactNames = contactNames.concat(generate(13));
+        contactNames = contactNames.concat(generate(14));
 
 
-        /*
-        modem.runCommand(`AT+CSCS="${"UCS2"}"\r`);
-        modem.runCommand(`AT+CPBW=150,"+33636786385",,"${"610072006f00620061007300650020004000"}"\r`);
-        modem.runCommand("AT+CPBR=150\r", {
-            "unrecoverable": false,
-            "retryCount": 0
-        }, output => {
-
-            if (!output.isSuccess) {
-
-                console.log("ERROR: ".red, output.finalAtMessage);
-
-                return;
-            }
-
-            console.log(`SUCCESS:`.cyan, output.atMessage.raw)
-        });
-        */
+        let startIndex = 5;
 
 
-        /*
-        for (let from of ["IRA", "GSM"]) {
+        //store();
+        //checks();
+        //clearPhoneBookMemory();
+        //testGSM();
+        readContacts();
 
-            for (let text of ["arobase @", "et comercial &", "euro €"]) {
 
-                modem.runCommand(`AT+CSCS="${from}"\r`, () => {
-                    console.log(`text: '${text}'`.green);
-                });
-                modem.runCommand(`AT+CPBW=150,"+33636786385",,"${text}"\r`);
+        function clearPhoneBookMemory() {
+            (async () => {
 
-                for (let to of ["IRA", "GSM", "UCS2"]) {
-                    modem.runCommand(`AT+CSCS="${to}"\r`);
-                    modem.runCommand("AT+CPBR=150\r", {
-                        "unrecoverable": false,
-                        "retryCount": 0
-                    }, output => {
+                console.log("Start CLEAR");
+
+                let [output] = await pr.generic(modem, modem.runCommand)("AT+CPBR=?\r") as [CommandResp];
+
+                let p_CPBR_TEST = output.atMessage as AtImps.P_CPBR_TEST;
+
+                for (let i = p_CPBR_TEST.range[0]; i <= p_CPBR_TEST.range[1]; i++) {
+
+                    await pr.generic(modem, modem.runCommand)(`AT+CPBW=${i}\r`);
+
+                }
+
+                console.log("DONE CLEAR");
+
+            })();
+        }
+
+        function testGSM() {
+            (async () => {
+
+                console.log("Start TEST GSM");
+
+                let enc = "GSM";
+
+                await pr.generic(modem, modem.runCommand)(`AT+CSCS="${enc}"\r`);
+
+                for (let i = 0; i < allowedChar.length; i++) {
+
+                    let contactName = allowedChar[i];
+
+                    if (contactName.length % 2 === 1)
+                        contactName = contactName + " ";
+
+                    console.log(String.raw`Storing: "${contactName}" at index ${startIndex + i}`.blue);
+
+                    let [output] = await pr.generic(modem, modem.runCommand)(
+                        `AT+CPBW=${startIndex + i},"+33636786385",145,"${contactName}"\r`,
+                        { "retryCount": 0, "unrecoverable": false }
+                    ) as [CommandResp];
+
+                    if (!output.isSuccess) console.log(`failed: ${(output.finalAtMessage as AtImps.P_CME_ERROR).verbose}`.red);
+
+
+                }
+
+                console.log("END TEST GSM");
+
+
+            })();
+        }
+
+        function store() {
+
+            (async () => {
+
+                for (let enc of ["IRA", "GSM", "UCS2"]) {
+
+                    console.log(`Enc: ${enc}`.green);
+
+                    await pr.generic(modem, modem.runCommand)(`AT+CSCS="${enc}"\r`);
+
+                    for (let i = 0; i < contactNames.length; i++) {
+
+                        let contactName = contactNames[i];
+
+                        console.log(String.raw`Storing: "${contactName}" at index ${startIndex + i}`.blue);
+
+                        if (enc === "UCS2")
+                            contactName = CardStorage.encodeUCS2(contactName);
+                        await pr.generic(modem, modem.runCommand)(`AT+CPBW=${startIndex + i},"+33636786385",145,"${contactName}"\r`, { "retryCount": 0 });
+
+                    }
+
+                    startIndex += contactNames.length;
+
+                }
+
+                console.log("DONE".green);
+
+            })();
+
+        }
+
+        function checks() {
+            (async () => {
+
+                for (let enc of ["IRA", "GSM", "UCS2"]) {
+
+                    console.log(`Enc: ${enc}`.blue);
+
+                    await pr.generic(modem, modem.runCommand)(`AT+CSCS="${enc}"\r`);
+
+                    for (let i = 0; i < contactNames.length; i++) {
+
+
+                        let [output] = await pr.generic(modem, modem.runCommand)(
+                            `AT+CPBR=${startIndex + i}\r`,
+                            { "retryCount": 0, "unrecoverable": false }
+                        ) as [CommandResp];
+
 
                         if (!output.isSuccess) {
 
-                            console.log("ERREUR: ".red, output.finalAtMessage);
+                            console.log((output.finalAtMessage as AtImps.P_CME_ERROR).verbose.red);
 
-                            return;
+                            process.exit(1);
+
                         }
 
-                        console.log(`from: ${from}, to: ${to}:`.cyan, output.atMessage.raw)
-                    });
+                        let contactName = (output.atMessage as AtImps.P_CPBR_EXEC).text;
+
+                        if (enc === "UCS2")
+                            contactName = CardStorage.decodeUCS2(contactName);
+
+                        if (contactName === contactNames[i])
+                            console.log(String.raw`Pass: "${contactName}", index: ${startIndex + i}`.green);
+                        else {
+                            console.log(String.raw`Fail! read: "${contactName}", expect: "${contactNames[i]}", index: ${startIndex + i}`.red);
+                            if (contactName.length !== contactNames[i].length) {
+                                console.log(String.raw`read length: ${contactName.length}, expect length: ${contactNames[i].length}`.red);
+                            }
+                        }
+
+                    }
+
+                    startIndex += contactNames.length;
+
                 }
 
-            }
+                console.log("DONE".green);
+
+            })();
         }
-        */
+
+
 
 
         /*
-        for (let from of ["IRA"]) {
 
-            for (let text of [ "euro €"]) {
+        function selectBest(texts: { [enc: string]: string; }): string {
 
-                modem.runCommand(`AT+CSCS="${from}"\r`, () => {
-                    console.log(`text: '${text}'`.green);
-                });
-                modem.runCommand(`AT+CPBW=36,"+33636786385",,"${text}"\r`);
+            try {
 
-                for (let to of ["IRA","GSM"]) {
-                    modem.runCommand(`AT+CSCS="${to}"\r`);
-                    //modem.runCommand("AT+CPBR=34,37\r", {
-                    modem.runCommand("AT+CPBR=36\r", {
-                        "unrecoverable": false
-                    }, output => {
+                let scores: { [enc: string]: number; } = {};
 
-                        if( !output.isSuccess ){
+                let minScore = Number.MAX_SAFE_INTEGER;
+                let minEnc: Encoding = undefined;
 
-                            console.log(`from: ${from}, to: ${to}:`.cyan)
+                for (let enc of encodings) {
 
-                            console.log("ERREUR: ".red, output);
+                    if (typeof (texts[enc]) !== "string")
+                        continue;
 
-                            return;
-                        }
+                    scores[enc] = computeScore(texts[enc]);
 
-                        console.log(`from: ${from}, to: ${to}:`.cyan, output);
-                    });
+                    if (scores[enc] === 0)
+                        return texts[enc];
+
+                    if (scores[enc] < minScore) {
+                        minEnc = enc;
+                        minScore = scores[enc];
+                    }
+
                 }
 
+                return texts[minEnc];
+
+            } catch (error) {
+                return "";
             }
+
         }
-        */
-
-        /*
-
-        modem.runCommand("AT+CSCS=?\r", output => console.log("CSCS Test command (available values)".america, output)); //("IRA","GSM","UCS2")
-        modem.runCommand("AT+CSCS?\r", output => console.log("CSCS read command".random, output));
-        modem.runCommand("AT+CPBS?\r", output => console.log("CPBS read command".blue, output));
-        modem.runCommand("AT+CPBR=?\r", output => console.log("CPBR test command".green, output));
-        modem.runCommand("AT+CPBR=1,250\r", output => console.log("CPBR Exec command".cyan, output));
 
         */
+
+
+
+
+        type Encoding = "IRA" | "GSM" | "UCS2";
+
+        let encodings: Encoding[] = ["IRA", "GSM", "UCS2"];
+
+        interface Contact {
+            index: number;
+            number: string;
+            name?: string;
+            numberingPlanId: NumberingPlanIdentification;
+            typeOfNumber: TypeOfNumber;
+        }
+
+        function readContacts(): void {
+
+
+        }
+
 
         //modem.runCommand("AT+CNUM\r", output => console.log("CNUM :", (output.atMessage as any).atMessages));
 
-
         modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
         modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
-
 
         /*
 

@@ -1,4 +1,4 @@
-import { SyncEvent, VoidSyncEvent } from "ts-events";
+import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { AtStack } from "./AtStack";
 import {
     atIdDict,
