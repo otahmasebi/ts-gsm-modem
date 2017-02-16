@@ -1,5 +1,6 @@
 import { AtStack } from "./AtStack";
 import {
+    AtId,
     atIdDict,
     AtMessage,
     AtImps,
@@ -11,101 +12,97 @@ import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 
 export class SystemState {
 
-    public readonly evtReportSimPresence= new SyncEvent<boolean>();
-    public readonly evtNetworkReady= new VoidSyncEvent();
+    public readonly evtReportSimPresence = new SyncEvent<boolean>();
+    public isRoaming: boolean = undefined;
 
-    public isNetworkReady: boolean= false;
-    public isRoaming: boolean= undefined;
+    constructor(private readonly atStack: AtStack) {
 
-    public serviceStatus: ServiceStatus;
-    public sysMode: SysMode;
-    public simState: SimState;
-
-    constructor( private readonly atStack: AtStack ){
-
-        this.retrieveHuaweiSYSINFO();
-
-        this.registerListeners();
-
-    }
-
-
-    private retrieveHuaweiSYSINFO(): void {
+        this.atStack.evtUnsolicitedMessage.attach(atMessage => this.update(atMessage as any));
 
         this.atStack.runCommand("AT^SYSINFO\r", output => {
 
             let cx_SYSINFO_EXEC = output.atMessage as AtImps.CX_SYSINFO_EXEC;
 
-            this.serviceStatus= cx_SYSINFO_EXEC.serviceStatus;
-            this.sysMode= cx_SYSINFO_EXEC.sysMode;
-            this.simState= cx_SYSINFO_EXEC.simState;
-            this.isRoaming= cx_SYSINFO_EXEC.isRoaming;
+            this.isRoaming = cx_SYSINFO_EXEC.isRoaming;
 
-            this.evtReportSimPresence.post(this.simState !== SimState.NO_SIM );
+            this.evtReportSimPresence.post(cx_SYSINFO_EXEC.simState !== SimState.NO_SIM);
 
-            this.checkIfReady();
+            this.update({
+                "id": atIdDict.CX_SIMST_URC,
+                "simState": cx_SYSINFO_EXEC.simState
+            } as any);
 
-        });
+            this.update({
+                "id": atIdDict.CX_SRVST_URC,
+                "serviceStatus": cx_SYSINFO_EXEC.serviceStatus
+            } as any);
 
-    }
-
-
-
-    private registerListeners(): void {
-
-        this.atStack.evtUnsolicitedMessage.attach(atMessage => {
-
-            switch (atMessage.id) {
-                case atIdDict.CX_SIMST_URC:
-                    this.simState = (atMessage as AtImps.CX_SIMST_URC).simState
-                    break;
-                case atIdDict.CX_SRVST_URC:
-                    this.serviceStatus = (atMessage as AtImps.CX_SRVST_URC).serviceStatus;
-                    break;
-                case atIdDict.CX_MODE_URC:
-                    this.sysMode = (atMessage as AtImps.CX_MODE_URC).sysMode;
-                    break;
-                default: return;
-            }
-
-            console.log({
-                "simState": SimState[this.simState],
-                "serviceStatus": ServiceStatus[this.serviceStatus],
-                "sysMode": SysMode[this.sysMode]
-            });
-
-            this.checkIfReady();
+            this.update({
+                "id": atIdDict.CX_MODE_URC,
+                "sysMode": cx_SYSINFO_EXEC.sysMode
+            } as any);
 
         });
 
     }
 
-    private checkIfReady(): void {
+    public serviceStatus: ServiceStatus;
+    public sysMode: SysMode;
+    public simState: SimState;
 
-        if (this.simState !== SimState.VALID_SIM) {
-            this.isNetworkReady = false;
-            return;
+    public get isNetworkReady(): boolean {
+        return this.isValidSim && 
+        this.serviceStatus === ServiceStatus.VALID_SERVICES &&
+        this.sysMode !== SysMode.NO_SERVICES;
+    }
+
+    public readonly evtNetworkReady = new VoidSyncEvent();
+
+    public get isValidSim(): boolean { 
+        return this.simState === SimState.VALID_SIM; 
+    }
+    public readonly evtValidSim = new VoidSyncEvent();
+
+    private update(atMessage: AtMessage) {
+
+        switch (atMessage.id) {
+            case atIdDict.CX_SIMST_URC:
+                let simState = (atMessage as AtImps.CX_SIMST_URC).simState
+                if (!this.isValidSim) {
+                    this.simState = simState;
+                    if (this.isValidSim)
+                        this.evtValidSim.post();
+                } else this.simState = simState;
+                break;
+            case atIdDict.CX_SRVST_URC:
+                let serviceStatus = (atMessage as AtImps.CX_SRVST_URC).serviceStatus;
+                if (!this.isNetworkReady) {
+                    this.serviceStatus = serviceStatus;
+                    if (this.isNetworkReady)
+                        this.evtNetworkReady.post();
+                } else this.serviceStatus = serviceStatus;
+                break;
+            case atIdDict.CX_MODE_URC:
+                let sysMode = (atMessage as AtImps.CX_MODE_URC).sysMode;
+                if (!this.isNetworkReady) {
+                    this.sysMode = sysMode;
+                    if (this.isNetworkReady)
+                        this.evtNetworkReady.post();
+                } else this.sysMode = sysMode;
+                break;
+            default: return;
         }
 
-        if (this.serviceStatus !== ServiceStatus.VALID_SERVICES) {
-            this.isNetworkReady = false;
-            return;
-        }
-
-
-        if (this.sysMode === SysMode.NO_SERVICES) {
-            this.isNetworkReady = false;
-            return;
-        }
-
-
-        if (!this.isNetworkReady) {
-
-            this.isNetworkReady = true;
-            this.evtNetworkReady.post();
-
-
-        }
+        /*
+        console.log(JSON.stringify({
+            "atMessage": atMessage,
+            "isValidSim": this.isValidSim,
+            "isNetworkReady": this.isNetworkReady,
+            "simState": SimState[this.simState],
+            "serviceStatus": ServiceStatus[this.serviceStatus],
+            "sysMode": SysMode[this.sysMode]
+        }, null, 2));
+        */
 
     }
 
