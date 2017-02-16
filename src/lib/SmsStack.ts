@@ -1,4 +1,4 @@
-import { AtStack, CommandResp } from "./AtStack";
+import { AtStack } from "./AtStack";
 import {
     atIdDict,
     AtMessage,
@@ -15,9 +15,10 @@ import {
     ST_CLASS,
     stClassOf
 } from "node-python-messaging";
+import { execStack } from "ts-exec-stack";
 import { SyncEvent } from "ts-events-extended";
 
-import * as promisify from "ts-promisify";
+import * as pr from "ts-promisify";
 
 require("colors");
 
@@ -59,9 +60,8 @@ export class SmsStack {
 
     private retrieveUnreadSms(): void {
 
-        this.atStack.runCommand(`AT+CMGL=${MessageStat.ALL}\r`, output => {
-
-            let atList = output.atMessage as AtMessageList;
+        this.atStack.runCommand(`AT+CMGL=${MessageStat.ALL}\r`, 
+        (atList: AtMessageList) => {
 
             if (!atList) return;
 
@@ -123,64 +123,62 @@ export class SmsStack {
         [mr: number]: number;
     } = {};
 
-    public sendMessage(
-        number: string,
-        text: string,
-        callback?: (messageId: number) => void
-    ): void {
-        (async () => {
+    public sendMessage = execStack(
+        (number: string,
+            text: string,
+            callback?: (messageId: number) => void
+        ): void => {
+            (async () => {
 
-            callback = callback || function () { };
+                let [error, pdus] = await pr.typed(buildSmsSubmitPdus)({
+                    "number": number,
+                    "text": text,
+                    "request_status": true
+                });
 
-            let [error, pdus] = await promisify.typed(buildSmsSubmitPdus)({
-                "number": number,
-                "text": text,
-                "request_status": true
-            });
+                if (error) throw error;
 
-            if (error) throw error;
+                let messageId = this.generateMessageId();
 
-            let messageId = this.generateMessageId();
+                for (let pduWrap of pdus) {
 
-            for (let pduWrap of pdus) {
+                    this.atStack.runCommand(`AT+CMGS=${pduWrap.length}\r`);
 
-                this.atStack.runCommand(`AT+CMGS=${pduWrap.length}\r`);
+                    let [resp] = await pr.typed(
+                        this.atStack,
+                        this.atStack.runCommandExt
+                    )(`${pduWrap.pdu}\u001a`, {
+                        "recoverable": true,
+                    });
 
-                let [output] = await promisify.generic(
-                    this.atStack,
-                    this.atStack.runCommand
-                )(`${pduWrap.pdu}\u001a`, {
-                    "unrecoverable": false,
-                    "retryCount": 0
-                }) as [CommandResp];
+                    if (!resp) {
 
-                if (!output.isSuccess) {
+                        for (let mr of Object.keys(this.mrMessageIdMap))
+                            if (this.mrMessageIdMap[mr] === messageId)
+                                delete this.mrMessageIdMap[mr];
 
-                    for (let mr of Object.keys(this.mrMessageIdMap))
-                        if (this.mrMessageIdMap[mr] === messageId)
-                            delete this.mrMessageIdMap[mr];
+                        callback(null);
 
-                    callback(null);
+                        return;
+                    }
 
-                    return;
+                    let p_CMGS_SET = resp as AtImps.P_CMGS_SET;
+
+                    this.mrMessageIdMap[p_CMGS_SET.mr] = messageId;
+
                 }
 
-                let atMessageCMGS = output.atMessage as AtImps.P_CMGS_SET;
+                this.statusReportMap[messageId] = {
+                    "cnt": pdus.length,
+                    "completed": 0
+                };
 
-                this.mrMessageIdMap[atMessageCMGS.mr] = messageId;
+                callback(messageId);
 
-            }
+            })();
 
-            this.statusReportMap[messageId] = {
-                "cnt": pdus.length,
-                "completed": 0
-            };
-
-            callback(messageId);
-
-        })();
-    }
-
+        }
+    );
 
     private registerListeners(): void {
 
@@ -288,21 +286,19 @@ export class SmsStack {
 
     private retrieveSms(index: number): void {
 
-        this.atStack.runCommand(`AT+CMGR=${index}\r`, output => {
+        this.atStack.runCommand(`AT+CMGR=${index}\r`, 
+        (resp: AtImps.P_CMGR_SET) => {
 
-            let p_CMGR_SET = output.atMessage as AtImps.P_CMGR_SET;
+            if (!resp) return;
 
-            if (!p_CMGR_SET) return;
+            if (resp.stat !== MessageStat.REC_UNREAD) return;
 
-            if (p_CMGR_SET.stat !== MessageStat.REC_UNREAD) return;
-
-            decodePdu(p_CMGR_SET.pdu, (error, sms) => {
+            decodePdu(resp.pdu, (error, sms) => {
 
                 if (error) {
-                    console.log("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
+                    console.log("PDU not decrypted: ".red, resp.pdu, error);
                     this.atStack.runCommand(`AT+CMGD=${index}\r`);
                     return;
-
                 }
 
                 switch (sms.type) {

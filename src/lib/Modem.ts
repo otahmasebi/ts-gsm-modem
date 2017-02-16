@@ -1,6 +1,5 @@
-import { AtStack, RunCommandParam, CommandResp } from "./AtStack";
+import { AtStack } from "./AtStack";
 import { AtMessage, ReportMode } from "at-messages-parser";
-
 import { SystemState } from "./SystemState";
 import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 import { CardStorage, Contact } from "./CardStorage";
@@ -19,7 +18,6 @@ process.on("unhandledRejection", error=> {
 
 export class Modem {
 
-
     private atStack: AtStack;
 
     public readonly evtUnsolicitedAtMessage: 
@@ -27,7 +25,16 @@ export class Modem {
 
     constructor(atInterface: string, private readonly pin?: string) {
 
-        this.atStack = new AtStack(atInterface, { "reportMode": ReportMode.DEBUG_INFO_CODE });
+        this.atStack = new AtStack(atInterface);
+
+        this.atStack.evtError.attach(error => {
+
+                //TODO empty stack
+
+                console.log(`ERROR AT STACK: `.yellow, error);
+                process.exit(1);
+
+        });
 
         this.atStack.evtUnsolicitedMessage.attach(atMessage => this.evtUnsolicitedAtMessage.post(atMessage));
 
@@ -41,33 +48,31 @@ export class Modem {
 
     private systemState: SystemState;
     public readonly evtNoSim = new VoidSyncEvent();
-    public readonly evtValidSim: 
-    typeof SystemState.prototype.evtValidSim= new VoidSyncEvent();
+    public readonly evtValidSim:
+    typeof SystemState.prototype.evtValidSim = new VoidSyncEvent();
 
     private initSystemState() {
 
-            this.systemState = new SystemState(this.atStack);
+        this.systemState = new SystemState(this.atStack);
 
-            this.systemState.evtReportSimPresence.attachOnce(hasSim => {
+        this.systemState.evtReportSimPresence.attachOnce(hasSim => {
 
-                if (!hasSim) {
-                    this.evtNoSim.post();
-                    return;
-                }
+            if (!hasSim) {
+                this.evtNoSim.post();
+                return;
+            }
 
-                this.initCardLockFacility.post();
+            this.initCardLockFacility.post();
 
-            });
+        });
 
-            this.systemState.evtValidSim.attach(()=> this.evtValidSim.post());
+        this.systemState.evtValidSim.attach(() => this.evtValidSim.post());
 
     }
 
-
-
     private cardLockFacility: CardLockFacility;
 
-    public readonly evtUnlockCodeRequest: 
+    public readonly evtUnlockCodeRequest:
     typeof CardLockFacility.prototype.evtUnlockCodeRequest = new SyncEvent<UnlockCodeRequest>();
 
     private initCardLockFacility = (() => {
@@ -85,12 +90,14 @@ export class Modem {
 
             });
 
-            this.cardLockFacility.evtPinStateReady.attachOnce(this, function callee(){
+            this.cardLockFacility.evtPinStateReady.attachOnce(this, function callee() {
 
-                let self= this as Modem;
+                let self = this as Modem;
 
-                if( !self.systemState.isValidSim ){
-                    self.systemState.evtValidSim.attachOnce(()=> callee.call(self));
+                self.atStack.runCommand("AT+CNUM\r", function(){console.log(arguments)});
+
+                if (!self.systemState.isValidSim) {
+                    self.systemState.evtValidSim.attachOnce(() => callee.call(self));
                     return;
                 }
 
@@ -137,25 +144,26 @@ export class Modem {
 
     })();
 
-    public sendMessage = execStack(function callee(...inputs) {
 
-        let self = this as Modem;
+    public sendMessage: typeof SmsStack.prototype.sendMessage =
+    ((...inputs)=>{
 
-        if (!self.smsStack) {
-            self.initSmsStack.attachOnce(()=> callee.apply(self, inputs));
+        if (!this.smsStack) {
+            this.initSmsStack.attachOnce(() => this.sendMessage.apply(this, inputs));
             return;
         }
 
-        if (!self.systemState.isNetworkReady) {
-            self.systemState.evtNetworkReady.attachOnce(() => callee.apply(self, inputs));
+        if (!this.systemState.isNetworkReady) {
+            this.systemState.evtNetworkReady.attachOnce(() => this.sendMessage.apply(this, inputs));
             return;
         }
 
-        //TODO check if networkReady => pinStateReady
+        this.smsStack.sendMessage.apply(this.smsStack, inputs);
 
-        self.smsStack.sendMessage.apply(self.smsStack, inputs);
+        if (!this.sendMessage.stack)
+            this.sendMessage.stack = this.smsStack.sendMessage.stack;
 
-    } as typeof SmsStack.prototype.sendMessage);
+    }) as any;
 
 
 
@@ -165,14 +173,16 @@ export class Modem {
     public readonly evtCardStorageReady: typeof CardStorage.prototype.evtReady =
     new VoidSyncEvent();
 
-    private initCardStorage= (()=>{
-        let out= new VoidSyncEvent();
+    //TODO do not propagate stack
 
-        out.attachOnce(()=>{
+    private initCardStorage = (() => {
+        let out = new VoidSyncEvent();
+
+        out.attachOnce(() => {
 
             this.cardStorage = new CardStorage(this.atStack);
 
-            this.cardStorage.evtReady.attachOnce(()=> this.evtCardStorageReady.post());
+            this.cardStorage.evtReady.attachOnce(() => this.evtCardStorageReady.post());
 
         });
 
@@ -180,91 +190,89 @@ export class Modem {
     })();
 
     public get contacts(): typeof CardStorage.prototype.contacts {
-        try{ return this.cardStorage.contacts; }catch(error){ return undefined; }
+        try { return this.cardStorage.contacts; } catch (error) { return undefined; }
     }
 
 
     public get contactNameMaxLength(): typeof CardStorage.prototype.contactNameMaxLength {
-        try{ return this.cardStorage.contactNameMaxLength; }catch(error){ return undefined; }
+        try { return this.cardStorage.contactNameMaxLength; } catch (error) { return undefined; }
     }
 
     public get numberMaxLength(): typeof CardStorage.prototype.contactNameMaxLength {
-        try{ return this.cardStorage.numberMaxLength; }catch(error){ return undefined; }
+        try { return this.cardStorage.numberMaxLength; } catch (error) { return undefined; }
     }
 
     public get storageLeft(): typeof CardStorage.prototype.storageLeft {
-        try{ return this.cardStorage.storageLeft; }catch(error){ return undefined; }
+        try { return this.cardStorage.storageLeft; } catch (error) { return undefined; }
     }
 
-    public generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName= 
-    (...inputs)=> this.cardStorage.generateSafeContactName.apply(this.cardStorage, inputs);
+    public generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName =
+    (...inputs) => this.cardStorage.generateSafeContactName.apply(this.cardStorage, inputs);
 
 
     public getContact: typeof CardStorage.prototype.getContact =
     (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
     public createContact: typeof CardStorage.prototype.createContact =
-    ((...inputs)=> {
+    ((...inputs) => {
 
-            if (!this.cardStorage) {
-                this.initCardStorage.attachOnce(() => this.createContact.apply(self, inputs));
-                return;
-            }
+        if (!this.cardStorage) {
+            this.initCardStorage.attachOnce(() => this.createContact.apply(self, inputs));
+            return;
+        }
 
-            if (!this.cardStorage.isReady) {
-                this.cardStorage.evtReady.attachOnce(() => this.createContact.apply(self, inputs));
-                return;
-            }
+        if (!this.cardStorage.isReady) {
+            this.cardStorage.evtReady.attachOnce(() => this.createContact.apply(self, inputs));
+            return;
+        }
 
-            this.cardStorage.createContact.apply(this.cardStorage, inputs);
+        this.cardStorage.createContact.apply(this.cardStorage, inputs);
 
-            if (!this.createContact.stack )
-                this.createContact.stack = this.cardStorage.createContact.stack; 
+        if (!this.createContact.stack)
+            this.createContact.stack = this.cardStorage.createContact.stack;
 
     }) as any;
 
 
     public updateContact: typeof CardStorage.prototype.updateContact =
-    ((...inputs)=> {
+    ((...inputs) => {
 
-            if (!this.cardStorage) {
-                this.initCardStorage.attachOnce(() => this.updateContact.apply(self, inputs));
-                return;
-            }
+        if (!this.cardStorage) {
+            this.initCardStorage.attachOnce(() => this.updateContact.apply(self, inputs));
+            return;
+        }
 
-            if (!this.cardStorage.isReady) {
-                this.cardStorage.evtReady.attachOnce(() => this.updateContact.apply(self, inputs));
-                return;
-            }
+        if (!this.cardStorage.isReady) {
+            this.cardStorage.evtReady.attachOnce(() => this.updateContact.apply(self, inputs));
+            return;
+        }
 
-            this.cardStorage.updateContact.apply(this.cardStorage, inputs);
+        this.cardStorage.updateContact.apply(this.cardStorage, inputs);
 
-            if (!this.updateContact.stack )
-                this.updateContact.stack = this.cardStorage.updateContact.stack; 
+        if (!this.updateContact.stack)
+            this.updateContact.stack = this.cardStorage.updateContact.stack;
 
     }) as any;
 
 
     public deleteContact: typeof CardStorage.prototype.deleteContact =
-    ((...inputs)=> {
+    ((...inputs) => {
 
-            if (!this.cardStorage) {
-                this.initCardStorage.attachOnce(() => this.deleteContact.apply(self, inputs));
-                return;
-            }
+        if (!this.cardStorage) {
+            this.initCardStorage.attachOnce(() => this.deleteContact.apply(self, inputs));
+            return;
+        }
 
-            if (!this.cardStorage.isReady) {
-                this.cardStorage.evtReady.attachOnce(() => this.deleteContact.apply(self, inputs));
-                return;
-            }
+        if (!this.cardStorage.isReady) {
+            this.cardStorage.evtReady.attachOnce(() => this.deleteContact.apply(self, inputs));
+            return;
+        }
 
-            this.cardStorage.deleteContact.apply(this.cardStorage, inputs);
+        this.cardStorage.deleteContact.apply(this.cardStorage, inputs);
 
-            if (!this.deleteContact.stack )
-                this.deleteContact.stack = this.cardStorage.deleteContact.stack; 
+        if (!this.deleteContact.stack)
+            this.deleteContact.stack = this.cardStorage.deleteContact.stack;
 
     }) as any;
-
-
 
 }

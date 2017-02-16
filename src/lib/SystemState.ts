@@ -19,27 +19,26 @@ export class SystemState {
 
         this.atStack.evtUnsolicitedMessage.attach(atMessage => this.update(atMessage as any));
 
-        this.atStack.runCommand("AT^SYSINFO\r", output => {
+        this.atStack.runCommand("AT^SYSINFO\r", 
+        (resp: AtImps.CX_SYSINFO_EXEC) => {
 
-            let cx_SYSINFO_EXEC = output.atMessage as AtImps.CX_SYSINFO_EXEC;
+            this.isRoaming = resp.isRoaming;
 
-            this.isRoaming = cx_SYSINFO_EXEC.isRoaming;
-
-            this.evtReportSimPresence.post(cx_SYSINFO_EXEC.simState !== SimState.NO_SIM);
+            this.evtReportSimPresence.post(resp.simState !== SimState.NO_SIM);
 
             this.update({
                 "id": atIdDict.CX_SIMST_URC,
-                "simState": cx_SYSINFO_EXEC.simState
+                "simState": resp.simState
             } as any);
 
             this.update({
                 "id": atIdDict.CX_SRVST_URC,
-                "serviceStatus": cx_SYSINFO_EXEC.serviceStatus
+                "serviceStatus": resp.serviceStatus
             } as any);
 
             this.update({
                 "id": atIdDict.CX_MODE_URC,
-                "sysMode": cx_SYSINFO_EXEC.sysMode
+                "sysMode": resp.sysMode
             } as any);
 
         });

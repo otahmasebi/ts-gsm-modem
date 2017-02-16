@@ -1,5 +1,5 @@
 import { ModemWatcher, Modem as ModemAccessPoint} from "gsm-modem-connection";
-import { Modem, pinStates, CommandResp } from "../lib/index";
+import { Modem, pinStates } from "../lib/index";
 import { MessageStat, AtMessageList, AtImps } from "at-messages-parser";
 import { CardStorage } from "../lib/CardStorage";
 import * as pr from "ts-promisify";
@@ -68,6 +68,8 @@ modemWatcher.evtConnect.attach(accessPoint => {
     //modem.evtCardStorageReady.attach(()=> console.log(modem.contacts) );
 
     modem.evtCardStorageReady.attachOnce(()=>{
+
+        
 
         console.log("Storage ready");
 

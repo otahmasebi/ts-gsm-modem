@@ -1,5 +1,5 @@
 
-import { AtStack, CommandResp } from "./AtStack";
+import { AtStack } from "./AtStack";
 import { 
     AtImps, 
     NumberingPlanIdentification, 
@@ -122,20 +122,20 @@ export class CardStorage {
 
         this.atStack.runCommand(`AT+CSCS="GSM"\r`);
 
-        this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`, output => {
+        this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`, 
+        () => {
 
             this.atStack.runCommand(`AT+CSCS="GSM"\r`);
 
-            this.atStack.runCommand(`AT+CPBR=${index}\r`, output => {
-
-                let p_CPBR_EXEC = output.atMessage as AtImps.P_CPBR_EXEC;
+            this.atStack.runCommand(`AT+CPBR=${index}\r`, 
+            (resp: AtImps.P_CPBR_EXEC) => {
 
                 let contact = {
                     "index": index,
-                    "number": p_CPBR_EXEC.number,
-                    "name": p_CPBR_EXEC.text,
-                    "numberingPlanId": p_CPBR_EXEC.numberingPlanId,
-                    "typeOfNumber": p_CPBR_EXEC.typeOfNumber
+                    "number": resp.number,
+                    "name": resp.text,
+                    "numberingPlanId": resp.numberingPlanId,
+                    "typeOfNumber": resp.typeOfNumber
                 };
 
                 if( !contact.name )
@@ -188,15 +188,14 @@ export class CardStorage {
 
         this.atStack.runCommand(`AT+CSCS="${enc}"\r`);
 
-        this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`, output => {
+        this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`, () => {
 
             this.atStack.runCommand(`AT+CSCS="${enc}"\r`);
 
-            this.atStack.runCommand(`AT+CPBR=${index}\r`,  output  => {
+            this.atStack.runCommand(`AT+CPBR=${index}\r`,  
+            (resp: AtImps.P_CPBR_EXEC)  => {
 
-                let p_CPBR_EXEC = output.atMessage as AtImps.P_CPBR_EXEC;
-
-                let contactName= p_CPBR_EXEC.text || "";
+                let contactName= resp.text || "";
 
                 if( !contactName )
                     enc= "GSM";
@@ -207,8 +206,8 @@ export class CardStorage {
                     "index": index,
                     "number": number,
                     "name": contactName,
-                    "numberingPlanId": p_CPBR_EXEC.numberingPlanId,
-                    "typeOfNumber": p_CPBR_EXEC.typeOfNumber
+                    "numberingPlanId": resp.numberingPlanId,
+                    "typeOfNumber": resp.typeOfNumber
                 };
 
                 if( !contactName )
@@ -228,7 +227,8 @@ export class CardStorage {
         if( !this.contactMap[index] )
             throw new Error("Contact does not exists");
 
-        this.atStack.runCommand(`AT+CPBW=${index}\r`, () => {
+        this.atStack.runCommand(`AT+CPBW=${index}\r`, 
+        () => {
             delete this.contactMap[index];
             callback();
         });
@@ -293,12 +293,12 @@ export class CardStorage {
 
         (async () => {
 
-            let [output] = await pr.generic(
+            let [resp]= await pr.typed(
                 this.atStack,
-                this.atStack.runCommand
-            )("AT+CPBR=?\r") as [CommandResp];
+                this.atStack.runCommandSimple
+            )("AT+CPBR=?\r");
 
-            this.p_CPBR_TEST = output.atMessage as AtImps.P_CPBR_TEST;
+            this.p_CPBR_TEST = resp as AtImps.P_CPBR_TEST;
 
             let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
 
@@ -308,23 +308,16 @@ export class CardStorage {
 
                     if (this.contactMap[index]) continue;
 
-                    //TODO retry if specific error code
-                    //TODO sore debug mode on the go
-                    //TODO run this command with debug enable
-
                     this.atStack.runCommand(`AT+CSCS="${enc}"\r`);
 
-                    let [output] = await pr.generic(
+                    let [resp] = await pr.typed(
                         this.atStack,
-                        this.atStack.runCommand
-                    )(`AT+CPBR=${index}\r`, {
-                        "unrecoverable": false,
-                        "retryCount": 0
-                    }) as [CommandResp];
+                        this.atStack.runCommandExt
+                    )(`AT+CPBR=${index}\r`,{"recoverable": true});
 
-                    if (!output.isSuccess) continue;
+                    if (!resp) continue;
 
-                    let p_CPBR_EXEC = output.atMessage as AtImps.P_CPBR_EXEC;
+                    let p_CPBR_EXEC = resp as AtImps.P_CPBR_EXEC;
 
                     let text = p_CPBR_EXEC.text;
 
@@ -474,8 +467,6 @@ export class CardStorage {
         return 100 * (this.countFFFD(text) + this.countUnprintableChar(text)) - text.length;
 
     }
-
-
 
 
 }

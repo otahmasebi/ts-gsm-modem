@@ -22,7 +22,7 @@ export class CardLockFacility {
 
     constructor(private readonly atStack: AtStack) {
 
-        this.retrieveHuaweiCPIN();
+        this.retrieveCX_CPIN_READ();
 
     }
 
@@ -58,25 +58,27 @@ export class CardLockFacility {
 
     }
 
-    private atMessageHuaweiCPIN: AtImps.CX_CPIN_READ;
+    private cx_CPIN_READ: AtImps.CX_CPIN_READ;
 
-    private get pinState(): PinState { return this.atMessageHuaweiCPIN.pinState; }
+    private get pinState(): PinState { return this.cx_CPIN_READ.pinState; }
 
-    private get times(): number { return this.atMessageHuaweiCPIN.times; }
+    private get times(): number { return this.cx_CPIN_READ.times; }
 
     private retrieving = true;
 
-    private retrieveHuaweiCPIN(): void {
+    private retrieveCX_CPIN_READ(): void {
 
         this.retrieving = true;
 
-        this.atStack.runCommand("AT^CPIN?\r", output => {
+        this.atStack.runCommand("AT^CPIN?\r", 
+        (resp: AtImps.CX_CPIN_READ)=>{
 
             this.retrieving = false;
 
-            this.atMessageHuaweiCPIN = output.atMessage as AtImps.CX_CPIN_READ;
+            this.cx_CPIN_READ = resp;
 
-            if (this.pinState === "READY") return this.evtPinStateReady.post();
+            if (this.pinState === "READY") 
+                return this.evtPinStateReady.post();
 
             this.evtUnlockCodeRequest.post({
                 "pinState": this.pinState,
@@ -84,6 +86,9 @@ export class CardLockFacility {
             });
 
         });
+
+
+
 
     }
 
@@ -98,15 +103,15 @@ export class CardLockFacility {
         this.unlocking = true;
 
         this.atStack.runCommand(`AT+CPIN=${pin}\r`, {
-            "unrecoverable": false,
-            "retryCount": 0
-        }, output => {
+            "recoverable": true,
+        }, (_, final) => {
 
             this.unlocking = false;
 
-            if( output.isSuccess ) return this.evtPinStateReady.post();
+            if( !final.isError ) 
+                return this.evtPinStateReady.post();
 
-            this.retrieveHuaweiCPIN();
+            this.retrieveCX_CPIN_READ();
 
         });
 
@@ -122,15 +127,15 @@ export class CardLockFacility {
         this.unlocking = true;
 
         this.atStack.runCommand(`AT+CPIN=${puk},${newPin}\r`, {
-            "unrecoverable": false,
-            "retryCount": 0
-        }, output => {
+            "recoverable": true,
+        }, (_, resp) => {
 
             this.unlocking = false;
 
-            if( output.isSuccess ) return this.evtPinStateReady.post();
+            if (!resp.isError)
+                return this.evtPinStateReady.post();
 
-            this.retrieveHuaweiCPIN();
+            this.retrieveCX_CPIN_READ();
 
         });
 
