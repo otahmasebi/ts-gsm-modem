@@ -7,13 +7,14 @@ import {
     MessageStat
 } from "at-messages-parser";
 import {
-    decodePdu,
-    buildSmsSubmitPdus,
-    Sms,
-    TP_ST,
+    SmsDeliver, 
+    SmsDeliverPart, 
+    SmsStatusReport, 
     TP_MTI,
-    ST_CLASS,
-    stClassOf
+    TP_ST, 
+    ST_CLASS, 
+    decodePdu, 
+    buildSmsSubmitPdus 
 } from "node-python-messaging";
 import { execStack } from "ts-exec-stack";
 import { SyncEvent } from "ts-events-extended";
@@ -40,11 +41,11 @@ export class SmsStack {
     public readonly evtMessage = new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
 
-    private evtSmsDeliver = new SyncEvent<[number, Sms]>();
-    private evtSmsStatusReport = new SyncEvent<Sms>();
+    private evtSmsDeliver = new SyncEvent<[number, SmsDeliver| SmsDeliverPart]>();
+    private evtSmsStatusReport = new SyncEvent<SmsStatusReport>();
     private readonly concatenatedSmsMap: {
         [ref: number]: {
-            [seq: number]: [number, Sms]
+            [seq: number]: [number, SmsDeliverPart]
         }
     } = {};
 
@@ -61,42 +62,34 @@ export class SmsStack {
     private retrieveUnreadSms(): void {
 
         this.atStack.runCommand(`AT+CMGL=${MessageStat.ALL}\r`, 
-        (atList: AtMessageList) => {
+        (atList: AtMessageList | undefined) => {
 
             if (!atList) return;
 
-            for (let atMessage of atList.atMessages) {
-
-                let p_CMGL_SET = atMessage as AtImps.P_CMGL_SET;
+            for (let p_CMGL_SET of atList.atMessages as AtImps.P_CMGL_SET[]) {
 
                 if (
                     p_CMGL_SET.stat !== MessageStat.REC_READ &&
                     p_CMGL_SET.stat !== MessageStat.REC_UNREAD
                 ) {
-
                     this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
                     return;
                 }
 
                 decodePdu(p_CMGL_SET.pdu, (error, sms) => {
 
-
                     if (error) {
                         console.log("PDU not decrypted: ".red, p_CMGL_SET.pdu, error);
                         this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
                         return;
-
                     }
 
-                    switch (sms.type) {
-                        case TP_MTI.SMS_DELIVER:
-                            this.evtSmsDeliver.post([p_CMGL_SET.index, sms]);
-                            return;
-                        case TP_MTI.SMS_STATUS_REPORT:
+                    if( sms instanceof SmsStatusReport ){
                             this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
                             return;
                     }
 
+                    this.evtSmsDeliver.post([p_CMGL_SET.index, sms as SmsDeliver | SmsDeliverPart]);
 
                 });
 
@@ -130,6 +123,8 @@ export class SmsStack {
         ): void => {
             (async () => {
 
+                let safeCallback= callback || function(){};
+
                 let [error, pdus] = await pr.typed(buildSmsSubmitPdus)({
                     "number": number,
                     "text": text,
@@ -149,7 +144,7 @@ export class SmsStack {
                         this.atStack.runCommandExt
                     )(`${pduWrap.pdu}\u001a`, {
                         "recoverable": true,
-                    });
+                    }) as [ AtImps.P_CMGS_SET | undefined ];
 
                     if (!resp) {
 
@@ -157,14 +152,12 @@ export class SmsStack {
                             if (this.mrMessageIdMap[mr] === messageId)
                                 delete this.mrMessageIdMap[mr];
 
-                        callback(null);
+                        safeCallback(NaN);
 
                         return;
                     }
 
-                    let p_CMGS_SET = resp as AtImps.P_CMGS_SET;
-
-                    this.mrMessageIdMap[p_CMGS_SET.mr] = messageId;
+                    this.mrMessageIdMap[resp.mr] = messageId;
 
                 }
 
@@ -173,7 +166,7 @@ export class SmsStack {
                     "completed": 0
                 };
 
-                callback(messageId);
+                safeCallback(messageId);
 
             })();
 
@@ -182,38 +175,42 @@ export class SmsStack {
 
     private registerListeners(): void {
 
-        this.evtSmsStatusReport.attach(sms => {
+        this.atStack.evtUnsolicitedMessage.attach(urc => {
 
-            let messageId = this.mrMessageIdMap[sms.ref];
+            switch (urc.id) {
+                case atIdDict.P_CMTI_URC:
+                    this.retrieveSms((urc as AtImps.P_CMTI_URC).index);
+                    break;
+                case atIdDict.P_CDSI_URC:
+                    this.retrieveSms((urc as AtImps.P_CDSI_URC).index);
+                    break;
+            }
+
+        });
+
+        this.evtSmsStatusReport.attach(smsStatusReport => {
+
+            let messageId = this.mrMessageIdMap[smsStatusReport.ref];
 
             if (!messageId) return;
 
-            let statusReport: StatusReport;
+            let isDelivered: boolean= true;
 
-            switch (stClassOf(sms.sr.status)) {
-                case ST_CLASS.RESERVED:
-                case ST_CLASS.STILL_TRYING: return;
-                case ST_CLASS.PERMANENT_ERROR:
-                case ST_CLASS.TEMPORARY_ERROR:
-                case ST_CLASS.SPECIFIC_TO_SC:
-                    statusReport = {
-                        "messageId": messageId,
-                        "dischargeTime": sms.sr.dt,
-                        "isDelivered": false,
-                        "status": TP_ST[sms.sr.status]
-                    };
+            switch( smsStatusReport._stClass ){
+                case "RESERVED":
+                case "STILL TRYING": return;
+                case "PERMANENT ERROR":
+                case "TEMPORARY ERROR":
+                case "SPECIFIC TO SC":
+                    isDelivered= false;
                     break;
-                case ST_CLASS.COMPLETED:
+                case "COMPLETED": 
                     let elem = this.statusReportMap[messageId];
-                    if (++elem.completed !== elem.cnt)
-                        return;
-                    statusReport = {
-                        "messageId": messageId,
-                        "dischargeTime": sms.sr.dt,
-                        "isDelivered": true,
-                        "status": TP_ST[sms.sr.status]
-                    };
+                    if (++elem.completed !== elem.cnt) return;
+                    isDelivered= true;
+                    break;
             }
+            
 
             for (let mr of Object.keys(this.mrMessageIdMap))
                 if (this.mrMessageIdMap[mr] === messageId)
@@ -221,41 +218,46 @@ export class SmsStack {
 
             delete this.statusReportMap[messageId];
 
-            this.evtMessageStatusReport.post(statusReport);
+            this.evtMessageStatusReport.post({
+                        "messageId": messageId,
+                        "dischargeTime": smsStatusReport.sr.dt,
+                        "isDelivered": isDelivered,
+                        "status": TP_ST[smsStatusReport.sr.status]
+            });
 
         });
 
-        this.evtSmsDeliver.attach(([index, sms]) => {
+        this.evtSmsDeliver.attach(([index, smsDeliver]) => {
 
-            if (typeof (sms.ref) !== "number") {
+            if (!(smsDeliver instanceof SmsDeliverPart)) {
 
                 this.evtMessage.post({
-                    "number": sms.number,
-                    "date": sms.date,
-                    "text": sms.text
+                    "number": smsDeliver.number,
+                    "date": smsDeliver.date,
+                    "text": smsDeliver.text
                 });
                 this.atStack.runCommand(`AT+CMGD=${index}\r`);
                 return;
 
             }
 
-            if (!this.concatenatedSmsMap[sms.ref])
-                this.concatenatedSmsMap[sms.ref] = {};
+            if (!this.concatenatedSmsMap[smsDeliver.ref])
+                this.concatenatedSmsMap[smsDeliver.ref] = {};
 
-            this.concatenatedSmsMap[sms.ref][sms.seq] = [index, sms]
+            this.concatenatedSmsMap[smsDeliver.ref][smsDeliver.seq] = [index, smsDeliver];
 
-            if (Object.keys(this.concatenatedSmsMap[sms.ref]).length !== sms.cnt)
+            if (Object.keys(this.concatenatedSmsMap[smsDeliver.ref]).length !== smsDeliver.cnt)
                 return;
 
             let concatMessage: Message = {
-                "number": sms.number,
-                "date": sms.date,
+                "number": smsDeliver.number,
+                "date": smsDeliver.date,
                 "text": ""
             };
 
-            let ref = sms.ref;
+            let ref = smsDeliver.ref;
 
-            for (let seq = 1; seq <= sms.cnt; seq++) {
+            for (let seq = 1; seq <= smsDeliver.cnt; seq++) {
                 let [index, sms] = this.concatenatedSmsMap[ref][seq];
                 concatMessage.text += sms.text;
                 this.atStack.runCommand(`AT+CMGD=${index}\r`);
@@ -267,54 +269,40 @@ export class SmsStack {
 
         });
 
-        this.atStack.evtUnsolicitedMessage.attach(atMessage => {
-
-            switch (atMessage.id) {
-                case atIdDict.P_CMTI_URC:
-                    let atMessageCMTI = atMessage as AtImps.P_CMTI_URC;
-                    this.retrieveSms(atMessageCMTI.index);
-                    break;
-                case atIdDict.P_CDSI_URC:
-                    let atMessageCDSI = atMessage as AtImps.P_CDSI_URC;
-                    this.retrieveSms(atMessageCDSI.index);
-                    break;
-            }
-
-        });
 
     }
 
     private retrieveSms(index: number): void {
 
-        this.atStack.runCommand(`AT+CMGR=${index}\r`, 
-        (resp: AtImps.P_CMGR_SET) => {
+        this.atStack.runCommand(`AT+CMGR=${index}\r`,
+            (resp: AtImps.P_CMGR_SET | undefined) => {
 
-            if (!resp) return;
+                if (!resp) return;
 
-            if (resp.stat !== MessageStat.REC_UNREAD) return;
+                if (resp.stat !== MessageStat.REC_UNREAD) return;
 
-            decodePdu(resp.pdu, (error, sms) => {
+                decodePdu(resp.pdu, (error, sms) => {
 
-                if (error) {
-                    console.log("PDU not decrypted: ".red, resp.pdu, error);
-                    this.atStack.runCommand(`AT+CMGD=${index}\r`);
-                    return;
-                }
-
-                switch (sms.type) {
-
-                    case TP_MTI.SMS_DELIVER:
-                        this.evtSmsDeliver.post([index, sms]);
-                        return;
-                    case TP_MTI.SMS_STATUS_REPORT:
-                        this.evtSmsStatusReport.post(sms);
+                    if (error) {
+                        console.log("PDU not decrypted: ".red, resp.pdu, error);
                         this.atStack.runCommand(`AT+CMGD=${index}\r`);
                         return;
-                }
+                    }
+
+                    switch (sms.type) {
+
+                        case TP_MTI.SMS_DELIVER:
+                            this.evtSmsDeliver.post([index, sms as SmsDeliver | SmsDeliverPart]);
+                            return;
+                        case TP_MTI.SMS_STATUS_REPORT:
+                            this.evtSmsStatusReport.post(sms as SmsStatusReport);
+                            this.atStack.runCommand(`AT+CMGD=${index}\r`);
+                            return;
+                    }
+
+                });
 
             });
-
-        });
 
     }
 

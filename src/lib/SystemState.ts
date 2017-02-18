@@ -13,7 +13,7 @@ import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 export class SystemState {
 
     public readonly evtReportSimPresence = new SyncEvent<boolean>();
-    public isRoaming: boolean = undefined;
+    public isRoaming: boolean | undefined = undefined;
 
     constructor(private readonly atStack: AtStack) {
 

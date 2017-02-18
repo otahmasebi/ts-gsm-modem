@@ -1,8 +1,9 @@
 
 import { AtStack } from "./AtStack";
-import { 
-    AtImps, 
-    NumberingPlanIdentification, 
+import {
+    AtMessage,
+    AtImps,
+    NumberingPlanIdentification,
     TypeOfNumber
 } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
@@ -11,38 +12,31 @@ import * as pr from "ts-promisify";
 
 import * as encoding from "legacy-encoding";
 
-
 export type Encoding = "IRA" | "GSM" | "UCS2";
-
 
 export type Action = "UPDATE" | "CREATE";
 
 export interface Contact {
     index: number;
     number: string;
-    name?: string;
-    numberingPlanId?: NumberingPlanIdentification;
-    typeOfNumber?: TypeOfNumber;
+    name: string;
 }
-
 
 export class CardStorage {
 
-    public isReady= false;
+    public isReady = false;
     public readonly evtReady = new VoidSyncEvent();
 
     public get contacts(): Contact[] {
 
-        let out: Contact[]= [];
+        let out: Contact[] = [];
 
-        for( let indexStr of Object.keys(this.contactMap) ){
+        for (let indexStr of Object.keys(this.contactMap)) {
 
-            let index= parseInt(indexStr);
+            let index = parseInt(indexStr);
 
-            let contact= Object.assign({}, this.contactMap[index])
+            let contact = Object.assign({}, this.contactMap[index])
 
-            delete contact.encoding;
-            
             out.push(contact);
         }
 
@@ -52,11 +46,8 @@ export class CardStorage {
 
     public getContact(index: number): Contact {
 
-        let out= Object.assign({}, this.contactMap[index]);
+        return Object.assign({}, this.contactMap[index]);
 
-        delete out.encoding;
-
-        return out;
     }
 
     public get contactNameMaxLength(): number {
@@ -72,8 +63,8 @@ export class CardStorage {
 
     constructor(private readonly atStack: AtStack) {
 
-        this.init(()=>{
-            this.isReady= true;
+        this.init(() => {
+            this.isReady = true;
             this.evtReady.post()
         });
 
@@ -83,7 +74,7 @@ export class CardStorage {
 
         let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
 
-        let total= maxIndex - minIndex;
+        let total = maxIndex - minIndex;
 
         return total - Object.keys(this.contactMap).length;
 
@@ -100,142 +91,191 @@ export class CardStorage {
 
     }
 
-    public createContact= execStack("WRITE", ( params: { 
-        number: string, 
-        name?: string 
-    }, callback?: (contact: Contact)=> void): void =>{
-        
-        let index= this.getFreeIndex();
+    public createContact = execStack("WRITE",
+        (number: string, name: string, callback?: (contact: Contact) => void): void => {
 
-        if( isNaN(index) )
-            throw new Error("Memory full");
+            let safeCallback = callback || function () { };
 
-        let contactName= "";
+            let contact: Contact = {
+                "index": this.getFreeIndex(),
+                "name": this.generateSafeContactName(name),
+                "number": number
+            };
 
-        if( params.name && typeof(params.name) === "string" )
-            contactName= this.generateSafeContactName(params.name);
+            if (isNaN(contact.index)) {
+                this.atStack.evtError.post(new Error("Memory full"));
+                safeCallback({} as Contact);
+                return;
+            }
 
-        let number= params.number;
+            if (contact.number.length > this.numberMaxLength) {
+                this.atStack.evtError.post(Error("Number too long"));
+                safeCallback({} as Contact);
+                return;
+            }
 
-        if( number.length > this.numberMaxLength )
-            throw new Error("Number too long");
+            this.atStack.runCommand(`AT+CSCS="IRA"\r`);
 
-        this.atStack.runCommand(`AT+CSCS="GSM"\r`);
+            this.atStack.runCommand(`AT+CPBW=${contact.index},"${contact.number}",,"${contact.name}"\r`,
+                () => {
 
-        this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`, 
-        () => {
+                    this.contactMap[contact.index]= contact;
 
-            this.atStack.runCommand(`AT+CSCS="GSM"\r`);
-
-            this.atStack.runCommand(`AT+CPBR=${index}\r`, 
-            (resp: AtImps.P_CPBR_EXEC) => {
-
-                let contact = {
-                    "index": index,
-                    "number": resp.number,
-                    "name": resp.text,
-                    "numberingPlanId": resp.numberingPlanId,
-                    "typeOfNumber": resp.typeOfNumber
-                };
-
-                if( !contact.name )
-                    delete contact.name;
-
-                this.contactMap[contact.index] = Object.assign({"encoding": "GSM" as Encoding}, contact);
-
-                callback(contact);
-
-            });
+                    safeCallback(this.getContact(contact.index));
+                });
 
         });
 
-    });
 
+    public updateContact = execStack("WRITE",
+        (index: number, params: {
+            number?: string,
+            name?: string
+        }, callback?: (contact: Contact) => void): void => {
 
-    public updateContact= execStack("WRITE", (index: number, params: { 
-        number?: string, 
-        name?: string 
-    }, callback?: (contact: Contact)=>void):void =>{
+            let safeCallback = callback || function () { };
 
-        if( !this.contactMap[index] )
-            throw new Error("Contact does not eexist");
-        
-        if( !params.name && !params.number )
-            throw new Error("name and contact can not be both null");
-        
-        let contact= this.contactMap[index];
+            if (!this.contactMap[index])
+                throw new Error("Contact does not exist");
 
-        let number= "";
+            if (typeof params.name === "undefined" && typeof params.number === "undefined")
+                throw new Error("name and contact can not be both null");
 
-        if( typeof(params.number) === "string" ){
-            number= params.number;
-            if( number.length > this.numberMaxLength )
-                throw new Error("Number too long");
-        }else number= contact.number;
+            let contact = this.contactMap[index];
 
-        let contactName= "";
-        let enc: Encoding;
+            let number = "";
 
-        if( typeof(params.name) === "string" ){
-            enc= "GSM";
-            contactName= this.generateSafeContactName(params.name);
-        }else{
-            enc= contact.encoding;
-            contactName= contact.name || "";
-            if( enc === "UCS2" )
-                contactName= CardStorage.encodeUCS2(contactName);
-        }
+            if (params.number !== undefined) {
+                number = params.number;
+                if (number.length > this.numberMaxLength)
+                    throw new Error("Number too long");
+            } else number = contact.number;
 
-        this.atStack.runCommand(`AT+CSCS="${enc}"\r`);
+            let contactName = "";
+            let enc: Encoding;
 
-        this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`, () => {
+            if ( params.name !== undefined) {
+                enc = "IRA";
+                contactName = this.generateSafeContactName(params.name);
+            } else {
+                if( CardStorage.hasExtendedChar(contact.name) ){
+                    enc= "UCS2";
+                    contactName= CardStorage.encodeUCS2(contact.name);
+                }else{
+                    enc= "IRA";
+                    contactName= this.generateSafeContactName(contact.name);
+                }
+            }
 
             this.atStack.runCommand(`AT+CSCS="${enc}"\r`);
 
-            this.atStack.runCommand(`AT+CPBR=${index}\r`,  
-            (resp: AtImps.P_CPBR_EXEC)  => {
+            this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`,
+                () => {
 
-                let contactName= resp.text || "";
+                    Object.assign(this.contactMap[index], {
+                        "number": number,
+                        "name": (enc === "UCS2") ? CardStorage.decodeUCS2(contactName) : contactName
+                    });
 
-                if( !contactName )
-                    enc= "GSM";
-                else if( enc === "UCS2" )
-                    contactName= CardStorage.decodeUCS2(contactName);
+                    safeCallback(this.getContact(index));
+                });
 
-                let contact = {
+        });
+
+    public deleteContact = execStack("WRITE",
+        (index: number, callback?: () => void): void => {
+
+            let safeCallback = callback || function () { };
+
+            if (!this.contactMap[index])
+                throw new Error("Contact does not exists");
+
+            this.atStack.runCommand(`AT+CPBW=${index}\r`,
+                () => {
+                    delete this.contactMap[index];
+                    safeCallback();
+                });
+        });
+
+
+    private readonly contactMap: {
+        [index: number]: Contact;
+    } = {};
+
+    private init(callback: () => void): void {
+        (async () => {
+
+            let [resp] = await pr.typed(
+                this.atStack,
+                this.atStack.runCommandDefault
+            )("AT+CPBR=?\r");
+
+            this.p_CPBR_TEST = resp as AtImps.P_CPBR_TEST;
+
+            let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
+
+            for (let index = minIndex; index <= maxIndex; index++) {
+
+
+                this.atStack.runCommand(`AT+CSCS="IRA"\r`);
+
+                let [resp, final]= await pr.typed(
+                    this.atStack,
+                    this.atStack.runCommandExt
+                )(`AT+CPBR=${index}\r`, { "recoverable": true });
+
+                if( final.isError && (final as AtImps.P_CME_ERROR).code === 22 )
+                    continue;
+
+                let name= "\uFFFD";
+                let number= "";
+
+                if( resp ){
+
+                    let p_CPBR_EXEC = resp as AtImps.P_CPBR_EXEC;
+
+                    name= p_CPBR_EXEC.text;
+                    number = p_CPBR_EXEC.number;
+
+                }
+
+                if (!resp || CardStorage.countFFFD(name)) {
+
+                    this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
+
+                    let [resp, final] = await pr.typed(
+                        this.atStack,
+                        this.atStack.runCommandExt
+                    )(`AT+CPBR=${index}\r`, { "recoverable": true });
+
+                    if( !resp && !number ) continue;
+
+                    if( resp ){
+
+                        let p_CPBR_EXEC = resp as AtImps.P_CPBR_EXEC;
+
+                        let nameAsUcs2 = CardStorage.decodeUCS2(p_CPBR_EXEC.text);
+                        if( !number ) number= p_CPBR_EXEC.number;
+
+                        if( CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name) )
+                            name= nameAsUcs2;
+
+                    }
+
+                }
+
+                this.contactMap[index]=  {
                     "index": index,
                     "number": number,
-                    "name": contactName,
-                    "numberingPlanId": resp.numberingPlanId,
-                    "typeOfNumber": resp.typeOfNumber
+                    "name": name
                 };
 
-                if( !contactName )
-                    delete contact.name;
+            }
 
-                this.contactMap[contact.index] = Object.assign({"encoding": enc }, contact);
-
-                callback(contact);
-
-            });
-        });
-
-    });
-
-    public deleteContact= execStack("WRITE", (index: number, callback?: ()=> void): void =>{
-
-        if( !this.contactMap[index] )
-            throw new Error("Contact does not exists");
-
-        this.atStack.runCommand(`AT+CPBW=${index}\r`, 
-        () => {
-            delete this.contactMap[index];
             callback();
-        });
-        
-    });
 
-
+        })();
+    }
 
     public generateSafeContactName(contactName: string): string {
 
@@ -275,135 +315,7 @@ export class CardStorage {
 
     }
 
-
-    private readonly contactMap: {
-        [index: number]: { encoding: Encoding } & Contact;
-    } = {};
-
-    private init(callback: () => void): void {
-
-        let encodings: Encoding[] = ["IRA", "GSM", "UCS2"];
-
-        let encErrorMap: {
-            [index: number]: {
-                contact: Contact;
-                scores: { [enc: string]: [string, number] };
-            };
-        } = {};
-
-        (async () => {
-
-            let [resp]= await pr.typed(
-                this.atStack,
-                this.atStack.runCommandSimple
-            )("AT+CPBR=?\r");
-
-            this.p_CPBR_TEST = resp as AtImps.P_CPBR_TEST;
-
-            let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
-
-            for (let enc of encodings) {
-
-                for (let index = minIndex; index <= maxIndex; index++) {
-
-                    if (this.contactMap[index]) continue;
-
-                    this.atStack.runCommand(`AT+CSCS="${enc}"\r`);
-
-                    let [resp] = await pr.typed(
-                        this.atStack,
-                        this.atStack.runCommandExt
-                    )(`AT+CPBR=${index}\r`,{"recoverable": true});
-
-                    if (!resp) continue;
-
-                    let p_CPBR_EXEC = resp as AtImps.P_CPBR_EXEC;
-
-                    let text = p_CPBR_EXEC.text;
-
-                    if (enc === "UCS2")
-                        text = CardStorage.decodeUCS2(text);
-
-                    let score = CardStorage.computeScore(text);
-
-                    if (score < 0) {
-
-                        if (encErrorMap[index])
-                            delete encErrorMap[index];
-
-                        this.contactMap[index] = {
-                            "encoding": enc,
-                            "index": index,
-                            "number": p_CPBR_EXEC.number,
-                            "name": text,
-                            "numberingPlanId": p_CPBR_EXEC.numberingPlanId,
-                            "typeOfNumber": p_CPBR_EXEC.typeOfNumber
-                        };
-
-                        continue;
-
-                    }
-
-                    if (!encErrorMap[index])
-                        encErrorMap[index] = {
-                            "contact": {
-                                "index": index,
-                                "number": p_CPBR_EXEC.number,
-                                "numberingPlanId": p_CPBR_EXEC.numberingPlanId,
-                                "typeOfNumber": p_CPBR_EXEC.typeOfNumber
-                            },
-                            "scores": {}
-                        };
-
-                    if (text)
-                        encErrorMap[index].scores[enc] = [text, score];
-
-                }
-            }
-
-
-            for (let indexStr of Object.keys(encErrorMap)) {
-
-                let index = parseInt(indexStr);
-
-                let contact = encErrorMap[index].contact;
-
-                let scores = encErrorMap[index].scores;
-
-                let minScore = Number.MAX_SAFE_INTEGER;
-                let minEnc: Encoding = undefined;
-
-                for (let enc of encodings) {
-
-                    if (typeof (scores[enc]) !== "object")
-                        continue;
-
-                    if (scores[enc][1] < minScore) {
-                        minEnc = enc;
-                        minScore = scores[enc][1];
-                    }
-
-                }
-
-                this.contactMap[index] = Object.assign({
-                    "encoding": minEnc || "GSM" as Encoding
-                }, encErrorMap[index].contact);
-
-                if (minEnc)
-                    this.contactMap[index].name = scores[minEnc][0];
-
-            }
-
-            callback();
-
-        })();
-    }
-
-    public static encodeUCS2(text: string): string {
-
-        if (typeof (text) !== "string")
-            return null;
-
+    private static encodeUCS2(text: string): string {
 
         let buffer = encoding.encode(text, "ucs2") as Buffer;
 
@@ -418,11 +330,7 @@ export class CardStorage {
 
     }
 
-    public static decodeUCS2(hexStr: string): string {
-
-
-        if (typeof (hexStr) !== "string")
-            return null;
+    private static decodeUCS2(hexStr: string): string {
 
         let length = hexStr.length;
 
@@ -431,10 +339,15 @@ export class CardStorage {
 
         let buffer = new Buffer(hexStr, "hex");
 
-        return encoding.decode(buffer, "ucs2");
+        return encoding.decode(buffer, "ucs2") || "";
 
     }
 
+    private static printableLength(text: string): number {
+
+        return text.length - this.countFFFD(text) - this.countUnprintableChar(text);
+
+    }
 
     private static countFFFD(text: string): number {
 
@@ -460,11 +373,9 @@ export class CardStorage {
 
     }
 
-    private static computeScore(text: string): number {
+    private static hasExtendedChar(text: string): boolean{
 
-        if (!text) return Number.MAX_SAFE_INTEGER;
-
-        return 100 * (this.countFFFD(text) + this.countUnprintableChar(text)) - text.length;
+        return text.match(/[^a-zA-Z0-9\ <>!\&\*#"%,;\.'\(\)\?-\uFFFD]/) !== null;
 
     }
 

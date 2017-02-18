@@ -6,7 +6,6 @@ import { CardStorage, Contact } from "./CardStorage";
 
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import { execStack } from "ts-exec-stack";
 
 require("colors");
 
@@ -94,8 +93,6 @@ export class Modem {
 
                 let self = this as Modem;
 
-                self.atStack.runCommand("AT+CNUM\r", function(){console.log(arguments)});
-
                 if (!self.systemState.isValidSim) {
                     self.systemState.evtValidSim.attachOnce(() => callee.call(self));
                     return;
@@ -108,6 +105,7 @@ export class Modem {
         });
         return out;
     })();
+
 
     public enterPin: typeof CardLockFacility.prototype.enterPin =
     (...inputs) => this.cardLockFacility.enterPin.apply(this.cardLockFacility, inputs);
@@ -173,8 +171,6 @@ export class Modem {
     public readonly evtCardStorageReady: typeof CardStorage.prototype.evtReady =
     new VoidSyncEvent();
 
-    //TODO do not propagate stack
-
     private initCardStorage = (() => {
         let out = new VoidSyncEvent();
 
@@ -190,20 +186,20 @@ export class Modem {
     })();
 
     public get contacts(): typeof CardStorage.prototype.contacts {
-        try { return this.cardStorage.contacts; } catch (error) { return undefined; }
+        try { return this.cardStorage.contacts; } catch (error) { return []; }
     }
 
 
     public get contactNameMaxLength(): typeof CardStorage.prototype.contactNameMaxLength {
-        try { return this.cardStorage.contactNameMaxLength; } catch (error) { return undefined; }
+        try { return this.cardStorage.contactNameMaxLength; } catch (error) { return NaN; }
     }
 
     public get numberMaxLength(): typeof CardStorage.prototype.contactNameMaxLength {
-        try { return this.cardStorage.numberMaxLength; } catch (error) { return undefined; }
+        try { return this.cardStorage.numberMaxLength; } catch (error) { return NaN; }
     }
 
     public get storageLeft(): typeof CardStorage.prototype.storageLeft {
-        try { return this.cardStorage.storageLeft; } catch (error) { return undefined; }
+        try { return this.cardStorage.storageLeft; } catch (error) { return NaN; }
     }
 
     public generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName =
@@ -267,6 +263,7 @@ export class Modem {
             this.cardStorage.evtReady.attachOnce(() => this.deleteContact.apply(self, inputs));
             return;
         }
+
 
         this.cardStorage.deleteContact.apply(this.cardStorage, inputs);
 

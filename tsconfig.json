@@ -10,7 +10,8 @@
                     "es2015.core"
             ],
         "declaration": true,
-        "outDir": "./out"
+        "outDir": "./out",
+        "strictNullChecks": true
     },
     "filesGlob": [
         "./src/**/*.ts"

@@ -26,12 +26,11 @@ modemWatcher.evtConnect.attach(accessPoint => {
 
     });
 
-
     modem.evtUnlockCodeRequest.attach(request => {
 
         switch (request.pinState) {
             case pinStates.SIM_PIN:
-                let pin: string;
+                let pin: string= "";
                 switch (request.times) {
                     case 3: pin = "0001"; break;
                     case 2: pin = "1234"; break;
@@ -49,7 +48,7 @@ modemWatcher.evtConnect.attach(accessPoint => {
                     case 8: puk = "62217721"; break;
                     default:
                         console.log(`SIM PUK requested, ${request.times} try left, we stop here`.red);
-                        process.exit(1);
+                        return process.exit(1);
                 }
                 console.log(`SIM PUK requested, ${request.times} try left, entering PUK code ${puk}, and setting the new PIN as ${newPin}`.blue);
                 break;
@@ -61,14 +60,12 @@ modemWatcher.evtConnect.attach(accessPoint => {
     });
 
 
-
     modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
     modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
     //modem.evtCardStorageReady.attach(()=> console.log(modem.contacts) );
 
     modem.evtCardStorageReady.attachOnce(()=>{
-
         
 
         console.log("Storage ready");
@@ -77,10 +74,15 @@ modemWatcher.evtConnect.attach(accessPoint => {
 
         console.log("Nombre de contacts:".green, modem.contacts.length);
 
+        console.log(JSON.stringify(modem.contacts, null, 2).green);
+
+        modem.updateContact(8, { "number": "12345678" }, contact => console.log("updated contact: ", contact));
+
+        /*
         for( let contact of modem.contacts )
             modem.deleteContact(contact.index, ()=> console.log(`Deleted contact: ${JSON.stringify(contact)}`.blue));
 
-        modem.createContact({ "number": "+33636786385", "name": "Le nouveau" }, contact => { 
+        modem.createContact("+33636786385","Le nouveau" , contact => { 
 
             console.log(`Created contact: ${JSON.stringify(contact)}`.green);
 
@@ -89,28 +91,24 @@ modemWatcher.evtConnect.attach(accessPoint => {
             modem.updateContact(contact.index, { "number": "007" }, contact=> console.log("updated contact: ", modem.contacts));
 
         });
+        */
 
 
     });
 
 
+    //modem.runCommand("AT+CNUM\r", output => console.log("CNUM :", (output.atMessage as any).atMessages));
 
+    /*
+    let messageText = "I build a message\n";
 
+    for (let i = 0; i < 5; i++) messageText += messageText;
 
-        //modem.runCommand("AT+CNUM\r", output => console.log("CNUM :", (output.atMessage as any).atMessages));
+    console.log("Sending: \n".green, JSON.stringify(messageText));
 
+    modem.sendMessage("+33636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+    */
 
-        /*
-
-        let messageText = "I build a message\n";
-
-        for (let i = 0; i < 3; i++) messageText += messageText;
-
-        console.log("Sending: \n".green, JSON.stringify(messageText));
-
-        modem.sendMessage("+33636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
-
-        */
 
 
 
