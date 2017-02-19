@@ -104,13 +104,11 @@ export class CardStorage {
 
             if (isNaN(contact.index)) {
                 this.atStack.evtError.post(new Error("Memory full"));
-                safeCallback({} as Contact);
                 return;
             }
 
             if (contact.number.length > this.numberMaxLength) {
                 this.atStack.evtError.post(Error("Number too long"));
-                safeCallback({} as Contact);
                 return;
             }
 
@@ -135,11 +133,15 @@ export class CardStorage {
 
             let safeCallback = callback || function () { };
 
-            if (!this.contactMap[index])
-                throw new Error("Contact does not exist");
+            if (!this.contactMap[index]){
+                this.atStack.evtError.post(new Error("Contact does not exist"));
+                return;
+            }
 
-            if (typeof params.name === "undefined" && typeof params.number === "undefined")
-                throw new Error("name and contact can not be both null");
+            if (typeof params.name === "undefined" && typeof params.number === "undefined"){
+                this.atStack.evtError.post(new Error("name and contact can not be both null"));
+                return;
+            }
 
             let contact = this.contactMap[index];
 
@@ -147,8 +149,10 @@ export class CardStorage {
 
             if (params.number !== undefined) {
                 number = params.number;
-                if (number.length > this.numberMaxLength)
-                    throw new Error("Number too long");
+                if (number.length > this.numberMaxLength){
+                    this.atStack.evtError.post(new Error("Number too long"));
+                    return;
+                }
             } else number = contact.number;
 
             let contactName = "";
@@ -187,8 +191,10 @@ export class CardStorage {
 
             let safeCallback = callback || function () { };
 
-            if (!this.contactMap[index])
-                throw new Error("Contact does not exists");
+            if (!this.contactMap[index]){
+                this.atStack.evtError.post(new Error("Contact does not exists"));
+                return;
+            }
 
             this.atStack.runCommand(`AT+CPBW=${index}\r`,
                 () => {

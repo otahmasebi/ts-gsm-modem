@@ -12,17 +12,28 @@ let modemWatcher = new ModemWatcher();
 
 console.log("Awaiting GSM modem connections...");
 
-modemWatcher.evtConnect.attach(accessPoint => {
+modemWatcher.evtConnect.attachOnce(accessPoint => {
+
+    modemWatcher.stop();
 
     console.log("CONNECTION".green, accessPoint.infos);
 
     let modem = new Modem(accessPoint.atInterface, "1234");
 
+    modem.evtTerminate.attachOnce(error => {
+
+        console.log("Terminate!");
+
+        if( error ) console.log(error);
+        else console.log("Modem disconnect or manually terminate");
+
+    });
+
     modem.evtNoSim.attach(() => {
 
-        console.log("There is no SIM card in the modem, exiting".green);
+        console.log("There is no SIM card".green);
 
-        process.exit(0);
+        modem.terminate();
 
     });
 

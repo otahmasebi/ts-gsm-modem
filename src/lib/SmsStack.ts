@@ -131,7 +131,10 @@ export class SmsStack {
                     "request_status": true
                 });
 
-                if (error) throw error;
+                if (error){
+                    this.atStack.evtError.post(error);
+                    return;
+                }
 
                 let messageId = this.generateMessageId();
 

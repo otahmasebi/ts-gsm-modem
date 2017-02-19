@@ -17,40 +17,12 @@ process.on("unhandledRejection", error=> {
 
 export class Modem {
 
-    private atStack: AtStack;
-
-    public readonly evtUnsolicitedAtMessage: 
-    typeof AtStack.prototype.evtUnsolicitedMessage = new SyncEvent<AtMessage>();
+    private readonly atStack: AtStack;
+    private readonly systemState: SystemState;
 
     constructor(atInterface: string, private readonly pin?: string) {
 
         this.atStack = new AtStack(atInterface);
-
-        this.atStack.evtError.attach(error => {
-
-                //TODO empty stack
-
-                console.log(`ERROR AT STACK: `.yellow, error);
-                process.exit(1);
-
-        });
-
-        this.atStack.evtUnsolicitedMessage.attach(atMessage => this.evtUnsolicitedAtMessage.post(atMessage));
-
-        this.initSystemState();
-
-    }
-
-    public runCommand: typeof AtStack.prototype.runCommand =
-    (...inputs) => this.atStack.runCommand.apply(this.atStack, inputs);
-
-
-    private systemState: SystemState;
-    public readonly evtNoSim = new VoidSyncEvent();
-    public readonly evtValidSim:
-    typeof SystemState.prototype.evtValidSim = new VoidSyncEvent();
-
-    private initSystemState() {
 
         this.systemState = new SystemState(this.atStack);
 
@@ -65,9 +37,30 @@ export class Modem {
 
         });
 
-        this.systemState.evtValidSim.attach(() => this.evtValidSim.post());
-
     }
+
+    public runCommand: typeof AtStack.prototype.runCommand =
+    (...inputs) => this.atStack.runCommand.apply(this.atStack, inputs);
+
+    public terminate: typeof AtStack.prototype.terminate =
+    (...inputs) => this.atStack.terminate.apply(this.atStack, inputs);
+
+
+    public get evtTerminate(): typeof AtStack.prototype.evtTerminate{
+        return this.atStack.evtTerminate;
+    }
+
+    public get evtUnsolicitedAtMessage(): typeof AtStack.prototype.evtUnsolicitedMessage{
+        return this.atStack.evtUnsolicitedMessage;
+    }
+
+
+    public readonly evtNoSim = new VoidSyncEvent();
+
+    public get evtValidSim(): typeof SystemState.prototype.evtValidSim{
+        return this.systemState.evtValidSim;
+    }
+
 
     private cardLockFacility: CardLockFacility;
 

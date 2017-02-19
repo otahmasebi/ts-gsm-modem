@@ -35,10 +35,9 @@ type SafeRunParams= {
 export class AtStack {
 
     public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
-    public readonly evtError = new SyncEvent<Error>();
+    public readonly evtTerminate= new SyncEvent<Error | null>();
 
     private readonly serialPort: SerialPort;
-
     constructor(path: string){
 
         this.serialPort = new SerialPort(path);
@@ -51,15 +50,31 @@ export class AtStack {
 
     }
 
+    public terminate(): void{
+        this.serialPort.close();
+        this.evtTerminate.post(null);
+    }
+
 
     private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
+    public readonly evtError = new SyncEvent<Error>();
 
     private registerListeners(): void {
 
 
+        this.evtError.attach(error => {
+            
+                if( error instanceof SerialPortError) console.log("LOOK HERE");
+
+                this.serialPort.close();
+
+                this.evtTerminate.post(error);
+
+        });
+
+        this.serialPort.on("disconnect", ()=> this.evtTerminate.post(null));
         this.serialPort.on("error", error => this.evtError.post(new SerialPortError(error)));
-        this.serialPort.on("disconnect", error => this.evtError.post(new SerialPortError(error)));
-        this.serialPort.on("close", error => this.evtError.post(new Error("Serial port closed")));
+
 
         let rawAtMessagesBuffer = "";
         let timer: NodeJS.Timer;
@@ -112,7 +127,10 @@ export class AtStack {
 
         this.serialPort.write(rawAtCommand, errorStr => {
 
-            if (errorStr) this.evtError.post(new SerialPortError(new Error(errorStr)));
+            if (errorStr){
+                this.evtError.post(new SerialPortError(new Error(errorStr)));
+                return;
+            }
 
             callback();
 
@@ -124,13 +142,13 @@ export class AtStack {
 
     private setReportMode(reportMode: ReportMode, callback?: RunCallback): void {
 
-        let safeCallback= callback || function(){};
+        let safeCallback = callback || function () { };
 
-        if (this.reportMode === reportMode){
+        if (this.reportMode === reportMode) {
             safeCallback(undefined, new AtMessage("\r\nOK\r\n", "OK"), "\r\nOK\r\n");
             return;
         }
-        
+
 
         this.reportMode = reportMode;
 
@@ -138,7 +156,6 @@ export class AtStack {
 
         this.runCommandBase(command, (resp, final, raw) => {
             if (final.isError) {
-                console.log("Meeeeeerde");
                 this.evtError.post(new CommandError(command, final))
                 return;
             }
@@ -149,20 +166,20 @@ export class AtStack {
 
     }
 
-    public runCommandExt(command: String, params: RunParams, callback?: RunCallback): void{
+    public runCommandExt(command: String, params: RunParams, callback?: RunCallback): void {
         this.runCommand(command, params, callback);
     }
-    public runCommandDefault(command: string, callback?: RunCallback): void{ 
-        this.runCommand(command, callback); 
+    public runCommandDefault(command: string, callback?: RunCallback): void {
+        this.runCommand(command, callback);
     }
 
     public runCommand(command: string, callback?: RunCallback): void;
     public runCommand(command: String, params: RunParams, callback?: RunCallback): void;
     public runCommand(...inputs: any[]): void {
 
-        let command: string= "";
+        let command: string = "";
         let params: RunParams = {};
-        let callback: RunCallback = function () {};
+        let callback: RunCallback = function () { };
 
         for (let input of inputs) {
             switch (typeof input) {
@@ -194,11 +211,11 @@ export class AtStack {
                 else
                     params.retryOnErrors = [14, 500];
         }
-        
+
         //retryOnError is boolean or number[]
 
 
-        if (!params.retryOnErrors) 
+        if (!params.retryOnErrors)
             params.retryOnErrors = [];
         else if (typeof params.retryOnErrors === "boolean") {
             params.retryOnErrors = [];
@@ -236,12 +253,12 @@ export class AtStack {
             self.runCommandBase(command, (resp, final, raw) => {
                 if (final.isError) {
 
-                    let code= NaN;
+                    let code = NaN;
 
-                    if( !(final instanceof AtImps.ERROR) )
-                        code= (final as AtImps.P_CME_ERROR | AtImps.P_CMS_ERROR).code;
+                    if (!(final instanceof AtImps.ERROR))
+                        code = (final as AtImps.P_CME_ERROR | AtImps.P_CMS_ERROR).code;
 
-                    if ( self.retryLeft-- && params.retryOnErrors.indexOf(code) >= 0) 
+                    if (self.retryLeft-- && params.retryOnErrors.indexOf(code) >= 0)
                         setTimeout(runCommandRetry.bind(self, command, params, callback), self.delayBeforeRetry);
                     else {
 
@@ -251,7 +268,7 @@ export class AtStack {
                             callback(resp, final, raw);
                         else {
                             this.evtError.post(new CommandError(command, final));
-                            callback(undefined, {} as AtMessage, "");
+                            return;
                         }
                     }
 
