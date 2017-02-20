@@ -132,7 +132,16 @@ export class AtStack {
                 return;
             }
 
-            callback();
+            this.serialPort.drain(errorStr => {
+
+                if (errorStr) {
+                    this.evtError.post(new SerialPortError(new Error(errorStr)));
+                    return;
+                }
+
+                callback();
+
+            });
 
         });
 
