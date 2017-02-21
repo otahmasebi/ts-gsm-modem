@@ -6,6 +6,7 @@ import { CardStorage, Contact } from "./CardStorage";
 
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import { execStack, StackAccess, Stack } from "ts-exec-stack";
 
 require("colors");
 
@@ -135,9 +136,9 @@ export class Modem {
 
     })();
 
+    public sendMessage= execStack(function callee(...inputs){
 
-    public sendMessage: typeof SmsStack.prototype.sendMessage =
-    ((...inputs)=>{
+        let self= this as Modem;
 
         if (!this.smsStack) {
             this.initSmsStack.attachOnce(() => this.sendMessage.apply(this, inputs));
@@ -151,10 +152,8 @@ export class Modem {
 
         this.smsStack.sendMessage.apply(this.smsStack, inputs);
 
-        if (!this.sendMessage.stack)
-            this.sendMessage.stack = this.smsStack.sendMessage.stack;
+    } as typeof SmsStack.prototype.sendMessage);
 
-    }) as any;
 
 
 
