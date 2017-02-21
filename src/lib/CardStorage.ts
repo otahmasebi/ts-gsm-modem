@@ -22,6 +22,8 @@ export interface Contact {
     name: string;
 }
 
+//TODO: CNUM 
+
 export class CardStorage {
 
     public isReady = false;
@@ -211,6 +213,8 @@ export class CardStorage {
     private init(callback: () => void): void {
         (async () => {
 
+            console.log("init");
+
             let [resp] = await pr.typed(
                 this.atStack,
                 this.atStack.runCommandDefault
@@ -223,6 +227,8 @@ export class CardStorage {
             for (let index = minIndex; index <= maxIndex; index++) {
 
 
+                console.log("index", index);
+                
                 this.atStack.runCommand(`AT+CSCS="IRA"\r`);
 
                 let [resp, final]= await pr.typed(
@@ -277,6 +283,8 @@ export class CardStorage {
                 };
 
             }
+
+            console.log("done");
 
             callback();
 

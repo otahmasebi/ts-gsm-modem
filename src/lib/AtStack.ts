@@ -125,25 +125,44 @@ export class AtStack {
             return;
         }
 
+
         this.serialPort.write(rawAtCommand, errorStr => {
 
-            if (errorStr){
+            if (errorStr) {
                 this.evtError.post(new SerialPortError(new Error(errorStr)));
                 return;
             }
 
-            this.serialPort.drain(errorStr => {
-
-                if (errorStr) {
-                    this.evtError.post(new SerialPortError(new Error(errorStr)));
-                    return;
-                }
-
-                callback();
-
-            });
+            callback();
 
         });
+
+
+        /*
+    this.serialPort.write(rawAtCommand, errorStr => {
+
+        
+
+        if (errorStr){
+            this.evtError.post(new SerialPortError(new Error(errorStr)));
+            return;
+        }
+
+
+        this.serialPort.drain(errorStr => {
+
+
+            if (errorStr) {
+                this.evtError.post(new SerialPortError(new Error(errorStr)));
+                return;
+            }
+
+            callback();
+
+        });
+
+    });
+    */
 
     }
 
