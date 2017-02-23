@@ -16,7 +16,7 @@ import {
     decodePdu, 
     buildSmsSubmitPdus 
 } from "node-python-messaging";
-import { execStack } from "ts-exec-stack";
+import { execStack, ExecStack } from "ts-exec-stack";
 import { SyncEvent } from "ts-events-extended";
 
 import * as pr from "ts-promisify";

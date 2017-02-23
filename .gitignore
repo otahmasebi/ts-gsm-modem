@@ -40,3 +40,5 @@ out
 *.back
 
 .vscode
+
+src/test/chanDongleExt

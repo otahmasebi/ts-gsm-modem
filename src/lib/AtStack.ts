@@ -2,7 +2,7 @@
 import * as SerialPort from "serialport";
 import * as promisify from "ts-promisify";
 import { SyncEvent } from "ts-events-extended";
-import { execStack } from "ts-exec-stack";
+import { execStack, ExecStack } from "ts-exec-stack";
 
 require("colors");
 
@@ -19,18 +19,20 @@ export type RunCallback= {
         (resp: AtMessage | undefined, final: AtMessage, raw: string): void;
 };
 
+//TODO use Partial
+
 export type RunParams= {
         recoverable?: boolean;
         reportMode?: ReportMode;
         retryOnErrors?: boolean | number[];
 };
 
+
 type SafeRunParams= {
         recoverable: boolean;
         reportMode: ReportMode;
         retryOnErrors: number[];
 }
-
 
 export class AtStack {
 
@@ -168,42 +170,41 @@ export class AtStack {
 
     private reportMode: ReportMode;
 
-    private setReportMode(reportMode: ReportMode, callback?: RunCallback): void {
+    private setReportMode = execStack(
+        (reportMode: ReportMode, callback?: RunCallback): void => {
 
-        let safeCallback = callback || function () { };
-
-        if (this.reportMode === reportMode) {
-            safeCallback(undefined, new AtMessage("\r\nOK\r\n", "OK"), "\r\nOK\r\n");
-            return;
-        }
-
-
-        this.reportMode = reportMode;
-
-        let command = `AT+CMEE=${reportMode}\r`;
-
-        this.runCommandBase(command, (resp, final, raw) => {
-            if (final.isError) {
-                this.evtError.post(new CommandError(command, final))
+            if (this.reportMode === reportMode) {
+                callback!(undefined, new AtMessage("\r\nOK\r\n", "OK"), "\r\nOK\r\n");
                 return;
             }
 
-            safeCallback(resp, final, raw);
+            this.reportMode = reportMode;
+
+            let command = `AT+CMEE=${reportMode}\r`;
+
+            this.runCommandBase(command, (resp, final, raw) => {
+                if (final.isError) {
+                    this.evtError.post(new CommandError(command, final))
+                    return;
+                }
+
+
+                callback!(resp, final, raw);
+
+            });
 
         });
 
-    }
 
-    public runCommandExt(command: String, params: RunParams, callback?: RunCallback): void {
-        this.runCommand(command, params, callback);
-    }
-    public runCommandDefault(command: string, callback?: RunCallback): void {
-        this.runCommand(command, callback);
-    }
+    public runCommand = execStack(this.runCommandManageParams);
 
-    public runCommand(command: string, callback?: RunCallback): void;
-    public runCommand(command: String, params: RunParams, callback?: RunCallback): void;
-    public runCommand(...inputs: any[]): void {
+    //For ts-promisify
+    public runCommandExt: (command: String, params: RunParams, callback?: RunCallback) => void = this.runCommand;
+    public runCommandDefault: (command: string, callback?: RunCallback) => void = this.runCommand;
+
+    public runCommandManageParams(command: string, callback?: RunCallback): void;
+    public runCommandManageParams(command: String, params: RunParams, callback?: RunCallback): void;
+    public runCommandManageParams(...inputs: any[]): void {
 
         let command: string = "";
         let params: RunParams = {};
@@ -254,61 +255,63 @@ export class AtStack {
 
     }
 
-    private runCommandSetReportMode = execStack(
-        (command: string, params: SafeRunParams, callback: RunCallback): void => {
+    private runCommandSetReportMode(
+        command: string,
+        params: SafeRunParams,
+        callback: RunCallback
+    ): void {
 
-            let backupReportMode = this.reportMode;
+        let backupReportMode = this.reportMode;
 
-            this.setReportMode(params.reportMode);
-            this.runCommandRetry(command, params, (resp, final, raw) =>
-                this.setReportMode(backupReportMode, () =>
-                    callback(resp, final, raw))
-            );
+        this.setReportMode(params.reportMode);
+        this.runCommandRetry(command, params, (resp, final, raw) =>
+            this.setReportMode(backupReportMode, () =>
+                callback(resp, final, raw))
+        );
 
-        }
-    );
+    }
 
     private readonly maxRetry = 10;
     private readonly delayBeforeRetry = 5000;
 
     private retryLeft = this.maxRetry;
 
-    private runCommandRetry = execStack(
-        function runCommandRetry(command: string, params: SafeRunParams, callback: RunCallback) {
+    private runCommandRetry(
+        command: string,
+        params: SafeRunParams,
+        callback: RunCallback
+    ): void {
 
-            let self = this as AtStack;
+        this.runCommandBase(command, (resp, final, raw) => {
+            if (final.isError) {
 
-            self.runCommandBase(command, (resp, final, raw) => {
-                if (final.isError) {
+                let code = NaN;
 
-                    let code = NaN;
+                if (!(final instanceof AtImps.ERROR))
+                    code = (final as AtImps.P_CME_ERROR | AtImps.P_CMS_ERROR).code;
 
-                    if (!(final instanceof AtImps.ERROR))
-                        code = (final as AtImps.P_CME_ERROR | AtImps.P_CMS_ERROR).code;
+                if (this.retryLeft-- && params.retryOnErrors.indexOf(code) >= 0)
+                    setTimeout(this.runCommandRetry.bind(this, command, params, callback), this.delayBeforeRetry);
+                else {
 
-                    if (self.retryLeft-- && params.retryOnErrors.indexOf(code) >= 0)
-                        setTimeout(runCommandRetry.bind(self, command, params, callback), self.delayBeforeRetry);
+                    this.retryLeft = this.maxRetry;
+
+                    if (params.recoverable)
+                        callback(resp, final, raw);
                     else {
-
-                        self.retryLeft = self.maxRetry;
-
-                        if (params.recoverable)
-                            callback(resp, final, raw);
-                        else {
-                            this.evtError.post(new CommandError(command, final));
-                            return;
-                        }
+                        this.evtError.post(new CommandError(command, final));
+                        return;
                     }
-
-                } else {
-
-                    self.retryLeft = self.maxRetry;
-                    callback(resp, final, raw);
                 }
 
-            });
-        }
-    );
+            } else {
+
+                this.retryLeft = this.maxRetry;
+                callback(resp, final, raw);
+            }
+
+        });
+    }
 
     private runCommandBase = execStack(
         (command: string, callback: RunCallback): void => {
@@ -341,8 +344,8 @@ export class AtStack {
 
             });
 
-        }
-    );
+        });
+
 
 }
 

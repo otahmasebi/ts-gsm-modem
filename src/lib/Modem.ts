@@ -6,7 +6,7 @@ import { CardStorage, Contact } from "./CardStorage";
 
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import { execStack, StackAccess, Stack } from "ts-exec-stack";
+import { execStack, ExecStack} from "ts-exec-stack";
 
 require("colors");
 
@@ -15,6 +15,7 @@ process.on("unhandledRejection", error=> {
     console.log(error);
     throw error; 
 });
+
 
 export class Modem {
 
@@ -40,25 +41,28 @@ export class Modem {
 
     }
 
-    public runCommand: typeof AtStack.prototype.runCommand =
-    (...inputs) => this.atStack.runCommand.apply(this.atStack, inputs);
+    public readonly runCommand = execStack(
+        ((...inputs) => this.atStack.runCommand.apply(this.atStack, inputs)
+        ) as typeof AtStack.prototype.runCommand
+    );
+
 
     public terminate: typeof AtStack.prototype.terminate =
     (...inputs) => this.atStack.terminate.apply(this.atStack, inputs);
 
 
-    public get evtTerminate(): typeof AtStack.prototype.evtTerminate{
+    public get evtTerminate(): typeof AtStack.prototype.evtTerminate {
         return this.atStack.evtTerminate;
     }
 
-    public get evtUnsolicitedAtMessage(): typeof AtStack.prototype.evtUnsolicitedMessage{
+    public get evtUnsolicitedAtMessage(): typeof AtStack.prototype.evtUnsolicitedMessage {
         return this.atStack.evtUnsolicitedMessage;
     }
 
 
     public readonly evtNoSim = new VoidSyncEvent();
 
-    public get evtValidSim(): typeof SystemState.prototype.evtValidSim{
+    public get evtValidSim(): typeof SystemState.prototype.evtValidSim {
         return this.systemState.evtValidSim;
     }
 
@@ -136,25 +140,23 @@ export class Modem {
 
     })();
 
-    public sendMessage= execStack(function callee(...inputs){
+    public sendMessage = execStack(function callee(...inputs) {
 
-        let self= this as Modem;
+        let self = this as Modem;
 
-        if (!this.smsStack) {
-            this.initSmsStack.attachOnce(() => this.sendMessage.apply(this, inputs));
+        if (!self.smsStack) {
+            self.initSmsStack.attachOnce(() => callee.apply(self, inputs));
             return;
         }
 
-        if (!this.systemState.isNetworkReady) {
-            this.systemState.evtNetworkReady.attachOnce(() => this.sendMessage.apply(this, inputs));
+        if (!self.systemState.isNetworkReady) {
+            self.systemState.evtNetworkReady.attachOnce(() => callee.apply(self, inputs));
             return;
         }
 
-        this.smsStack.sendMessage.apply(this.smsStack, inputs);
+        self.smsStack.sendMessage.apply(self.smsStack, inputs);
 
     } as typeof SmsStack.prototype.sendMessage);
-
-
 
 
 
@@ -178,90 +180,81 @@ export class Modem {
     })();
 
     public get contacts(): typeof CardStorage.prototype.contacts {
-        try { return this.cardStorage.contacts; } catch (error) { return []; }
+        try { return this.cardStorage.contacts; } catch (error) { return undefined; }
     }
 
 
     public get contactNameMaxLength(): typeof CardStorage.prototype.contactNameMaxLength {
-        try { return this.cardStorage.contactNameMaxLength; } catch (error) { return NaN; }
+        try { return this.cardStorage.contactNameMaxLength; } catch (error) { return undefined; }
     }
 
     public get numberMaxLength(): typeof CardStorage.prototype.contactNameMaxLength {
-        try { return this.cardStorage.numberMaxLength; } catch (error) { return NaN; }
+        try { return this.cardStorage.numberMaxLength; } catch (error) { return undefined; }
     }
 
     public get storageLeft(): typeof CardStorage.prototype.storageLeft {
-        try { return this.cardStorage.storageLeft; } catch (error) { return NaN; }
+        try { return this.cardStorage.storageLeft; } catch (error) { return undefined; }
     }
 
     public generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName =
     (...inputs) => this.cardStorage.generateSafeContactName.apply(this.cardStorage, inputs);
 
-
     public getContact: typeof CardStorage.prototype.getContact =
     (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
-    public createContact: typeof CardStorage.prototype.createContact =
-    ((...inputs) => {
+    public createContact = execStack(Modem, "WRITE", function callee(...inputs) {
 
-        if (!this.cardStorage) {
-            this.initCardStorage.attachOnce(() => this.createContact.apply(self, inputs));
+        let self = this as Modem;
+
+        if (!self.cardStorage) {
+            self.initCardStorage.attachOnce(() => callee.apply(self, inputs));
             return;
         }
 
-        if (!this.cardStorage.isReady) {
-            this.cardStorage.evtReady.attachOnce(() => this.createContact.apply(self, inputs));
+        if (!self.cardStorage.isReady) {
+            self.cardStorage.evtReady.attachOnce(() => callee.apply(self, inputs));
             return;
         }
 
-        this.cardStorage.createContact.apply(this.cardStorage, inputs);
+        self.cardStorage.createContact.apply(self.cardStorage, inputs);
 
-        if (!this.createContact.stack)
-            this.createContact.stack = this.cardStorage.createContact.stack;
+    } as typeof CardStorage.prototype.createContact);
 
-    }) as any;
+    public updateContact = execStack(Modem, "WRITE", function callee(...inputs) {
 
+        let self = this as Modem;
 
-    public updateContact: typeof CardStorage.prototype.updateContact =
-    ((...inputs) => {
-
-        if (!this.cardStorage) {
-            this.initCardStorage.attachOnce(() => this.updateContact.apply(self, inputs));
+        if (!self.cardStorage) {
+            self.initCardStorage.attachOnce(() => callee.apply(self, inputs));
             return;
         }
 
-        if (!this.cardStorage.isReady) {
-            this.cardStorage.evtReady.attachOnce(() => this.updateContact.apply(self, inputs));
+        if (!self.cardStorage.isReady) {
+            self.cardStorage.evtReady.attachOnce(() => callee.apply(self, inputs));
             return;
         }
 
-        this.cardStorage.updateContact.apply(this.cardStorage, inputs);
+        self.cardStorage.updateContact.apply(self.cardStorage, inputs);
 
-        if (!this.updateContact.stack)
-            this.updateContact.stack = this.cardStorage.updateContact.stack;
+    } as typeof CardStorage.prototype.updateContact);
 
-    }) as any;
+    public deleteContact = execStack(Modem, "WRITE", function callee(...inputs) {
 
+        let self = this as Modem;
 
-    public deleteContact: typeof CardStorage.prototype.deleteContact =
-    ((...inputs) => {
-
-        if (!this.cardStorage) {
-            this.initCardStorage.attachOnce(() => this.deleteContact.apply(self, inputs));
+        if (!self.cardStorage) {
+            self.initCardStorage.attachOnce(() => callee.apply(self, inputs));
             return;
         }
 
-        if (!this.cardStorage.isReady) {
-            this.cardStorage.evtReady.attachOnce(() => this.deleteContact.apply(self, inputs));
+        if (!self.cardStorage.isReady) {
+            self.cardStorage.evtReady.attachOnce(() => callee.apply(self, inputs));
             return;
         }
 
+        self.cardStorage.deleteContact.apply(self.cardStorage, inputs);
 
-        this.cardStorage.deleteContact.apply(this.cardStorage, inputs);
+    } as typeof CardStorage.prototype.deleteContact);
 
-        if (!this.deleteContact.stack)
-            this.deleteContact.stack = this.cardStorage.deleteContact.stack;
-
-    }) as any;
 
 }

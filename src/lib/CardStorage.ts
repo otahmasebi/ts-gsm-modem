@@ -7,7 +7,7 @@ import {
     TypeOfNumber
 } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import { execStack } from "ts-exec-stack";
+import { execStack, ExecStack } from "ts-exec-stack";
 import * as pr from "ts-promisify";
 
 import * as encoding from "legacy-encoding";
@@ -15,6 +15,7 @@ import * as encoding from "legacy-encoding";
 export type Encoding = "IRA" | "GSM" | "UCS2";
 
 export type Action = "UPDATE" | "CREATE";
+
 
 export interface Contact {
     index: number;
@@ -26,18 +27,26 @@ export interface Contact {
 
 export class CardStorage {
 
-    public isReady = false;
+
     public readonly evtReady = new VoidSyncEvent();
 
-    public get contacts(): Contact[] {
+    public get isReady(): boolean {
+        return this.evtReady.postCount === 1;
+    }
+
+    //TODO with readonly no need to copy
+
+    public get contacts(): Contact[] | undefined {
+
+        if( !this.isReady ) return undefined;
 
         let out: Contact[] = [];
 
-        for (let indexStr of Object.keys(this.contactMap)) {
+        for (let indexStr of Object.keys(this.contactByIndex)) {
 
             let index = parseInt(indexStr);
 
-            let contact = Object.assign({}, this.contactMap[index])
+            let contact= { ...this.contactByIndex[index] };
 
             out.push(contact);
         }
@@ -46,48 +55,50 @@ export class CardStorage {
 
     }
 
-    public getContact(index: number): Contact {
+    public getContact(index: number): Contact | undefined {
 
-        return Object.assign({}, this.contactMap[index]);
+        let contact = this.contactByIndex[index];
+
+        return contact?{...contact}:undefined;
 
     }
 
-    public get contactNameMaxLength(): number {
-        return this.p_CPBR_TEST.tLength;
+    public get contactNameMaxLength(): number | undefined {
+        return this.p_CPBR_TEST?this.p_CPBR_TEST.tLength:undefined;
     }
 
 
-    public get numberMaxLength(): number {
-        return this.p_CPBR_TEST.nLength;
+    public get numberMaxLength(): number | undefined {
+        return this.p_CPBR_TEST?this.p_CPBR_TEST.nLength:undefined;
     }
 
-    private p_CPBR_TEST: AtImps.P_CPBR_TEST;
+    private p_CPBR_TEST: AtImps.P_CPBR_TEST | undefined;
 
     constructor(private readonly atStack: AtStack) {
 
-        this.init(() => {
-            this.isReady = true;
-            this.evtReady.post()
-        });
+        this.init(() => this.evtReady.post() );
 
     }
 
-    public get storageLeft(): number {
+    public get storageLeft(): number | undefined {
+
+        if( !this.p_CPBR_TEST ) return undefined;
+
 
         let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
 
         let total = maxIndex - minIndex;
 
-        return total - Object.keys(this.contactMap).length;
+        return total - Object.keys(this.contactByIndex).length;
 
     }
 
     private getFreeIndex(): number {
 
-        let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
+        let [minIndex, maxIndex] = this.p_CPBR_TEST!.range;
 
         for (let index = minIndex; index <= maxIndex; index++)
-            if (!this.contactMap[index]) return index;
+            if (!this.contactByIndex[index]) return index;
 
         return NaN;
 
@@ -96,12 +107,10 @@ export class CardStorage {
     public createContact = execStack("WRITE",
         (number: string, name: string, callback?: (contact: Contact) => void): void => {
 
-            let safeCallback = callback || function () { };
-
             let contact: Contact = {
-                "index": this.getFreeIndex(),
-                "name": this.generateSafeContactName(name),
-                "number": number
+                "index": this.getFreeIndex()!,
+                "name": this.generateSafeContactName(name)!,
+                number
             };
 
             if (isNaN(contact.index)) {
@@ -109,7 +118,7 @@ export class CardStorage {
                 return;
             }
 
-            if (contact.number.length > this.numberMaxLength) {
+            if (contact.number.length > this.numberMaxLength!) {
                 this.atStack.evtError.post(Error("Number too long"));
                 return;
             }
@@ -119,9 +128,9 @@ export class CardStorage {
             this.atStack.runCommand(`AT+CPBW=${contact.index},"${contact.number}",,"${contact.name}"\r`,
                 () => {
 
-                    this.contactMap[contact.index]= contact;
+                    this.contactByIndex[contact.index]= contact;
 
-                    safeCallback(this.getContact(contact.index));
+                    callback!(this.getContact(contact.index)!);
                 });
 
         });
@@ -133,9 +142,7 @@ export class CardStorage {
             name?: string
         }, callback?: (contact: Contact) => void): void => {
 
-            let safeCallback = callback || function () { };
-
-            if (!this.contactMap[index]){
+            if (!this.contactByIndex[index]){
                 this.atStack.evtError.post(new Error("Contact does not exist"));
                 return;
             }
@@ -145,7 +152,7 @@ export class CardStorage {
                 return;
             }
 
-            let contact = this.contactMap[index];
+            let contact = this.contactByIndex[index];
 
             let number = "";
 
@@ -162,14 +169,14 @@ export class CardStorage {
 
             if ( params.name !== undefined) {
                 enc = "IRA";
-                contactName = this.generateSafeContactName(params.name);
+                contactName = this.generateSafeContactName(params.name)!;
             } else {
                 if( CardStorage.hasExtendedChar(contact.name) ){
                     enc= "UCS2";
                     contactName= CardStorage.encodeUCS2(contact.name);
                 }else{
                     enc= "IRA";
-                    contactName= this.generateSafeContactName(contact.name);
+                    contactName= this.generateSafeContactName(contact.name)!;
                 }
             }
 
@@ -178,12 +185,13 @@ export class CardStorage {
             this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`,
                 () => {
 
-                    Object.assign(this.contactMap[index], {
-                        "number": number,
-                        "name": (enc === "UCS2") ? CardStorage.decodeUCS2(contactName) : contactName
-                    });
+                    this.contactByIndex[index]= { 
+                        ...this.contactByIndex[index], 
+                        number, 
+                        "name": (enc === "UCS2") ? CardStorage.decodeUCS2(contactName) : contactName 
+                    };
 
-                    safeCallback(this.getContact(index));
+                    callback!(this.getContact(index)!);
                 });
 
         });
@@ -191,29 +199,25 @@ export class CardStorage {
     public deleteContact = execStack("WRITE",
         (index: number, callback?: () => void): void => {
 
-            let safeCallback = callback || function () { };
-
-            if (!this.contactMap[index]){
+            if (!this.contactByIndex[index]){
                 this.atStack.evtError.post(new Error("Contact does not exists"));
                 return;
             }
 
             this.atStack.runCommand(`AT+CPBW=${index}\r`,
                 () => {
-                    delete this.contactMap[index];
-                    safeCallback();
+                    delete this.contactByIndex[index];
+                    callback!();
                 });
         });
 
 
-    private readonly contactMap: {
+    private readonly contactByIndex: {
         [index: number]: Contact;
     } = {};
 
     private init(callback: () => void): void {
         (async () => {
-
-            console.log("init");
 
             let [resp] = await pr.typed(
                 this.atStack,
@@ -225,9 +229,6 @@ export class CardStorage {
             let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
 
             for (let index = minIndex; index <= maxIndex; index++) {
-
-
-                console.log("index", index);
                 
                 this.atStack.runCommand(`AT+CSCS="IRA"\r`);
 
@@ -276,22 +277,18 @@ export class CardStorage {
 
                 }
 
-                this.contactMap[index]=  {
-                    "index": index,
-                    "number": number,
-                    "name": name
-                };
+                this.contactByIndex[index]=  { index, number, name };
 
             }
-
-            console.log("done");
 
             callback();
 
         })();
     }
 
-    public generateSafeContactName(contactName: string): string {
+    public generateSafeContactName(contactName: string): string | undefined {
+
+        if( !this.contactNameMaxLength ) return undefined;
 
         // cSpell:disable
         contactName = contactName.replace(/[ÀÁÂÃÄ]/g, "A");

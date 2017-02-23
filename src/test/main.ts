@@ -77,21 +77,22 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
     //modem.evtCardStorageReady.attach(()=> console.log(modem.contacts) );
 
     modem.evtCardStorageReady.attachOnce(()=>{
-        
+
 
         console.log("Storage ready");
 
         console.log("storage left: ".blue, modem.storageLeft);
 
-        console.log("Nombre de contacts:".green, modem.contacts.length);
+        console.log("Nombre de contacts:".green, modem.contacts!.length);
 
         console.log(JSON.stringify(modem.contacts, null, 2).green);
 
-        modem.updateContact(8, { "number": "12345678" }, contact => console.log("updated contact: ", contact));
+        //modem.updateContact(8, { "number": "12345678" }, contact => console.log("updated contact: ", contact));
 
         /*
-        for( let contact of modem.contacts )
+        for( let contact of modem.contacts! )
             modem.deleteContact(contact.index, ()=> console.log(`Deleted contact: ${JSON.stringify(contact)}`.blue));
+        */
 
         modem.createContact("+33636786385","Le nouveau" , contact => { 
 
@@ -102,7 +103,6 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
             modem.updateContact(contact.index, { "number": "007" }, contact=> console.log("updated contact: ", modem.contacts));
 
         });
-        */
 
 
     });
@@ -110,7 +110,6 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
 
     //modem.runCommand("AT+CNUM\r", output => console.log("CNUM :", (output.atMessage as any).atMessages));
 
-    /*
     let messageText = "I build a message\n";
 
     for (let i = 0; i < 5; i++) messageText += messageText;
@@ -118,7 +117,6 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
     console.log("Sending: \n".green, JSON.stringify(messageText));
 
     modem.sendMessage("+33636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
-    */
 
 
 

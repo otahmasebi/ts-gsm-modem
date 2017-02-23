@@ -1,6 +1,6 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "GSM Modem manager",
   "main": "./out/lib/index.js",
   "types": "./out/lib/index.d.ts",
@@ -26,19 +26,21 @@
   "dependencies": {
     "@types/chai": "^3.4.34",
     "@types/colors": "^1.1.1",
-    "@types/node": "^4.0.0",
+    "@types/node": "^4.2.2",
     "at-commands-parser": "garronej/at-commands-parser",
     "at-messages-parser": "garronej/at-messages-parser",
     "colors": "^1.1.2",
     "legacy-encoding": "^3.0.0",
     "node-python-messaging": "garronej/node-python-messaging",
-    "serialport": "^4.0.0",
+    "serialport": "EmergingTechnologyAdvisors/node-serialport#4.0.7",
     "ts-events-extended": "garronej/ts-events-extended",
     "ts-exec-stack": "garronej/ts-exec-stack",
     "ts-promisify": "garronej/ts-promisify",
     "typescript": "^2.1.6"
   },
   "devDependencies": {
-    "gsm-modem-connection": "garronej/gsm-modem-connection"
+    "asterisk-manager": "^0.1.15",
+    "gsm-modem-connection": "garronej/gsm-modem-connection",
+    "why-is-node-running": "^1.2.2"
   }
 }
