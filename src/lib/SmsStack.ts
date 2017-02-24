@@ -123,8 +123,6 @@ export class SmsStack {
         ): void => {
             (async () => {
 
-                let safeCallback= callback || function(){};
-
                 let [error, pdus] = await pr.typed(buildSmsSubmitPdus)({
                     "number": number,
                     "text": text,
@@ -140,6 +138,7 @@ export class SmsStack {
 
                 for (let pduWrap of pdus) {
 
+
                     this.atStack.runCommand(`AT+CMGS=${pduWrap.length}\r`);
 
                     let [resp] = await pr.typed(
@@ -147,7 +146,7 @@ export class SmsStack {
                         this.atStack.runCommandExt
                     )(`${pduWrap.pdu}\u001a`, {
                         "recoverable": true,
-                    }) as [ AtImps.P_CMGS_SET | undefined ];
+                    }) as [ AtImps.P_CMGS_SET | undefined];
 
                     if (!resp) {
 
@@ -155,7 +154,7 @@ export class SmsStack {
                             if (this.mrMessageIdMap[mr] === messageId)
                                 delete this.mrMessageIdMap[mr];
 
-                        safeCallback(NaN);
+                        callback!(NaN);
 
                         return;
                     }
@@ -169,7 +168,7 @@ export class SmsStack {
                     "completed": 0
                 };
 
-                safeCallback(messageId);
+                callback!(messageId);
 
             })();
 

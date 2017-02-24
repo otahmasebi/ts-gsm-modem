@@ -229,7 +229,7 @@ export class CardStorage {
             let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
 
             for (let index = minIndex; index <= maxIndex; index++) {
-                
+
                 this.atStack.runCommand(`AT+CSCS="IRA"\r`);
 
                 let [resp, final]= await pr.typed(
