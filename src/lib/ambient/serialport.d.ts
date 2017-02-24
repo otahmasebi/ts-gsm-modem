@@ -1,19 +1,24 @@
 // Type definitions for serialport 4.0.7
 
 declare module "serialport" {
+
+
     class SerialPort {
         constructor(path: string, options?: Object, openImmediately?: boolean, callback?: (err: string) => void)
         isOpen(): boolean;
-        on(event: string, callback?: (data?: any) => void): void;
-        open(callback?: () => void): void;
-        write(buffer: Buffer|string, callback?: (err: string) => void): void
+        on(event: "data", callback: (data: Buffer|string)=> void):void;
+        on(event: "error", callback: (error: string|Error)=> void):void;
+        on(event: "disconnect", callback: (error: string|Error|null|undefined)=>void):void;
+        on(event: "open", callback: ()=>void):void;
+        open(callback: () => void): void;
+        write(buffer: Buffer|string, callback?: (error: string|Error|null|undefined) => void): void
         pause(): void;
         resume(): void;
-        disconnected(err: Error): void;
-        close(callback?: (err:any) => void): void;
-        flush(callback?: (err:any) => void): void;
+        disconnected(error: string|Error): void;
+        close(callback?: (error: string|Error|null|undefined) => void): void;
+        flush(callback?: (err: string|Error|null|undefined) => void): void;
         set(options: SerialPort.setOptions, callback: () => void): void;
-        drain(callback?: (err:any) => void): void;
+        drain(callback?: (error:string|Error|null|undefined) => void): void;
         update(options: SerialPort.updateOptions, callback?: () => void): void;
         static list(callback: (err: string, ports: SerialPort.portConfig[]) => void): void;
         static parsers: {
