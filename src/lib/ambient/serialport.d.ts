@@ -5,6 +5,8 @@
 
 declare module "serialport" {
 
+    type Parser= (emitter: NodeJS.EventEmitter, buffer: Buffer | string)=> void;
+
     type Options = {
         baudRate?: number;
         autoOpen?: boolean;
@@ -18,7 +20,7 @@ declare module "serialport" {
         stopBits?: number,
         bufferSize?: number,
         lock?: boolean,
-        parser?: (emitter: NodeJS.EventEmitter, buffer: Buffer | string) => void,
+        parser?: Parser,
         platformOptions?: Object
     };
 
@@ -42,8 +44,9 @@ declare module "serialport" {
         update(options: SerialPort.updateOptions, callback?: () => void): void;
         static list(callback: (err: string, ports: SerialPort.portConfig[]) => void): void;
         static parsers: {
-            readline: (delimiter: string) => void,
-            raw: (emitter: any, buffer: string) => void
+            readline(delimiter: string): Parser;
+            raw: Parser;
+            byteDelimiter(byteArray: number[]): Parser;
         };
         listenerCount: NodeJS.EventEmitter["listenerCount"];
 

@@ -1,5 +1,4 @@
-/// <reference path="./ambient/serialport.d.ts"/>
-import * as SerialPort from "serialport";
+import { SerialPortExt } from "./SerialPortExt";
 import * as promisify from "ts-promisify";
 import { SyncEvent } from "ts-events-extended";
 import { execStack, ExecStack } from "ts-exec-stack";
@@ -41,19 +40,17 @@ export class AtStack {
     public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
     public readonly evtTerminate = new SyncEvent<Error | null>();
 
-    private readonly serialPort: SerialPort;
+    private readonly serialPort: SerialPortExt;
     private readonly serialPortAtParser= getSerialPortParser();
     constructor(path: string) {
 
-        this.serialPort = new SerialPort(path, {
+        this.serialPort = new SerialPortExt(path, {
             "baudRate": 9600,
             "parser": this.serialPortAtParser
         });
-        //this.serialPort = new SerialPort(path);
 
         this.registerListeners();
 
-        //this.runCommand("ATZ\r");
 
     }
 
@@ -68,13 +65,11 @@ export class AtStack {
 
     private registerListeners(): void {
 
-
-
         this.evtError.attach(error => {
 
-            if (error instanceof SerialPortError) console.log("LOOK HERE");
-
             this.serialPort.close();
+
+            console.log("unrecoverable error: ".red, error);
 
             this.evtTerminate.post(error);
 
@@ -84,7 +79,9 @@ export class AtStack {
         //this.evtUnsolicitedMessage.attach(atMessage=> console.log(JSON.stringify(atMessage,null,2).yellow));
 
         this.serialPort.on("disconnect", () => this.evtTerminate.post(null));
-        this.serialPort.on("error", error => this.evtError.post(new SerialPortError(error)));
+
+        this.serialPort.evtError.attach(serialPortError=> this.evtError.post(serialPortError));
+
         this.serialPort.on("data", (atMessage: AtMessage | null, unparsed: string) => {
 
             if (!atMessage) {
@@ -202,7 +199,7 @@ export class AtStack {
 
                 let code = NaN;
 
-                if (!(final instanceof AtImps.ERROR))
+                if ( final.id === atIdDict.P_CME_ERROR || final.id === atIdDict.P_CMS_ERROR )
                     code = (final as AtImps.P_CME_ERROR | AtImps.P_CMS_ERROR).code;
 
                 if (this.retryLeft-- && params.retryOnErrors.indexOf(code) >= 0)
@@ -214,7 +211,7 @@ export class AtStack {
                     if (params.recoverable)
                         callback(resp, final, raw);
                     else {
-                        this.evtError.post(new CommandError(command, final));
+                        this.evtError.post(new RunCommandError(command, final));
                         return;
                     }
                 }
@@ -232,7 +229,13 @@ export class AtStack {
         callback: RunCallback): void {
 
         Promise.all([
-            new Promise(resolve => this.write(command, resolve)),
+            new Promise(resolve => this.serialPort.writeAndDrain(command, serialPortError=>{
+                if( serialPortError ){
+                    this.serialPort.evtError.post(serialPortError);
+                    return;
+                }  
+                resolve();
+            })),
             new Promise<[AtMessage | undefined, AtMessage, string]>(resolve => {
 
                 let resp: AtMessage | undefined = undefined;
@@ -306,57 +309,19 @@ export class AtStack {
 
     }
 
-    private write(rawAtCommand: string, callback: () => void): void {
-
-        if (!this.serialPort.isOpen()) {
-
-            this.serialPort.on("open", () => this.write(rawAtCommand, callback));
-            return;
-        }
-
-        this.serialPort.write(rawAtCommand, originalSerialPortError => {
-
-            //console.log("Write: ".blue, JSON.stringify(rawAtCommand));
-
-            if (originalSerialPortError) {
-                this.evtError.post(new SerialPortError(originalSerialPortError));
-                return;
-            }
-
-            this.serialPort.drain(originalSerialPortError => {
-
-                if (originalSerialPortError) {
-                    console.log("drain issue");
-                    this.evtError.post(new SerialPortError(originalSerialPortError));
-                    return;
-                }
-
-                callback();
-
-            });
-
-
-        });
-
-
-
-    }
 
 
 
 }
 
 
-export class CommandError extends Error {
+export class RunCommandError extends Error {
 
-    public readonly command: string;
-
-    constructor(command: string,
+    constructor(public readonly command: string,
         public readonly atMessageError: AtMessage) {
-        super(CommandError.name);
-        Object.setPrototypeOf(this, CommandError.prototype)
+        super(RunCommandError.name);
+        Object.setPrototypeOf(this, RunCommandError.prototype)
 
-        this.command = String.raw`${command}`;
     }
 }
 
@@ -369,19 +334,3 @@ export class ParseError extends Error {
 
 }
 
-export class SerialPortError extends Error {
-
-    public readonly originalError: Error;
-
-    constructor(originalError: Error | string) {
-        super(SerialPortError.name);
-        Object.setPrototypeOf(this, SerialPortError.prototype)
-
-        if (typeof originalError === "string")
-            this.originalError = new Error(originalError);
-        else
-            this.originalError = originalError;
-
-    }
-
-}

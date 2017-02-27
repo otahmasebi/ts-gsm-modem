@@ -156,8 +156,6 @@ export class Modem {
             return;
         }
 
-        console.log("sending message");
-
         self.smsStack.sendMessage.apply(self.smsStack, inputs);
 
     } as typeof SmsStack.prototype.sendMessage);
