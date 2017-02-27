@@ -3,6 +3,8 @@ import { Modem, pinStates } from "../lib/index";
 import { MessageStat, AtMessageList, AtImps } from "at-messages-parser";
 import { CardStorage } from "../lib/CardStorage";
 import * as pr from "ts-promisify";
+import * as fs from "fs";
+import * as path from "path";
 require("colors");
 
 import { NumberingPlanIdentification, TypeOfNumber } from "at-messages-parser";
@@ -18,7 +20,7 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
 
     console.log("CONNECTION".green, accessPoint.infos);
 
-    let modem = new Modem(accessPoint.atInterface, "1234");
+    let modem = new Modem(accessPoint.atInterface, "0000");
 
     modem.evtTerminate.attachOnce(error => {
 
@@ -74,49 +76,34 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
     modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
     modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
-    //modem.evtCardStorageReady.attach(()=> console.log(modem.contacts) );
+    modem.evtCardStorageReady.attachOnce(()=> console.log(modem.contacts) );
 
-    modem.evtCardStorageReady.attachOnce(()=>{
+    /*
+
+    modem.evtValidSim.attachOnce(()=> {
 
 
-        console.log("Storage ready");
+        modem.atStack.runCommand(`AT+IPR=9600\r`);
 
-        console.log("storage left: ".blue, modem.storageLeft);
+        modem.atStack.runCommand(`AT\r`);
 
-        console.log("Nombre de contacts:".green, modem.contacts!.length);
-
-        console.log(JSON.stringify(modem.contacts, null, 2).green);
-
-        //modem.updateContact(8, { "number": "12345678" }, contact => console.log("updated contact: ", contact));
-
-        /*
-        for( let contact of modem.contacts! )
-            modem.deleteContact(contact.index, ()=> console.log(`Deleted contact: ${JSON.stringify(contact)}`.blue));
-        */
-
-        modem.createContact("+33636786385","Le nouveau" , contact => { 
-
-            console.log(`Created contact: ${JSON.stringify(contact)}`.green);
-
-            modem.updateContact(contact.index, { "name": "Nouveau update" }, contact=> console.log("updated contact: ", contact));
-
-            modem.updateContact(contact.index, { "number": "007" }, contact=> console.log("updated contact: ", modem.contacts));
-
-        });
-
+        modem.atStack.runCommand("AT+IPR?\r", resp=> console.log("baud rate: ", resp));
 
     });
 
+    */
 
-    //modem.runCommand("AT+CNUM\r", output => console.log("CNUM :", (output.atMessage as any).atMessages));
 
-    let messageText = "I build a message\n";
 
-    for (let i = 0; i < 5; i++) messageText += messageText;
+    let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/out/, "src"), "utf8");
 
     console.log("Sending: \n".green, JSON.stringify(messageText));
 
-    modem.sendMessage("+33636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+    modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+
+
+
+
 
 
 

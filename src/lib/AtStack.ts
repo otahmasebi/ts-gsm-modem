@@ -8,6 +8,7 @@ require("colors");
 
 import { 
     atMessagesParser, 
+    getSerialPortParser,
     atIdDict, 
     AtMessage, 
     AtImps, 
@@ -34,86 +35,67 @@ type SafeRunParams= {
         retryOnErrors: number[];
 }
 
+
 export class AtStack {
 
     public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
-    public readonly evtTerminate= new SyncEvent<Error | null>();
+    public readonly evtTerminate = new SyncEvent<Error | null>();
 
     private readonly serialPort: SerialPort;
-    constructor(path: string){
+    private readonly serialPortAtParser= getSerialPortParser();
+    constructor(path: string) {
 
-        this.serialPort = new SerialPort(path);
+        this.serialPort = new SerialPort(path, {
+            "baudRate": 9600,
+            "parser": this.serialPortAtParser
+        });
+        //this.serialPort = new SerialPort(path);
 
         this.registerListeners();
 
+        //this.runCommand("ATZ\r");
+
     }
 
-    public terminate(): void{
+    public terminate(): void {
         this.serialPort.close();
         this.evtTerminate.post(null);
     }
 
     private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
     public readonly evtError = new SyncEvent<Error>();
-    private readonly parseErrorDelay= 30000;
+    private readonly parseErrorDelay = 30000;
 
     private registerListeners(): void {
 
 
 
         this.evtError.attach(error => {
-            
-                if( error instanceof SerialPortError) console.log("LOOK HERE");
 
-                this.serialPort.close();
+            if (error instanceof SerialPortError) console.log("LOOK HERE");
 
-                this.evtTerminate.post(error);
+            this.serialPort.close();
+
+            this.evtTerminate.post(error);
 
         });
 
-        this.serialPort.on("disconnect", ()=> this.evtTerminate.post(null));
+        //this.serialPortAtParser.evtRawData.attach(rawAtMessages => console.log(JSON.stringify(rawAtMessages).yellow));
+        //this.evtUnsolicitedMessage.attach(atMessage=> console.log(JSON.stringify(atMessage,null,2).yellow));
+
+        this.serialPort.on("disconnect", () => this.evtTerminate.post(null));
         this.serialPort.on("error", error => this.evtError.post(new SerialPortError(error)));
+        this.serialPort.on("data", (atMessage: AtMessage | null, unparsed: string) => {
 
-
-        let rawAtMessagesBuffer = "";
-        let timer: NodeJS.Timer;
-
-        this.serialPort.on("data", (data:Buffer) => {
-
-            //console.log(JSON.stringify(data.toString("utf8")).yellow);
-
-            if (timer) clearTimeout(timer);
-
-            rawAtMessagesBuffer += data.toString("utf8");
-
-            let atMessages: AtMessage[];
-
-            try {
-
-                atMessages = atMessagesParser(rawAtMessagesBuffer);
-
-            } catch (error) {
-
-                console.log("Parsing failed".red, JSON.stringify(rawAtMessagesBuffer));
-
-                timer = setTimeout(
-                    () => this.evtError.post(new ParseError(rawAtMessagesBuffer, error)),
-                    this.parseErrorDelay
-                );
-
+            if (!atMessage) {
+                this.evtError.post(new ParseError(unparsed));
                 return;
-
             }
 
-            rawAtMessagesBuffer = "";
-
-            //console.log("Parsed".green, JSON.stringify(atMessages, null, 2).green);
-
-            for (let atMessage of atMessages)
-                if (atMessage.isUnsolicited)
-                    this.evtUnsolicitedMessage.post(atMessage);
-                else
-                    this.evtResponseAtMessage.post(atMessage);
+            if (atMessage.isUnsolicited)
+                this.evtUnsolicitedMessage.post(atMessage);
+            else
+                 this.evtResponseAtMessage.post(atMessage);
 
         });
 
@@ -186,9 +168,11 @@ export class AtStack {
 
             this.runCommandRetry(`AT+CMEE=${params.reportMode}\r`,
                 { "recoverable": false, "retryOnErrors": [] } as any,
-                () => this.runCommandRetry(command, params, callback));
+                () => {
+                    this.reportMode = params.reportMode;
+                    this.runCommandRetry(command, params, callback)
+                });
 
-            this.reportMode = params.reportMode;
 
         }
 
@@ -247,33 +231,79 @@ export class AtStack {
     private runCommandBase(command: string,
         callback: RunCallback): void {
 
-        this.write(command, () => {
+        Promise.all([
+            new Promise(resolve => this.write(command, resolve)),
+            new Promise<[AtMessage | undefined, AtMessage, string]>(resolve => {
 
-            let raw = "";
-            let resp: AtMessage;
-            let final: AtMessage;
+                let resp: AtMessage | undefined = undefined;
+                let final: AtMessage;
+                let raw = "";
 
-            this.evtResponseAtMessage.attach(atMessage => {
+                let timer = setTimeout(() => {
 
-                raw += atMessage.raw;
+                    console.log(`Timeout with command ${JSON.stringify(command)}`.red)
 
-                if (atMessage.id === atIdDict.ECHO)
-                    return;
+                    //TODO: flush pending
 
-                if (!atMessage.isFinal) {
-                    resp = atMessage;
-                    return;
-                }
+                    this.evtResponseAtMessage.detach();
 
-                final = atMessage;
+                    let unparsed = this.serialPortAtParser.flush();
 
-                this.evtResponseAtMessage.detach();
+                    console.log("unparsed: ", JSON.stringify(unparsed));
+                    console.log("raw: ", JSON.stringify(raw).blue);
+                    console.log("resp: ", JSON.stringify(resp));
 
-                callback(resp, final, raw);
+                    if( command[ command.length-1 ] !== "\r" ){
 
-            });
+                        console.log("c'etais un pdu".red);
 
-        });
+                        let error= new AtImps.ERROR("\r\nERROR\r\n");
+
+                        callback(undefined, error, raw+error.raw);
+                        return;
+
+                    }
+
+                    this.runCommandBase(command, callback);
+
+
+                }, 60000);
+
+
+                this.evtResponseAtMessage.attach(atMessage => {
+
+                    raw += atMessage.raw;
+
+                    if (atMessage.id === atIdDict.ECHO)
+                        return;
+
+                    if (!atMessage.isFinal) {
+                        resp = atMessage;
+                        return;
+                    }
+
+                    final = atMessage;
+
+                    this.evtResponseAtMessage.detach();
+
+                    try {
+
+                        clearTimeout(timer);
+
+                    } catch (error) {
+
+                        console.log("error clear timeout".red, error);
+
+                    }
+
+                    resolve([resp, final, raw]);
+
+                });
+
+
+            })
+        ]).then(([_, [resp, final, raw]]) => callback(resp, final, raw));
+
     }
 
     private write(rawAtCommand: string, callback: () => void): void {
@@ -284,44 +314,31 @@ export class AtStack {
             return;
         }
 
-
         this.serialPort.write(rawAtCommand, originalSerialPortError => {
+
+            //console.log("Write: ".blue, JSON.stringify(rawAtCommand));
 
             if (originalSerialPortError) {
                 this.evtError.post(new SerialPortError(originalSerialPortError));
                 return;
             }
 
-            callback();
+            this.serialPort.drain(originalSerialPortError => {
+
+                if (originalSerialPortError) {
+                    console.log("drain issue");
+                    this.evtError.post(new SerialPortError(originalSerialPortError));
+                    return;
+                }
+
+                callback();
+
+            });
+
 
         });
 
 
-        /*
-    this.serialPort.write(rawAtCommand, errorStr => {
-
-        
-
-        if (errorStr){
-            this.evtError.post(new SerialPortError(new Error(errorStr)));
-            return;
-        }
-
-
-        this.serialPort.drain(errorStr => {
-
-
-            if (errorStr) {
-                this.evtError.post(new SerialPortError(new Error(errorStr)));
-                return;
-            }
-
-            callback();
-
-        });
-
-    });
-    */
 
     }
 
@@ -345,8 +362,7 @@ export class CommandError extends Error {
 
 export class ParseError extends Error {
 
-    constructor(public readonly input: string,
-        public readonly originalError: Error) {
+    constructor(public readonly unparsed: string) {
         super(ParseError.name);
         Object.setPrototypeOf(this, ParseError.prototype)
     }

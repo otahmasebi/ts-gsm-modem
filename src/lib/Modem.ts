@@ -8,6 +8,7 @@ import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { execStack, ExecStack} from "ts-exec-stack";
 
+
 require("colors");
 
 process.on("unhandledRejection", error=> { 
@@ -17,9 +18,10 @@ process.on("unhandledRejection", error=> {
 });
 
 
+
 export class Modem {
 
-    private readonly atStack: AtStack;
+    public readonly atStack: AtStack;
     private readonly systemState: SystemState;
 
     constructor(atInterface: string, private readonly pin?: string) {
@@ -153,6 +155,8 @@ export class Modem {
             self.systemState.evtNetworkReady.attachOnce(() => callee.apply(self, inputs));
             return;
         }
+
+        console.log("sending message");
 
         self.smsStack.sendMessage.apply(self.smsStack, inputs);
 

@@ -85,6 +85,7 @@ export class SmsStack {
                     }
 
                     if( sms instanceof SmsStatusReport ){
+
                             this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
                             return;
                     }
@@ -192,40 +193,48 @@ export class SmsStack {
 
         this.evtSmsStatusReport.attach(smsStatusReport => {
 
-            let messageId = this.mrMessageIdMap[smsStatusReport.ref];
+            try {
 
-            if (!messageId) return;
+                let messageId = this.mrMessageIdMap[smsStatusReport.ref];
 
-            let isDelivered: boolean= true;
+                if (!messageId) return;
 
-            switch( smsStatusReport._stClass ){
-                case "RESERVED":
-                case "STILL TRYING": return;
-                case "PERMANENT ERROR":
-                case "TEMPORARY ERROR":
-                case "SPECIFIC TO SC":
-                    isDelivered= false;
-                    break;
-                case "COMPLETED": 
-                    let elem = this.statusReportMap[messageId];
-                    if (++elem.completed !== elem.cnt) return;
-                    isDelivered= true;
-                    break;
+                let isDelivered: boolean = true;
+
+                switch (smsStatusReport._stClass) {
+                    case "RESERVED":
+                    case "STILL TRYING": return;
+                    case "PERMANENT ERROR":
+                    case "TEMPORARY ERROR":
+                    case "SPECIFIC TO SC":
+                        isDelivered = false;
+                        break;
+                    case "COMPLETED":
+                        let elem = this.statusReportMap[messageId];
+                        if (++elem.completed !== elem.cnt) return;
+                        isDelivered = true;
+                        break;
+                }
+
+
+                for (let mr of Object.keys(this.mrMessageIdMap))
+                    if (this.mrMessageIdMap[mr] === messageId)
+                        delete this.mrMessageIdMap[mr];
+
+                delete this.statusReportMap[messageId];
+
+                this.evtMessageStatusReport.post({
+                    "messageId": messageId,
+                    "dischargeTime": smsStatusReport.sr.dt,
+                    "isDelivered": isDelivered,
+                    "status": TP_ST[smsStatusReport.sr.status]
+                });
+
+            } catch (error) {
+
+                console.log("error:", error);
+
             }
-            
-
-            for (let mr of Object.keys(this.mrMessageIdMap))
-                if (this.mrMessageIdMap[mr] === messageId)
-                    delete this.mrMessageIdMap[mr];
-
-            delete this.statusReportMap[messageId];
-
-            this.evtMessageStatusReport.post({
-                        "messageId": messageId,
-                        "dischargeTime": smsStatusReport.sr.dt,
-                        "isDelivered": isDelivered,
-                        "status": TP_ST[smsStatusReport.sr.status]
-            });
 
         });
 
