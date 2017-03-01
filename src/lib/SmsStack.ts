@@ -18,6 +18,8 @@ import {
 } from "node-python-messaging";
 import { execStack, ExecStack } from "ts-exec-stack";
 import { SyncEvent } from "ts-events-extended";
+import { Timer, setTimeout } from "timer-extended";
+import { ObjectExt } from "object-extended";
 
 import * as pr from "ts-promisify";
 
@@ -41,12 +43,18 @@ export class SmsStack {
     public readonly evtMessage = new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
 
-    private evtSmsDeliver = new SyncEvent<[number, SmsDeliver| SmsDeliverPart]>();
+    private evtSmsDeliver = new SyncEvent<[number, SmsDeliver | SmsDeliverPart]>();
     private evtSmsStatusReport = new SyncEvent<SmsStatusReport>();
-    private readonly concatenatedSmsMap: {
-        [ref: number]: {
-            [seq: number]: [number, SmsDeliverPart]
-        }
+    private readonly uncompletedMultipartSms: {
+        [messageRef: number]: {
+            timer: Timer<void>;
+            parts: {
+                [partRef: number]: {
+                    storageIndex: number,
+                    text: string
+                };
+            };
+        };
     } = {};
 
     constructor(private readonly atStack: AtStack) {
@@ -61,42 +69,41 @@ export class SmsStack {
 
     private retrieveUnreadSms(): void {
 
-        this.atStack.runCommand(`AT+CMGL=${MessageStat.ALL}\r`, 
-        (atList: AtMessageList | undefined) => {
+        this.atStack.runCommand(`AT+CMGL=${MessageStat.ALL}\r`,
+            (atList: AtMessageList | undefined) => {
 
-            if (!atList) return;
+                if (!atList) return;
 
-            for (let p_CMGL_SET of atList.atMessages as AtImps.P_CMGL_SET[]) {
+                for (let p_CMGL_SET of atList.atMessages as AtImps.P_CMGL_SET[]) {
 
-                if (
-                    p_CMGL_SET.stat !== MessageStat.REC_READ &&
-                    p_CMGL_SET.stat !== MessageStat.REC_UNREAD
-                ) {
-                    this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
-                    return;
-                }
-
-                decodePdu(p_CMGL_SET.pdu, (error, sms) => {
-
-                    if (error) {
-                        console.log("PDU not decrypted: ".red, p_CMGL_SET.pdu, error);
+                    if (
+                        p_CMGL_SET.stat !== MessageStat.REC_READ &&
+                        p_CMGL_SET.stat !== MessageStat.REC_UNREAD
+                    ) {
                         this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
                         return;
                     }
 
-                    if( sms instanceof SmsStatusReport ){
+                    decodePdu(p_CMGL_SET.pdu, (error, sms) => {
 
+                        if (error) {
+                            console.log("PDU not decrypted: ".red, p_CMGL_SET.pdu, error);
                             this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
                             return;
-                    }
+                        }
 
-                    this.evtSmsDeliver.post([p_CMGL_SET.index, sms as SmsDeliver | SmsDeliverPart]);
+                        if (sms instanceof SmsStatusReport) {
+                            this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
+                            return;
+                        }
 
-                });
+                        this.evtSmsDeliver.post([p_CMGL_SET.index, sms as SmsDeliver | SmsDeliverPart]);
 
-            }
+                    });
 
-        });
+                }
+
+            });
 
 
     }
@@ -130,7 +137,7 @@ export class SmsStack {
                     "request_status": true
                 });
 
-                if (error){
+                if (error) {
                     this.atStack.evtError.post(error);
                     return;
                 }
@@ -147,7 +154,7 @@ export class SmsStack {
                         this.atStack.runCommandExt
                     )(`${pduWrap.pdu}\u001a`, {
                         "recoverable": true,
-                    }) as [ AtImps.P_CMGS_SET | undefined];
+                    }) as [AtImps.P_CMGS_SET | undefined];
 
                     if (!resp) {
 
@@ -232,11 +239,12 @@ export class SmsStack {
 
             } catch (error) {
 
-                console.log("error:", error);
+                console.log("=============>error:".red, error);
 
             }
 
         });
+
 
         this.evtSmsDeliver.attach(([index, smsDeliver]) => {
 
@@ -252,31 +260,70 @@ export class SmsStack {
 
             }
 
-            if (!this.concatenatedSmsMap[smsDeliver.ref])
-                this.concatenatedSmsMap[smsDeliver.ref] = {};
+            let messageRef = smsDeliver.ref;
+            let partRef = smsDeliver.seq;
+            let totalPartInMessage = smsDeliver.cnt;
 
-            this.concatenatedSmsMap[smsDeliver.ref][smsDeliver.seq] = [index, smsDeliver];
+            let timer: Timer<void>;
+            let parts: typeof SmsStack.prototype.uncompletedMultipartSms[number]['parts'];
 
-            if (Object.keys(this.concatenatedSmsMap[smsDeliver.ref]).length !== smsDeliver.cnt)
-                return;
+            if (!this.uncompletedMultipartSms[messageRef]) {
 
-            let concatMessage: Message = {
-                "number": smsDeliver.number,
-                "date": smsDeliver.date,
-                "text": ""
-            };
+                parts = {};
 
-            let ref = smsDeliver.ref;
+                timer = setTimeout((logMessage: string) => {
 
-            for (let seq = 1; seq <= smsDeliver.cnt; seq++) {
-                let [index, sms] = this.concatenatedSmsMap[ref][seq];
-                concatMessage.text += sms.text;
-                this.atStack.runCommand(`AT+CMGD=${index}\r`);
+                    //console.log(logMessage);
+
+                    let partRefs= ObjectExt.intKeysSorted(parts);
+                    let partRefPrev = 0;
+                    let concatenatedText = "";
+                    let partLeft= totalPartInMessage;
+                    
+                    for ( let partRef of partRefs) {
+
+                        let { storageIndex, text } = parts[partRef];
+
+                        for (let ref = partRefPrev + 1; ref < partRef; ref++){
+                            partLeft--;
+                            concatenatedText += " *** Missing part *** ";
+                        }
+
+                        partLeft--;
+                        concatenatedText += text;
+
+                        this.atStack.runCommand(`AT+CMGD=${storageIndex}\r`);
+                        partRefPrev = partRef;
+
+                    }
+
+                    while(partLeft-- > 0)
+                        concatenatedText += " *** Missing part *** ";
+
+                    delete this.uncompletedMultipartSms[messageRef];
+
+                    this.evtMessage.post({
+                        "number": smsDeliver.number,
+                        "date": smsDeliver.date,
+                        "text": concatenatedText
+                    });
+
+                }, 60000, "missing parts");
+
+
+                this.uncompletedMultipartSms[messageRef] = { timer, parts };
+
+            } else {
+                timer = this.uncompletedMultipartSms[messageRef].timer;
+                parts = this.uncompletedMultipartSms[messageRef].parts;
             }
 
-            delete this.concatenatedSmsMap[ref];
+            parts[partRef] = { "storageIndex": index, "text": smsDeliver.text };
 
-            this.evtMessage.post(concatMessage);
+            if (Object.keys(parts).length === totalPartInMessage)
+                timer.runNow("message complete");
+            else 
+                timer.resetDelay();
 
         });
 

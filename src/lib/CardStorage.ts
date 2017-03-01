@@ -30,15 +30,14 @@ export class CardStorage {
 
     public readonly evtReady = new VoidSyncEvent();
 
+    public imsi: string;
+
     public get isReady(): boolean {
         return this.evtReady.postCount === 1;
     }
 
-    //TODO with readonly no need to copy
 
-    public get contacts(): Contact[] | undefined {
-
-        if( !this.isReady ) return undefined;
+    public get contacts(): Contact[] {
 
         let out: Contact[] = [];
 
@@ -63,27 +62,16 @@ export class CardStorage {
 
     }
 
-    public get contactNameMaxLength(): number | undefined {
-        return this.p_CPBR_TEST?this.p_CPBR_TEST.tLength:undefined;
+    public get contactNameMaxLength(): number {
+        return this.p_CPBR_TEST.tLength;
     }
 
 
-    public get numberMaxLength(): number | undefined {
-        return this.p_CPBR_TEST?this.p_CPBR_TEST.nLength:undefined;
+    public get numberMaxLength(): number {
+        return this.p_CPBR_TEST.nLength;
     }
 
-    private p_CPBR_TEST: AtImps.P_CPBR_TEST | undefined;
-
-    constructor(private readonly atStack: AtStack) {
-
-        this.init(() => this.evtReady.post() );
-
-    }
-
-    public get storageLeft(): number | undefined {
-
-        if( !this.p_CPBR_TEST ) return undefined;
-
+    public get storageLeft(): number {
 
         let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
 
@@ -92,6 +80,53 @@ export class CardStorage {
         return total - Object.keys(this.contactByIndex).length;
 
     }
+
+    public generateSafeContactName(contactName: string): string {
+
+        // cSpell:disable
+        contactName = contactName.replace(/[ÀÁÂÃÄ]/g, "A");
+        contactName = contactName.replace(/[àáâãä]/g, "a");
+        contactName = contactName.replace(/[ÈÉÊË]/g, "E");
+        contactName = contactName.replace(/[èéêë]/g, "e");
+        contactName = contactName.replace(/[ÌÍÎÏ]/g, "I");
+        contactName = contactName.replace(/[ìíîï]/g, "i");
+        contactName = contactName.replace(/[ÒÓÔÕÖ]/g, "O");
+        contactName = contactName.replace(/[òóôõö]/g, "o");
+        contactName = contactName.replace(/[ÙÚÛÜ]/g, "U");
+        contactName = contactName.replace(/[ùúûü]/g, "u");
+        contactName = contactName.replace(/[ÝŸ]/g, "Y");
+        contactName = contactName.replace(/[ýÿ]/g, "y");
+        contactName = contactName.replace(/[Ñ]/g, "N");
+        contactName = contactName.replace(/[ñ]/g, "n");
+        // cSpell:enable
+
+        contactName = contactName.replace(/[\[{]/g, "(");
+        contactName = contactName.replace(/[\]}]/g, ")");
+        contactName = contactName.replace(/_/g, "-");
+        contactName = contactName.replace(/@/g, "At");
+        contactName = contactName.replace(/["`]/g, "'");
+
+        contactName = contactName.replace(/[^a-zA-Z0-9\ <>!\&\*#%,;\.'\(\)\?-]/g, " ");
+
+        //TODO if tLength not even
+
+        contactName = contactName.substring(0, this.contactNameMaxLength);
+
+        if (contactName.length % 2 === 1)
+            contactName += " ";
+
+        return contactName;
+
+    }
+
+
+    constructor(private readonly atStack: AtStack) {
+
+        this.init(() => this.evtReady.post() );
+
+    }
+
+    private p_CPBR_TEST: AtImps.P_CPBR_TEST;
 
     private getFreeIndex(): number {
 
@@ -108,8 +143,8 @@ export class CardStorage {
         (number: string, name: string, callback?: (contact: Contact) => void): void => {
 
             let contact: Contact = {
-                "index": this.getFreeIndex()!,
-                "name": this.generateSafeContactName(name)!,
+                "index": this.getFreeIndex(),
+                "name": this.generateSafeContactName(name),
                 number
             };
 
@@ -118,7 +153,7 @@ export class CardStorage {
                 return;
             }
 
-            if (contact.number.length > this.numberMaxLength!) {
+            if (contact.number.length > this.numberMaxLength) {
                 this.atStack.evtError.post(Error("Number too long"));
                 return;
             }
@@ -169,14 +204,14 @@ export class CardStorage {
 
             if ( params.name !== undefined) {
                 enc = "IRA";
-                contactName = this.generateSafeContactName(params.name)!;
+                contactName = this.generateSafeContactName(params.name);
             } else {
                 if( CardStorage.hasExtendedChar(contact.name) ){
                     enc= "UCS2";
                     contactName= CardStorage.encodeUCS2(contact.name);
                 }else{
                     enc= "IRA";
-                    contactName= this.generateSafeContactName(contact.name)!;
+                    contactName= this.generateSafeContactName(contact.name);
                 }
             }
 
@@ -216,13 +251,21 @@ export class CardStorage {
         [index: number]: Contact;
     } = {};
 
+
     private init(callback: () => void): void {
         (async () => {
 
             let [resp] = await pr.typed(
                 this.atStack,
                 this.atStack.runCommandDefault
-            )("AT+CPBR=?\r");
+            )("AT+CIMI\r");
+
+            this.imsi= resp!.raw.split("\r\n")[1];
+
+            resp = (await pr.typed(
+                this.atStack,
+                this.atStack.runCommandDefault
+            )("AT+CPBR=?\r"))[0];
 
             this.p_CPBR_TEST = resp as AtImps.P_CPBR_TEST;
 
@@ -286,45 +329,6 @@ export class CardStorage {
         })();
     }
 
-    public generateSafeContactName(contactName: string): string | undefined {
-
-        if( !this.contactNameMaxLength ) return undefined;
-
-        // cSpell:disable
-        contactName = contactName.replace(/[ÀÁÂÃÄ]/g, "A");
-        contactName = contactName.replace(/[àáâãä]/g, "a");
-        contactName = contactName.replace(/[ÈÉÊË]/g, "E");
-        contactName = contactName.replace(/[èéêë]/g, "e");
-        contactName = contactName.replace(/[ÌÍÎÏ]/g, "I");
-        contactName = contactName.replace(/[ìíîï]/g, "i");
-        contactName = contactName.replace(/[ÒÓÔÕÖ]/g, "O");
-        contactName = contactName.replace(/[òóôõö]/g, "o");
-        contactName = contactName.replace(/[ÙÚÛÜ]/g, "U");
-        contactName = contactName.replace(/[ùúûü]/g, "u");
-        contactName = contactName.replace(/[ÝŸ]/g, "Y");
-        contactName = contactName.replace(/[ýÿ]/g, "y");
-        contactName = contactName.replace(/[Ñ]/g, "N");
-        contactName = contactName.replace(/[ñ]/g, "n");
-        // cSpell:enable
-
-        contactName = contactName.replace(/[\[{]/g, "(");
-        contactName = contactName.replace(/[\]}]/g, ")");
-        contactName = contactName.replace(/_/g, "-");
-        contactName = contactName.replace(/@/g, "At");
-        contactName = contactName.replace(/["`]/g, "'");
-
-        contactName = contactName.replace(/[^a-zA-Z0-9\ <>!\&\*#%,;\.'\(\)\?-]/g, " ");
-
-        //TODO if tLength not even
-
-        contactName = contactName.substring(0, this.contactNameMaxLength);
-
-        if (contactName.length % 2 === 1)
-            contactName += " ";
-
-        return contactName;
-
-    }
 
     private static encodeUCS2(text: string): string {
 

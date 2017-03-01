@@ -4,11 +4,12 @@ import {
     atIdDict,
     AtMessage,
     AtImps,
-    PinState
+    PinState,
+    LockedPinState
 } from "at-messages-parser";
 
 export interface UnlockCodeRequest {
-    pinState: PinState;
+    pinState: LockedPinState;
     times: number;
 }
 

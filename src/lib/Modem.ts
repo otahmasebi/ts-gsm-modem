@@ -1,5 +1,5 @@
 import { AtStack } from "./AtStack";
-import { AtMessage, ReportMode } from "at-messages-parser";
+import { AtMessage, ReportMode, LockedPinState } from "at-messages-parser";
 import { SystemState } from "./SystemState";
 import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 import { CardStorage, Contact } from "./CardStorage";
@@ -14,34 +14,121 @@ require("colors");
 process.on("unhandledRejection", error=> { 
     console.log("INTERNAL ERROR".red);
     console.log(error);
-    throw error; 
+    throw error;
 });
+
+
+export interface UnlockCodeProviderCallback {
+    (pin: string): void;
+    (puk: string, newPin: string): void;
+}
+
+export interface UnlockCodeProvider {
+    handler(
+        imei: string,
+        pinState: LockedPinState,
+        tryLeft: number,
+        callback: UnlockCodeProviderCallback
+    ): void;
+    explicit: { pinFirstTry: string; pinSecondTry?: string };
+}
+
+export type CreateCallback= (modem:Modem, hasSim:boolean)=> void;
 
 
 
 export class Modem {
 
-    public readonly atStack: AtStack;
+    private static getSafeUnlockCodeProvider(
+        unlockCodeProvider: UnlockCodeProvider['handler'] | UnlockCodeProvider['explicit'] | undefined 
+    ): UnlockCodeProvider['handler'] {
+
+            switch (typeof unlockCodeProvider) {
+                case "object":
+                    let explicit = unlockCodeProvider as UnlockCodeProvider['explicit'];
+                    let pins = [explicit.pinFirstTry, explicit.pinSecondTry];
+                    return (imei, pinState, tryLeft, callback) => {
+
+                        if (pinState === "SIM PIN") {
+
+                            if (tryLeft === 1)
+                                throw new Error("Prevent unlock sim, only one try left!");
+
+                            let pin = pins.shift();
+
+                            if (pin) {
+                                callback(pin);
+                                return;
+                            }
+                        }
+
+                        throw new Error(`No unlock action defined for ${pinState}, tryLeft: ${tryLeft}`);
+
+                    };
+                case "function":
+                    return unlockCodeProvider as UnlockCodeProvider['handler'];
+                default: throw new Error("No action defined for unlock card");
+            }
+
+    }
+
+    public static create(
+        params: {
+            path: string;
+            unlockCodeProvider?: UnlockCodeProvider['handler'] | UnlockCodeProvider['explicit'];
+            disableSmsFeatures?: boolean;
+            disableContactsFeatures?: boolean;
+        },
+        callback: CreateCallback
+    ): void {
+
+        new Modem({
+            "path": params.path,
+            "unlockCodeProvider": Modem.getSafeUnlockCodeProvider(params.unlockCodeProvider),
+            "enableSmsStack": !(params.disableSmsFeatures === true),
+            "enableCardStorage": !(params.disableContactsFeatures === true)
+        }, callback);
+
+    };
+
+
+
+    private readonly atStack: AtStack;
     private readonly systemState: SystemState;
 
-    constructor(atInterface: string, private readonly pin?: string) {
+    public imei: string;
 
-        this.atStack = new AtStack(atInterface);
+    private constructor(
+        private readonly params: {
+            path: string;
+            unlockCodeProvider: UnlockCodeProvider['handler'];
+            enableSmsStack: boolean;
+            enableCardStorage: boolean;
+        },
+        private readonly callback: CreateCallback
+    ) {
+
+        this.atStack = new AtStack(params.path);
+
+        this.atStack.runCommand("AT+CGSN\r", resp => {
+            this.imei = resp!.raw.split("\r\n")[1];
+        });
 
         this.systemState = new SystemState(this.atStack);
 
         this.systemState.evtReportSimPresence.attachOnce(hasSim => {
 
             if (!hasSim) {
-                this.evtNoSim.post();
+                callback(this, false);
                 return;
             }
 
-            this.initCardLockFacility.post();
+            this.initCardLockFacility();
 
         });
 
     }
+
 
     public readonly runCommand = execStack(
         ((...inputs) => this.atStack.runCommand.apply(this.atStack, inputs)
@@ -62,94 +149,73 @@ export class Modem {
     }
 
 
-    public readonly evtNoSim = new VoidSyncEvent();
+    private initCardLockFacility(): void {
 
-    public get evtValidSim(): typeof SystemState.prototype.evtValidSim {
-        return this.systemState.evtValidSim;
-    }
+        let cardLockFacility = new CardLockFacility(this.atStack);
 
+        cardLockFacility.evtUnlockCodeRequest.attach(({pinState, times}) => {
 
-    private cardLockFacility: CardLockFacility;
+            this.params.unlockCodeProvider(this.imei, pinState, times, (...inputs) => {
 
-    public readonly evtUnlockCodeRequest:
-    typeof CardLockFacility.prototype.evtUnlockCodeRequest = new SyncEvent<UnlockCodeRequest>();
-
-    private initCardLockFacility = (() => {
-        let out = new VoidSyncEvent();
-        out.attachOnce(() => {
-            this.cardLockFacility = new CardLockFacility(this.atStack);
-
-            this.cardLockFacility.evtUnlockCodeRequest.attach(unlockCodeRequest => {
-
-                if (this.pin &&
-                    unlockCodeRequest.pinState === "SIM PIN" &&
-                    unlockCodeRequest.times === 3
-                ) this.enterPin(this.pin);
-                else this.evtUnlockCodeRequest.post(unlockCodeRequest);
-
-            });
-
-            this.cardLockFacility.evtPinStateReady.attachOnce(this, function callee() {
-
-                let self = this as Modem;
-
-                if (!self.systemState.isValidSim) {
-                    self.systemState.evtValidSim.attachOnce(() => callee.call(self));
-                    return;
+                switch (pinState) {
+                    case "SIM PIN": cardLockFacility.enterPin(inputs[0]); return;
+                    case "SIM PIN2": cardLockFacility.enterPin2(inputs[0]); return;
+                    case "SIM PUK": cardLockFacility.enterPuk(inputs[0], inputs[1]); return;
+                    case "SIM PUK2": cardLockFacility.enterPuk2(inputs[0], inputs[1]); return;
                 }
 
-                self.initSmsStack.post();
-                self.initCardStorage.post();
             });
 
+
+
         });
-        return out;
-    })();
+
+        cardLockFacility.evtPinStateReady.attachOnce(this, function callee() {
+
+            let self = this as Modem;
+
+            if (!self.systemState.isValidSim) {
+                self.systemState.evtValidSim.attachOnce(() => callee.call(self));
+                return;
+            }
 
 
-    public enterPin: typeof CardLockFacility.prototype.enterPin =
-    (...inputs) => this.cardLockFacility.enterPin.apply(this.cardLockFacility, inputs);
+            if (self.params.enableSmsStack) self.initSmsStack();
+            if (self.params.enableCardStorage) self.initCardStorage();
+            else self.callback(self, true);
+        });
 
-    public enterPin2: typeof CardLockFacility.prototype.enterPin2 =
-    (...inputs) => this.cardLockFacility.enterPin2.apply(this.cardLockFacility, inputs);
-
-    public enterPuk: typeof CardLockFacility.prototype.enterPuk =
-    (...inputs) => this.cardLockFacility.enterPuk.apply(this.cardLockFacility, inputs);
-
-    public enterPuk2: typeof CardLockFacility.prototype.enterPuk2 =
-    (...inputs) => this.cardLockFacility.enterPuk2.apply(this.cardLockFacility, inputs);
-
-
+    }
 
     private smsStack: SmsStack;
 
     public readonly evtMessage = new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
 
-    private initSmsStack = (() => {
-        let out = new VoidSyncEvent();
+    private initSmsStack(): void {
 
-        out.attachOnce(() => {
+        this.smsStack = new SmsStack(this.atStack);
 
-            this.smsStack = new SmsStack(this.atStack);
-
-            this.smsStack.evtMessage.attach(message => this.evtMessage.post(message));
-            this.smsStack.evtMessageStatusReport.attach(statusReport => this.evtMessageStatusReport.post(statusReport));
+        this.smsStack.evtMessage.attach(data => {
+            if (!this.evtMessage.evtAttach.postCount)
+                this.evtMessage.evtAttach.attachOnce(() => this.evtMessage.post(data));
+            else
+                this.evtMessage.post(data);
         });
 
-        return out;
+        this.smsStack.evtMessageStatusReport.attach(data => {
+            if (!this.evtMessageStatusReport.evtAttach.postCount)
+                this.evtMessageStatusReport.evtAttach.attachOnce(() => this.evtMessageStatusReport.post(data));
+            else
+                this.evtMessageStatusReport.post(data);
+        });
 
+    }
 
-    })();
 
     public sendMessage = execStack(function callee(...inputs) {
 
         let self = this as Modem;
-
-        if (!self.smsStack) {
-            self.initSmsStack.attachOnce(() => callee.apply(self, inputs));
-            return;
-        }
 
         if (!self.systemState.isNetworkReady) {
             self.systemState.evtNetworkReady.attachOnce(() => callee.apply(self, inputs));
@@ -162,40 +228,31 @@ export class Modem {
 
 
 
+
     private cardStorage: CardStorage;
 
-    public readonly evtCardStorageReady: typeof CardStorage.prototype.evtReady =
-    new VoidSyncEvent();
+    private initCardStorage(): void {
 
-    private initCardStorage = (() => {
-        let out = new VoidSyncEvent();
+        this.cardStorage = new CardStorage(this.atStack);
 
-        out.attachOnce(() => {
+        this.cardStorage.evtReady.attachOnce(() => this.callback(this, true));
 
-            this.cardStorage = new CardStorage(this.atStack);
-
-            this.cardStorage.evtReady.attachOnce(() => this.evtCardStorageReady.post());
-
-        });
-
-        return out;
-    })();
-
-    public get contacts(): typeof CardStorage.prototype.contacts {
-        try { return this.cardStorage.contacts; } catch (error) { return undefined; }
     }
 
+    public get contacts(): typeof CardStorage.prototype.contacts {
+        return this.cardStorage.contacts;
+    }
 
     public get contactNameMaxLength(): typeof CardStorage.prototype.contactNameMaxLength {
-        try { return this.cardStorage.contactNameMaxLength; } catch (error) { return undefined; }
+        return this.cardStorage.contactNameMaxLength;
     }
 
     public get numberMaxLength(): typeof CardStorage.prototype.contactNameMaxLength {
-        try { return this.cardStorage.numberMaxLength; } catch (error) { return undefined; }
+        return this.cardStorage.numberMaxLength;
     }
 
     public get storageLeft(): typeof CardStorage.prototype.storageLeft {
-        try { return this.cardStorage.storageLeft; } catch (error) { return undefined; }
+        return this.cardStorage.storageLeft;
     }
 
     public generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName =
@@ -204,59 +261,17 @@ export class Modem {
     public getContact: typeof CardStorage.prototype.getContact =
     (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
-    public createContact = execStack(Modem, "WRITE", function callee(...inputs) {
+    public createContact = execStack(Modem, "WRITE", (
+        (...inputs) => this.cardStorage.createContact.apply(this.cardStorage, inputs)
+    ) as typeof CardStorage.prototype.createContact);
 
-        let self = this as Modem;
+    public updateContact = execStack(Modem, "WRITE", (
+        (...inputs) => this.cardStorage.updateContact.apply(this.cardStorage, inputs)
+    ) as typeof CardStorage.prototype.updateContact);
 
-        if (!self.cardStorage) {
-            self.initCardStorage.attachOnce(() => callee.apply(self, inputs));
-            return;
-        }
-
-        if (!self.cardStorage.isReady) {
-            self.cardStorage.evtReady.attachOnce(() => callee.apply(self, inputs));
-            return;
-        }
-
-        self.cardStorage.createContact.apply(self.cardStorage, inputs);
-
-    } as typeof CardStorage.prototype.createContact);
-
-    public updateContact = execStack(Modem, "WRITE", function callee(...inputs) {
-
-        let self = this as Modem;
-
-        if (!self.cardStorage) {
-            self.initCardStorage.attachOnce(() => callee.apply(self, inputs));
-            return;
-        }
-
-        if (!self.cardStorage.isReady) {
-            self.cardStorage.evtReady.attachOnce(() => callee.apply(self, inputs));
-            return;
-        }
-
-        self.cardStorage.updateContact.apply(self.cardStorage, inputs);
-
-    } as typeof CardStorage.prototype.updateContact);
-
-    public deleteContact = execStack(Modem, "WRITE", function callee(...inputs) {
-
-        let self = this as Modem;
-
-        if (!self.cardStorage) {
-            self.initCardStorage.attachOnce(() => callee.apply(self, inputs));
-            return;
-        }
-
-        if (!self.cardStorage.isReady) {
-            self.cardStorage.evtReady.attachOnce(() => callee.apply(self, inputs));
-            return;
-        }
-
-        self.cardStorage.deleteContact.apply(self.cardStorage, inputs);
-
-    } as typeof CardStorage.prototype.deleteContact);
+    public deleteContact = execStack(Modem, "WRITE", (
+        (...inputs) => this.cardStorage.deleteContact.apply(this.cardStorage, inputs)
+    ) as typeof CardStorage.prototype.deleteContact);
 
 
 }
