@@ -153,6 +153,8 @@ export class CardStorage {
                 return;
             }
 
+            //TODO check number valid
+
             if (contact.number.length > this.numberMaxLength) {
                 this.atStack.evtError.post(Error("Number too long"));
                 return;

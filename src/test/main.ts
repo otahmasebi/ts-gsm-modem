@@ -5,6 +5,7 @@ import { CardStorage } from "../lib/CardStorage";
 import * as pr from "ts-promisify";
 import * as fs from "fs";
 import * as path from "path";
+import * as repl from "repl";
 require("colors");
 
 import { NumberingPlanIdentification, TypeOfNumber } from "at-messages-parser";
@@ -17,15 +18,15 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
 
     modemWatcher.stop();
 
-    console.log("CONNECTION".green, JSON.stringify(accessPoint.infos, null,2));
+    console.log("CONNECTION".green, JSON.stringify(accessPoint.infos, null, 2));
 
     Modem.create({
         "path": accessPoint.atInterface,
         "unlockCodeProvider": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
-        "disableContactsFeatures": true
+        "disableContactsFeatures": false
     }, (modem, hasSim) => {
 
-        console.log("ModemInitialized, imei: ",modem.imei);
+        console.log("ModemInitialized, imei: ", modem.imei);
 
 
         modem.evtTerminate.attachOnce(error => {
@@ -47,11 +48,19 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
         modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
 
+        let r = repl.start({
+            "terminal": true,
+            "prompt": "> "
+        });
+
+        Object.assign((r as any).context, { modem });
+
+
         /*
         let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/out/, "src"), "utf8");
-
+ 
         console.log("Sending: \n".green, JSON.stringify(messageText));
-
+ 
         modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
         */
 
