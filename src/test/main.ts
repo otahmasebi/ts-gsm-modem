@@ -11,6 +11,9 @@ require("colors");
 import { NumberingPlanIdentification, TypeOfNumber } from "at-messages-parser";
 
 
+
+
+
 let modemWatcher = new ModemWatcher();
 
 
@@ -47,6 +50,8 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
         modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
         modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
+        console.log(JSON.stringify(modem.contacts, null, 2).blue);
+
 
         let r = repl.start({
             "terminal": true,
@@ -55,16 +60,12 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
 
         Object.assign((r as any).context, { modem });
 
-
-        /*
         let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/out/, "src"), "utf8");
  
         console.log("Sending: \n".green, JSON.stringify(messageText));
  
         modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
-        */
 
-        //console.log(JSON.stringify(modem.contacts, null, 2).blue);
 
 
     });

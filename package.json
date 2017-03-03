@@ -1,13 +1,13 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.11.3",
+  "version": "0.12.0",
   "description": "GSM Modem manager",
   "main": "./out/lib/index.js",
   "types": "./out/lib/index.d.ts",
   "scripts": {
     "postinstall": "npm run tsc",
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
-    "test": "node ./out/test/main"
+    "test": "DEBUG=_* node ./out/test/main"
   },
   "repository": {
     "type": "git",
@@ -26,10 +26,12 @@
   "dependencies": {
     "@types/chai": "^3.4.34",
     "@types/colors": "^1.1.1",
+    "@types/debug": "0.0.29",
     "@types/node": "^4.2.2",
     "at-commands-parser": "garronej/at-commands-parser",
     "at-messages-parser": "garronej/at-messages-parser",
     "colors": "^1.1.2",
+    "debug": "^2.6.1",
     "legacy-encoding": "^3.0.0",
     "node-python-messaging": "garronej/node-python-messaging",
     "object-extended": "garronej/object-extended",
@@ -38,7 +40,7 @@
     "ts-events-extended": "garronej/ts-events-extended",
     "ts-exec-stack": "garronej/ts-exec-stack",
     "ts-promisify": "garronej/ts-promisify",
-    "typescript": "^2.1.6"
+    "typescript": "^2.2.1"
   },
   "devDependencies": {
     "asterisk-manager": "^0.1.15",

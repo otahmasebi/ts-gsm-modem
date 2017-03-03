@@ -2,6 +2,10 @@ import { SerialPortExt } from "./SerialPortExt";
 import * as promisify from "ts-promisify";
 import { SyncEvent } from "ts-events-extended";
 import { execStack, ExecStack } from "ts-exec-stack";
+import * as _debug from "debug";
+
+let debug= _debug("_AtStack");
+
 
 require("colors");
 
@@ -15,14 +19,7 @@ import {
 } from "at-messages-parser";
 
 
-export type RunCallback= {
-        (resp: AtMessage | undefined, final: AtMessage, raw: string): void;
-};
-
-//TODO use Partial
-
-
-
+export type RunCallback= (resp: AtMessage | undefined, final: AtMessage, raw: string)=> void;
 
 export type RunParams= {
     userProvided: {
@@ -44,11 +41,11 @@ export class AtStack {
     public readonly evtTerminate = new SyncEvent<Error | null>();
 
     private readonly serialPort: SerialPortExt;
-    private readonly serialPortAtParser= getSerialPortParser(61000);
+    private readonly serialPortAtParser= getSerialPortParser(30000);
     constructor(path: string) {
 
         this.serialPort = new SerialPortExt(path, {
-            "baudRate": 9600,
+            //"baudRate": 9600,
             "parser": this.serialPortAtParser
         });
 
@@ -72,13 +69,13 @@ export class AtStack {
 
             this.serialPort.close();
 
-            console.log("unrecoverable error: ".red, error);
+            //debug("unrecoverable error: ".red, error);
 
             this.evtTerminate.post(error);
 
         });
 
-        this.serialPortAtParser.evtRawData.attach(rawAtMessages => console.log(JSON.stringify(rawAtMessages).yellow));
+        //this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
         //this.evtUnsolicitedMessage.attach(atMessage=> console.log(JSON.stringify(atMessage,null,2).yellow));
 
         this.serialPort.on("disconnect", () => this.evtTerminate.post(null));
@@ -92,16 +89,11 @@ export class AtStack {
                 return;
             }
 
+            //debug(JSON.stringify(atMessage.id));
+
             if (atMessage.isUnsolicited)
                 this.evtUnsolicitedMessage.post(atMessage);
             else{
-
-                if( !this.evtResponseAtMessage.listenerCount() ){
-
-                    console.log("======================> attention il n'y a pas de listener!!!".red);
-
-                }
-
                  this.evtResponseAtMessage.post(atMessage);
             }
 
@@ -109,18 +101,44 @@ export class AtStack {
 
     }
 
-
-
-    //For ts-promisify
-
     
+
+    public runCommand = execStack(this.runCommandManageParams);
+
+    public runCommandExt: (command: String, params: RunParams['userProvided'], callback?: RunCallback) => void = this.runCommand;
+    public runCommandDefault: (command: string, callback?: RunCallback) => void = this.runCommand;
+
+    private runCommandManageParams(command: string, callback?: RunCallback): void;
+    private runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): void;
+    private runCommandManageParams(...inputs: any[]): void {
+
+        let command: string | undefined = undefined;
+        let params: RunParams['userProvided'] | undefined = undefined;
+        let callback: RunCallback = function () { };
+
+        for (let input of inputs) {
+            switch (typeof input) {
+                case "string": command = input; break;
+                case "object": params = input; break;
+                case "function": callback = input; break;
+            }
+        }
+
+        this.runCommandSetReportMode(
+            command!,
+            AtStack.generateSafeRunParams(params),
+            callback
+        );
+
+    }
+
+
     private static generateSafeRunParams(params: RunParams['userProvided'] | undefined): RunParams['safe'] {
 
-        if( !params ) 
-            params= {};
+        if( !params ) params= {};
 
         if (typeof params.recoverable !== "boolean") params.recoverable = false;
-        if (typeof params.reportMode !== "number") params.reportMode = ReportMode.DEBUG_INFO_CODE;
+        if (typeof params.reportMode !== "number") params.reportMode = ReportMode.DEBUG_INFO_VERBOSE;
         switch (typeof params.retryOnErrors) {
             case "boolean": break;
             case "object":
@@ -146,35 +164,6 @@ export class AtStack {
 
     }
 
-    public runCommand = execStack(this.runCommandManageParams);
-
-    public runCommandExt: (command: String, params: RunParams['userProvided'], callback?: RunCallback) => void = this.runCommand;
-    public runCommandDefault: (command: string, callback?: RunCallback) => void = this.runCommand;
-
-    public runCommandManageParams(command: string, callback?: RunCallback): void;
-    public runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): void;
-    public runCommandManageParams(...inputs: any[]): void {
-
-        let command: string | undefined = undefined;
-        let params: RunParams['userProvided'] | undefined = undefined;
-        let callback: RunCallback = function () { };
-
-        for (let input of inputs) {
-            switch (typeof input) {
-                case "string": command = input; break;
-                case "object": params = input; break;
-                case "function": callback = input; break;
-            }
-        }
-
-        this.runCommandSetReportMode(
-            command!,
-            AtStack.generateSafeRunParams(params),
-            callback
-        );
-
-    }
-
     private reportMode: ReportMode | undefined = undefined;
 
     private runCommandSetReportMode(
@@ -184,22 +173,59 @@ export class AtStack {
     ): void {
 
         if (params.reportMode === this.reportMode) 
-            this.runCommandRetry(command, params, callback);
+            this.runCommandSetEcho(command, params, callback);
         else {
 
             //console.log(JSON.stringify(command), "Here we set the report mode to :".green, ReportMode[params.reportMode]);
 
-            this.runCommandRetry(`AT+CMEE=${params.reportMode}\r`,
+            this.runCommandSetEcho(`AT+CMEE=${params.reportMode}\r`,
                 { "recoverable": false, "retryOnErrors": [] } as any,
                 () => {
                     this.reportMode = params.reportMode;
-                    this.runCommandRetry(command, params, callback)
+                    this.runCommandSetEcho(command, params, callback)
                 });
 
         }
 
         if (command.match(/(^ATZ\r$)|(^AT\+CMEE=\ ?[0-9]\r$)/)) 
             this.reportMode = undefined;
+
+    }
+
+    private isEchoEnable: boolean | undefined = undefined;
+    private hideEcho = false;
+
+    private runCommandSetEcho(
+        command: string,
+        params: RunParams['safe'],
+        callback: RunCallback
+    ): void {
+
+        let after: RunCallback = (resp, final, raw) => {
+
+            this.isEchoEnable = true;
+
+            if (command.match(/^ATZ\r$/)) {
+                this.isEchoEnable = undefined;
+                this.hideEcho = false;
+            } else if (command.match(/^ATE0\r$/)) {
+                this.isEchoEnable = false;
+                this.hideEcho = true;
+            } else if (command.match(/^ATE1?\r$/)) {
+                this.isEchoEnable = true;
+                this.hideEcho = false;
+            }
+
+            callback(resp, final, raw);
+
+        };
+
+        if (this.isEchoEnable)
+            this.runCommandRetry(command, params, after);
+        else
+            this.runCommandRetry(`ATE1\r`,
+                { "recoverable": false, "retryOnErrors": [] } as any,
+                () => this.runCommandRetry(command, params, after));
 
     }
 
@@ -220,8 +246,8 @@ export class AtStack {
 
                 let code = NaN;
 
-                if( final.id === atIdDict.COMMAND_NOT_SUPPORT || final.id === atIdDict.TOO_MANY_PARAMETERS )
-                    this.retryLeft= 0;
+                if (final.id === atIdDict.COMMAND_NOT_SUPPORT || final.id === atIdDict.TOO_MANY_PARAMETERS)
+                    this.retryLeft = 0;
                 else if (final.id === atIdDict.P_CME_ERROR || final.id === atIdDict.P_CMS_ERROR)
                     code = (final as AtImps.P_CME_ERROR | AtImps.P_CMS_ERROR).code;
 
@@ -248,48 +274,41 @@ export class AtStack {
         });
     }
 
-    private static isPduSubmit(command: string): boolean {
-        return command[command.length - 1] !== "\r";
-    }
+
+    private readonly retryMaxWrite= 3;
+    private readonly delayReWrite= 5000;
+    private retryLeftReWrite= this.retryMaxWrite;
 
     private runCommandBase(
         command: string,
         callback: RunCallback
     ): void {
 
-        console.log(`write: ${JSON.stringify(command)}`.blue);
+        //debug(JSON.stringify(command).blue);
 
-        let resp: AtMessage | undefined = undefined;
-        let final: AtMessage;
-        let raw = "";
+        let timer = setTimeout(() => {
 
-        let timer: NodeJS.Timer;
+            //debug("on timeout!!!!!".red);
 
-        //TODO: When we timeout on CMGS we have to cancel command.
+            this.evtResponseAtMessage.detach();
 
-        if (AtStack.isPduSubmit(command)) {
-            let atError = new AtImps.ERROR("\r\nERROR\r\n");
-            timer = setTimeout(() => {
-                this.evtResponseAtMessage.detach();
-                console.log("ERROR PDU SUBMIT".red);
-                callback(undefined, atError, raw + atError.raw);
-            }, 60000);
-        } else {
-            timer = setTimeout(() => {
+            let unparsed= this.serialPortAtParser.flush();
 
-                this.evtResponseAtMessage.detach();
+            if( unparsed ){
+                console.log("on est là unparsed");
+                (this.serialPort as any).emit("data", null, unparsed);
+                return;
+            }
 
-                let unparsed = this.serialPortAtParser.flush();
+            if( !this.retryLeftReWrite-- ){
+                this.evtError.post(new Error("Modem not responding"));
+                return;
+            }
 
-                console.log(`Timeout with command ${JSON.stringify(command)}`.red)
-                console.log("unparsed: ", JSON.stringify(unparsed));
-                console.log("raw: ", JSON.stringify(raw).blue);
-                console.log("resp: ", JSON.stringify(resp));
+            this.runCommandBase(command, callback);
 
-                this.runCommandBase(command, callback);
 
-            }, 30000);
-        }
+        }, this.delayReWrite);
 
 
         Promise.all([
@@ -302,41 +321,40 @@ export class AtStack {
             })),
             new Promise<[AtMessage | undefined, AtMessage, string]>(resolve => {
 
+                let rawEcho= "";
+                let resp: AtMessage | undefined= undefined;
+
                 this.evtResponseAtMessage.attach(atMessage => {
-
-                    raw += atMessage.raw;
-
-                    if (atMessage.id === atIdDict.ECHO)
-                        return;
-
-                    if (!atMessage.isFinal) {
-                        resp = atMessage;
-                        return;
-                    }
-
-                    final = atMessage;
-
-                    this.evtResponseAtMessage.detach();
 
                     clearTimeout(timer);
 
-                    console.log(`raw: ${JSON.stringify(raw, null, 2)}`.green);
-
-                    resolve([resp, final, raw]);
+                    if (atMessage.isFinal){
+                        this.evtResponseAtMessage.detach();
+                        resolve([resp, atMessage, [
+                            (this.hideEcho)?"":rawEcho,
+                            (resp) ? resp.raw : "",
+                            atMessage.raw
+                        ].join("")]);
+                    } else if( atMessage.id === atIdDict.ECHO )
+                        rawEcho+= atMessage.raw;
+                    else resp= atMessage;
 
                 });
 
-
             })
-        ]).then(([_, [resp, final, raw]]) => callback(resp, final, raw));
+        ]).then(([_, [resp, final, raw]]) => {
+
+            //debug(`${JSON.stringify((resp?resp.raw:"")+" *** "+final.raw)}`.green);
+
+            this.retryLeftReWrite= this.retryMaxWrite;
+
+            callback(resp, final, raw);
+        });
 
     }
 
 
-
-
 }
-
 
 export class RunCommandError extends Error {
 

@@ -124,6 +124,34 @@ export class SmsStack {
         [mr: number]: number;
     } = {};
 
+    private sendPdu(pduLength: number, pdu: string): Promise<{
+        error: AtImps.P_CMS_ERROR | null;
+        mr: number;
+    }> {
+
+        return new Promise( resolve => {
+
+            this.atStack.runCommand(`AT+CMGS=${pduLength}\r`);
+
+            this.atStack.runCommand(`${pdu}\u001a`, {
+                        "recoverable": true,
+                        "retryOnErrors": false
+            }, (resp: AtImps.P_CMGS_SET | undefined, final)=> {
+
+                if( !resp ) 
+                    resolve({ "error": final, "mr": NaN });
+                else 
+                    resolve({ "error": null, "mr": resp.mr });
+
+            });
+
+
+        });
+
+    }
+
+    private readonly maxTrySendPdu = 5;
+
     public sendMessage = execStack(
         (number: string,
             text: string,
@@ -144,19 +172,30 @@ export class SmsStack {
 
                 let messageId = this.generateMessageId();
 
-                for (let pduWrap of pdus) {
+                for (let { length, pdu } of pdus) {
+
+                    let mr = NaN;
+                    let error: AtImps.P_CMS_ERROR | null = null;
+
+                    let tryLeft = this.maxTrySendPdu;
+
+                    while (tryLeft-- && isNaN(mr)) {
+
+                        if (tryLeft < this.maxTrySendPdu - 1)
+                            console.log("Retry sending PDU".red);
 
 
-                    this.atStack.runCommand(`AT+CMGS=${pduWrap.length}\r`);
+                        let result = await this.sendPdu(length, pdu);
 
-                    let [resp] = await pr.typed(
-                        this.atStack,
-                        this.atStack.runCommandExt
-                    )(`${pduWrap.pdu}\u001a`, {
-                        "recoverable": true,
-                    }) as [AtImps.P_CMGS_SET | undefined];
+                        mr = result.mr;
+                        error = result.error;
 
-                    if (!resp) {
+                    }
+
+
+                    if (error) {
+
+                        console.log(`Send Message Error after ${this.maxTrySendPdu}, attempt: ${error.verbose}`.red);
 
                         for (let mr of Object.keys(this.mrMessageIdMap))
                             if (this.mrMessageIdMap[mr] === messageId)
@@ -167,7 +206,7 @@ export class SmsStack {
                         return;
                     }
 
-                    this.mrMessageIdMap[resp.mr] = messageId;
+                    this.mrMessageIdMap[mr] = messageId;
 
                 }
 
@@ -275,16 +314,16 @@ export class SmsStack {
 
                     //console.log(logMessage);
 
-                    let partRefs= ObjectExt.intKeysSorted(parts);
+                    let partRefs = ObjectExt.intKeysSorted(parts);
                     let partRefPrev = 0;
                     let concatenatedText = "";
-                    let partLeft= totalPartInMessage;
-                    
-                    for ( let partRef of partRefs) {
+                    let partLeft = totalPartInMessage;
+
+                    for (let partRef of partRefs) {
 
                         let { storageIndex, text } = parts[partRef];
 
-                        for (let ref = partRefPrev + 1; ref < partRef; ref++){
+                        for (let ref = partRefPrev + 1; ref < partRef; ref++) {
                             partLeft--;
                             concatenatedText += " *** Missing part *** ";
                         }
@@ -297,7 +336,7 @@ export class SmsStack {
 
                     }
 
-                    while(partLeft-- > 0)
+                    while (partLeft-- > 0)
                         concatenatedText += " *** Missing part *** ";
 
                     delete this.uncompletedMultipartSms[messageRef];
@@ -322,7 +361,7 @@ export class SmsStack {
 
             if (Object.keys(parts).length === totalPartInMessage)
                 timer.runNow("message complete");
-            else 
+            else
                 timer.resetDelay();
 
         });
