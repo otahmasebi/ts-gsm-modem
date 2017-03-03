@@ -116,7 +116,7 @@ export class AtStack {
 
         this.serialPort.once("close", () => this.timers.clearAll());
 
-        this.serialPort.evtError.attach(serialPortError=> this.evtError.post(serialPortError));
+        this.serialPort.evtError.attach( this.evtError );
 
         this.serialPort.on("data", (atMessage: AtMessage | null, unparsed: string) => {
 

@@ -10,12 +10,7 @@ require("colors");
 
 import { NumberingPlanIdentification, TypeOfNumber } from "at-messages-parser";
 
-
-
-
-
 let modemWatcher = new ModemWatcher();
-
 
 modemWatcher.evtConnect.attachOnce(accessPoint => {
 
