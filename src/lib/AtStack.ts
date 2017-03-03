@@ -3,6 +3,7 @@ import * as promisify from "ts-promisify";
 import { SyncEvent } from "ts-events-extended";
 import { execStack, ExecStack } from "ts-exec-stack";
 import * as _debug from "debug";
+import { Timer, setTimeout } from "timer-extended";
 
 let debug= _debug("_AtStack");
 
@@ -34,8 +35,37 @@ export type RunParams= {
     }
 };
 
+export class Timers extends Array<Timer<any>> {
+
+    constructor(){
+        super();
+        Object.setPrototypeOf(this, new.target.prototype);
+    }
+
+    public add<T>(timer: Timer<T>): Timer<T>{
+
+        for( let index=0; index<this.length; index++ )
+            if( this[index].hasExec || this[index].hasBeenCleared )
+                this.splice(index, 1);
+
+        super.push(timer);
+
+        return timer;
+
+    }
+
+    public clearAll(): void {
+        for( let timer of this)
+            timer.clear();
+    }
+
+}
+
+
 
 export class AtStack {
+
+    public readonly timers= new Timers();
 
     public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
     public readonly evtTerminate = new SyncEvent<Error | null>();
@@ -59,15 +89,19 @@ export class AtStack {
         this.evtTerminate.post(null);
     }
 
-    private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
     public readonly evtError = new SyncEvent<Error>();
+    private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
+
+
     private readonly parseErrorDelay = 30000;
+    
 
     private registerListeners(): void {
 
         this.evtError.attach(error => {
 
-            this.serialPort.close();
+            if( this.serialPort.isOpen() )
+                this.serialPort.close();
 
             //debug("unrecoverable error: ".red, error);
 
@@ -78,7 +112,9 @@ export class AtStack {
         //this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
         //this.evtUnsolicitedMessage.attach(atMessage=> console.log(JSON.stringify(atMessage,null,2).yellow));
 
-        this.serialPort.on("disconnect", () => this.evtTerminate.post(null));
+        this.serialPort.once("disconnect", () => this.evtTerminate.post(null));
+
+        this.serialPort.once("close", () => this.timers.clearAll());
 
         this.serialPort.evtError.attach(serialPortError=> this.evtError.post(serialPortError));
 
@@ -235,6 +271,7 @@ export class AtStack {
 
     private retryLeft = this.maxRetry;
 
+
     private runCommandRetry(
         command: string,
         params: RunParams['safe'],
@@ -252,7 +289,9 @@ export class AtStack {
                     code = (final as AtImps.P_CME_ERROR | AtImps.P_CMS_ERROR).code;
 
                 if (this.retryLeft-- && params.retryOnErrors.indexOf(code) >= 0)
-                    setTimeout(() => this.runCommandRetry(command, params, callback), this.delayBeforeRetry);
+                    this.timers.add(
+                        setTimeout(() => this.runCommandRetry(command, params, callback), this.delayBeforeRetry)
+                    );
                 else {
 
                     this.retryLeft = this.maxRetry;
@@ -275,9 +314,10 @@ export class AtStack {
     }
 
 
-    private readonly retryMaxWrite= 3;
-    private readonly delayReWrite= 5000;
-    private retryLeftReWrite= this.retryMaxWrite;
+    private readonly retryMaxWrite = 3;
+    private readonly delayReWrite = 5000;
+    private retryLeftReWrite = this.retryMaxWrite;
+
 
     private runCommandBase(
         command: string,
@@ -286,21 +326,21 @@ export class AtStack {
 
         //debug(JSON.stringify(command).blue);
 
-        let timer = setTimeout(() => {
+        let timer = this.timers.add(setTimeout(() => {
 
             //debug("on timeout!!!!!".red);
 
             this.evtResponseAtMessage.detach();
 
-            let unparsed= this.serialPortAtParser.flush();
+            let unparsed = this.serialPortAtParser.flush();
 
-            if( unparsed ){
+            if (unparsed) {
                 console.log("on est là unparsed");
                 (this.serialPort as any).emit("data", null, unparsed);
                 return;
             }
 
-            if( !this.retryLeftReWrite-- ){
+            if (!this.retryLeftReWrite--) {
                 this.evtError.post(new Error("Modem not responding"));
                 return;
             }
@@ -308,7 +348,7 @@ export class AtStack {
             this.runCommandBase(command, callback);
 
 
-        }, this.delayReWrite);
+        }, this.delayReWrite));
 
 
         Promise.all([
@@ -321,23 +361,23 @@ export class AtStack {
             })),
             new Promise<[AtMessage | undefined, AtMessage, string]>(resolve => {
 
-                let rawEcho= "";
-                let resp: AtMessage | undefined= undefined;
+                let rawEcho = "";
+                let resp: AtMessage | undefined = undefined;
 
                 this.evtResponseAtMessage.attach(atMessage => {
 
-                    clearTimeout(timer);
+                    timer.clear();
 
-                    if (atMessage.isFinal){
+                    if (atMessage.isFinal) {
                         this.evtResponseAtMessage.detach();
                         resolve([resp, atMessage, [
-                            (this.hideEcho)?"":rawEcho,
+                            (this.hideEcho) ? "" : rawEcho,
                             (resp) ? resp.raw : "",
                             atMessage.raw
                         ].join("")]);
-                    } else if( atMessage.id === atIdDict.ECHO )
-                        rawEcho+= atMessage.raw;
-                    else resp= atMessage;
+                    } else if (atMessage.id === atIdDict.ECHO)
+                        rawEcho += atMessage.raw;
+                    else resp = atMessage;
 
                 });
 
@@ -346,7 +386,7 @@ export class AtStack {
 
             //debug(`${JSON.stringify((resp?resp.raw:"")+" *** "+final.raw)}`.green);
 
-            this.retryLeftReWrite= this.retryMaxWrite;
+            this.retryLeftReWrite = this.retryMaxWrite;
 
             callback(resp, final, raw);
         });

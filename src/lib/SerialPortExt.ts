@@ -13,13 +13,25 @@ export class SerialPortExt extends SerialPort {
 
         let out= new SyncEvent<SerialPortError>();
 
-        this.on("error", error=> out.post(new SerialPortError(error)));
+        this.on("error", error=> {
+            console.log("tick");
+            out.post(new SerialPortError(error));
+        });
 
         return out;
 
     })();
 
     private timer: NodeJS.Timer | undefined= undefined;
+
+
+    public close(callback?: (error: string | Error | null) => void): void{
+
+        if( this.timer ) clearTimeout(this.timer);
+
+        super.close(callback);
+
+    }
 
     public writeAndDrain = execStack(
         function callee(

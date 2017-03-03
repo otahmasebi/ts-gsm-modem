@@ -29,9 +29,15 @@ declare module "serialport" {
         constructor(path: string, options?: Options, openImmediately?: boolean, callback?: (err: string) => void)
         isOpen(): boolean;
         on(event: "data", callback: (...data: any[]) => void): SerialPort;
+        once(event: "data", callback: (...data: any[]) => void): SerialPort;
         on(event: "error", callback: (error: string | Error) => void): SerialPort;
+        once(event: "error", callback: (error: string | Error) => void): SerialPort;
         on(event: "disconnect", callback: (error: string | Error | null) => void): SerialPort;
+        once(event: "disconnect", callback: (error: string | Error | null) => void): SerialPort;
         on(event: "open", callback: () => void): SerialPort;
+        once(event: "open", callback: () => void): SerialPort;
+        on(event: "close", callback: (error: string | Error | null)=> void): SerialPort;
+        once(event: "close", callback: (error: string | Error | null)=> void): SerialPort;
         open(callback: () => void): void;
         write(buffer: Buffer | string, callback?: (error: string | Error | null) => void): void
         pause(): void;

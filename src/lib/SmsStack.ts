@@ -310,7 +310,7 @@ export class SmsStack {
 
                 parts = {};
 
-                timer = setTimeout((logMessage: string) => {
+                timer = this.atStack.timers.add(setTimeout((logMessage: string) => {
 
                     //console.log(logMessage);
 
@@ -347,7 +347,7 @@ export class SmsStack {
                         "text": concatenatedText
                     });
 
-                }, 60000, "missing parts");
+                }, 60000, "missing parts"));
 
 
                 this.uncompletedMultipartSms[messageRef] = { timer, parts };
