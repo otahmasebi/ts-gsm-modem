@@ -43,8 +43,10 @@
     "typescript": "^2.2.1"
   },
   "devDependencies": {
+    "@types/ini": "^1.3.29",
     "asterisk-manager": "^0.1.15",
     "gsm-modem-connection": "garronej/gsm-modem-connection",
+    "ini": "^1.3.4",
     "why-is-node-running": "^1.2.2"
   }
 }

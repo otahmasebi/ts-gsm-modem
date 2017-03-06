@@ -81,6 +81,8 @@ export class AtStack {
 
         this.registerListeners();
 
+        this.runCommand("ATZ\r");
+
 
     }
 

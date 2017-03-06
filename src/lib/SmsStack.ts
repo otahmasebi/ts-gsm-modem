@@ -152,6 +152,8 @@ export class SmsStack {
 
     private readonly maxTrySendPdu = 5;
 
+    //TODO: More test for when message fail
+
     public sendMessage = execStack(
         (number: string,
             text: string,
