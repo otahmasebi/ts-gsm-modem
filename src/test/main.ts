@@ -47,6 +47,11 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
 
         console.log(JSON.stringify(modem.contacts, null, 2).blue);
 
+        let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/out/, "src"), "utf8");
+ 
+        console.log("Sending: \n".green, JSON.stringify(messageText));
+ 
+        modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
 
         let r = repl.start({
             "terminal": true,
@@ -54,12 +59,6 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
         });
 
         Object.assign((r as any).context, { modem });
-
-        let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/out/, "src"), "utf8");
- 
-        console.log("Sending: \n".green, JSON.stringify(messageText));
- 
-        modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
 
 
 

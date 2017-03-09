@@ -2,10 +2,10 @@ import { SerialPortExt } from "./SerialPortExt";
 import * as promisify from "ts-promisify";
 import { SyncEvent } from "ts-events-extended";
 import { execStack, ExecStack } from "ts-exec-stack";
-import * as _debug from "debug";
 import { Timer, setTimeout } from "timer-extended";
 
-let debug= _debug("_AtStack");
+import * as _debug from "debug";
+let debug= _debug("0_AtStack");
 
 
 require("colors");
@@ -75,7 +75,6 @@ export class AtStack {
     constructor(path: string) {
 
         this.serialPort = new SerialPortExt(path, {
-            //"baudRate": 9600,
             "parser": this.serialPortAtParser
         });
 
@@ -105,14 +104,14 @@ export class AtStack {
             if( this.serialPort.isOpen() )
                 this.serialPort.close();
 
-            //debug("unrecoverable error: ".red, error);
+            debug("unrecoverable error: ".red, error);
 
             this.evtTerminate.post(error);
 
         });
 
-        //this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
-        //this.evtUnsolicitedMessage.attach(atMessage=> console.log(JSON.stringify(atMessage,null,2).yellow));
+        this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
+        this.evtUnsolicitedMessage.attach(atMessage=> debug(JSON.stringify(atMessage,null,2).yellow));
 
         this.serialPort.once("disconnect", () => this.evtTerminate.post(null));
 
@@ -127,7 +126,7 @@ export class AtStack {
                 return;
             }
 
-            //debug(JSON.stringify(atMessage.id));
+            debug(JSON.stringify(atMessage.id));
 
             if (atMessage.isUnsolicited)
                 this.evtUnsolicitedMessage.post(atMessage);
@@ -210,23 +209,25 @@ export class AtStack {
         callback: RunCallback
     ): void {
 
-        if (params.reportMode === this.reportMode) 
+        if (params.reportMode === this.reportMode)
             this.runCommandSetEcho(command, params, callback);
-        else {
-
-            //console.log(JSON.stringify(command), "Here we set the report mode to :".green, ReportMode[params.reportMode]);
-
+        else
             this.runCommandSetEcho(`AT+CMEE=${params.reportMode}\r`,
                 { "recoverable": false, "retryOnErrors": [] } as any,
                 () => {
                     this.reportMode = params.reportMode;
-                    this.runCommandSetEcho(command, params, callback)
+                    this.runCommandSetEcho(command,
+                        params,
+                        (resp, final, raw) => {
+
+                            if (command.match(/(^ATZ\r$)|(^AT\+CMEE=\ ?[0-9]\r$)/))
+                                this.reportMode = undefined;
+
+                            callback(resp, final, raw);
+
+                        })
                 });
 
-        }
-
-        if (command.match(/(^ATZ\r$)|(^AT\+CMEE=\ ?[0-9]\r$)/)) 
-            this.reportMode = undefined;
 
     }
 
@@ -386,7 +387,7 @@ export class AtStack {
             })
         ]).then(([_, [resp, final, raw]]) => {
 
-            //debug(`${JSON.stringify((resp?resp.raw:"")+" *** "+final.raw)}`.green);
+            debug(`${JSON.stringify((resp ? resp.raw : "") + " *** " + final.raw)}`.green);
 
             this.retryLeftReWrite = this.retryMaxWrite;
 

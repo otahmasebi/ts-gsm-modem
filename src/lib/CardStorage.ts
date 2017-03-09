@@ -12,6 +12,10 @@ import * as pr from "ts-promisify";
 
 import * as encoding from "legacy-encoding";
 
+import * as _debug from "debug";
+let debug= _debug("_CardStorage");
+
+
 export type Encoding = "IRA" | "GSM" | "UCS2";
 
 export type Action = "UPDATE" | "CREATE";
@@ -257,6 +261,8 @@ export class CardStorage {
     private init(callback: () => void): void {
         (async () => {
 
+            debug("Init");
+
             let [resp] = await pr.typed(
                 this.atStack,
                 this.atStack.runCommandDefault
@@ -325,6 +331,8 @@ export class CardStorage {
                 this.contactByIndex[index]=  { index, number, name };
 
             }
+
+            debug("Contacts ready");
 
             callback();
 

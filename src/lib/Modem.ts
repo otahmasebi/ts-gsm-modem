@@ -8,6 +8,9 @@ import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { execStack, ExecStack} from "ts-exec-stack";
 
+import * as _debug from "debug";
+let debug= _debug("_Modem");
+
 
 
 require("colors");
@@ -115,6 +118,8 @@ export class Modem {
             this.imei = resp!.raw.split("\r\n")[1];
         });
 
+        debug("Init, systemState");
+
         this.systemState = new SystemState(this.atStack);
 
         this.systemState.evtReportSimPresence.attachOnce(hasSim => {
@@ -151,6 +156,8 @@ export class Modem {
 
 
     private initCardLockFacility(): void {
+
+        debug("Init cardLockFacility");
 
         let cardLockFacility = new CardLockFacility(this.atStack);
 
@@ -195,6 +202,8 @@ export class Modem {
 
     private initSmsStack(): void {
 
+        debug("Init smsStack");
+
         this.smsStack = new SmsStack(this.atStack);
 
         this.smsStack.evtMessage.attach(data => {
@@ -233,6 +242,8 @@ export class Modem {
     private cardStorage: CardStorage;
 
     private initCardStorage(): void {
+
+        debug("Init cardStorage");
 
         this.cardStorage = new CardStorage(this.atStack);
 

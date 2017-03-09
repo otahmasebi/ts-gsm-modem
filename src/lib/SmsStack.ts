@@ -174,6 +174,11 @@ export class SmsStack {
 
                 let messageId = this.generateMessageId();
 
+                this.statusReportMap[messageId] = {
+                    "cnt": pdus.length,
+                    "completed": 0
+                };
+
                 for (let { length, pdu } of pdus) {
 
                     let mr = NaN;
@@ -212,10 +217,6 @@ export class SmsStack {
 
                 }
 
-                this.statusReportMap[messageId] = {
-                    "cnt": pdus.length,
-                    "completed": 0
-                };
 
                 callback!(messageId);
 
@@ -240,6 +241,8 @@ export class SmsStack {
         });
 
         this.evtSmsStatusReport.attach(smsStatusReport => {
+
+            //console.log(JSON.stringify(smsStatusReport, null,2).blue);
 
             try {
 
