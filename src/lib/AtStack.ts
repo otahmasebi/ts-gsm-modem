@@ -86,7 +86,8 @@ export class AtStack {
     }
 
     public terminate(): void {
-        this.serialPort.close();
+        if (this.serialPort.isOpen())
+            this.serialPort.close();
         this.evtTerminate.post(null);
     }
 
@@ -95,29 +96,30 @@ export class AtStack {
 
 
     private readonly parseErrorDelay = 30000;
-    
+
 
     private registerListeners(): void {
 
         this.evtError.attach(error => {
 
-            if( this.serialPort.isOpen() )
+            debug("unrecoverable error: ".red, error);
+
+            if (this.serialPort.isOpen())
                 this.serialPort.close();
 
-            debug("unrecoverable error: ".red, error);
 
             this.evtTerminate.post(error);
 
         });
 
         this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
-        this.evtUnsolicitedMessage.attach(atMessage=> debug(JSON.stringify(atMessage,null,2).yellow));
+        this.evtUnsolicitedMessage.attach(atMessage => debug(JSON.stringify(atMessage, null, 2).yellow));
 
-        this.serialPort.once("disconnect", () => this.evtTerminate.post(null));
+        this.serialPort.once("disconnect", () => { debug("disconnect"); this.evtTerminate.post(null); });
 
-        this.serialPort.once("close", () => this.timers.clearAll());
+        this.serialPort.once("close", () => { debug("close"); this.timers.clearAll(); });
 
-        this.serialPort.evtError.attach( this.evtError );
+        this.serialPort.evtError.attach(this.evtError);
 
         this.serialPort.on("data", (atMessage: AtMessage | null, unparsed: string) => {
 
@@ -130,20 +132,21 @@ export class AtStack {
 
             if (atMessage.isUnsolicited)
                 this.evtUnsolicitedMessage.post(atMessage);
-            else{
-                 this.evtResponseAtMessage.post(atMessage);
+            else {
+                this.evtResponseAtMessage.post(atMessage);
             }
 
         });
 
     }
 
-    
+
 
     public runCommand = execStack(this.runCommandManageParams);
 
     public runCommandExt: (command: String, params: RunParams['userProvided'], callback?: RunCallback) => void = this.runCommand;
     public runCommandDefault: (command: string, callback?: RunCallback) => void = this.runCommand;
+
 
     private runCommandManageParams(command: string, callback?: RunCallback): void;
     private runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): void;
@@ -172,7 +175,7 @@ export class AtStack {
 
     private static generateSafeRunParams(params: RunParams['userProvided'] | undefined): RunParams['safe'] {
 
-        if( !params ) params= {};
+        if (!params) params = {};
 
         if (typeof params.recoverable !== "boolean") params.recoverable = false;
         if (typeof params.reportMode !== "number") params.reportMode = ReportMode.DEBUG_INFO_VERBOSE;

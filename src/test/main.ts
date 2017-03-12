@@ -22,7 +22,12 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
         "path": accessPoint.atInterface,
         "unlockCodeProvider": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
         "disableContactsFeatures": false
-    }, (modem, hasSim) => {
+    }, (error, modem, hasSim) => {
+
+        if( error ){
+            console.log("Initialization error: ".red, error);
+            return;
+        }
 
         console.log("ModemInitialized, imei: ", modem.imei);
 

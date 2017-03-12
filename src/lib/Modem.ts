@@ -1,5 +1,5 @@
 import { AtStack } from "./AtStack";
-import { AtMessage, ReportMode, LockedPinState } from "at-messages-parser";
+import { AtMessage, ReportMode, LockedPinState, AtImps } from "at-messages-parser";
 import { SystemState } from "./SystemState";
 import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 import { CardStorage, Contact } from "./CardStorage";
@@ -8,6 +8,7 @@ import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { execStack, ExecStack} from "ts-exec-stack";
 
+import * as pr from "ts-promisify";
 import * as _debug from "debug";
 let debug= _debug("_Modem");
 
@@ -30,7 +31,7 @@ export interface UnlockCodeProviderCallback {
 export interface UnlockCodeProvider {
     handler(
         imei: string,
-        imsi: string,
+        iccid: string,
         pinState: LockedPinState,
         tryLeft: number,
         callback: UnlockCodeProviderCallback
@@ -38,7 +39,7 @@ export interface UnlockCodeProvider {
     explicit: { pinFirstTry: string; pinSecondTry?: string };
 }
 
-export type CreateCallback= (modem:Modem, hasSim:boolean)=> void;
+export type CreateCallback= (error: null | Error, modem:Modem, hasSim:boolean)=> void;
 
 
 
@@ -62,6 +63,7 @@ export class Modem {
                             let pin = pins.shift();
 
                             if (pin) {
+                                debug(`Unlock ${imei}, ${imsi}, ${pinState}, ${tryLeft}, ${pin}`);
                                 callback(pin);
                                 return;
                             }
@@ -87,12 +89,27 @@ export class Modem {
         callback: CreateCallback
     ): void {
 
-        new Modem({
+        let modem = new Modem({
             "path": params.path,
             "unlockCodeProvider": Modem.getSafeUnlockCodeProvider(params.unlockCodeProvider),
             "enableSmsStack": !(params.disableSmsFeatures === true),
             "enableCardStorage": !(params.disableContactsFeatures === true)
-        }, callback);
+        }, (...inputs) => {
+
+            modem.evtTerminate.detach();
+
+            callback.apply(null, inputs);
+
+        });
+
+        modem.evtTerminate.attachOnce(
+            error => callback(
+                error ? error : new Error("Modem has disconnected"),
+                null as any,
+                false
+            )
+        );
+
 
     };
 
@@ -102,6 +119,7 @@ export class Modem {
     private readonly systemState: SystemState;
 
     public imei: string;
+    public iccid: string;
     public imsi: string;
 
     private constructor(
@@ -125,17 +143,22 @@ export class Modem {
 
         this.systemState = new SystemState(this.atStack);
 
-        this.systemState.evtReportSimPresence.attachOnce(hasSim => {
+        this.systemState.evtReportSimPresence.attachOnce(async hasSim => {
 
             if (!hasSim) {
-                callback(this, false);
+                callback(null, this, false);
                 return;
             }
 
-            this.atStack.runCommand("AT+CIMI\r", resp => {
-                this.imsi = resp!.raw.split("\r\n")[1];
-                this.initCardLockFacility();
-            });
+            let [resp] = await pr.typed(
+                this.atStack,
+                this.atStack.runCommandDefault
+            )("AT^ICCID?\r");
+
+            this.iccid= (resp as AtImps.CX_ICCID_SET).iccid;
+
+            this.initCardLockFacility();
+
 
         });
 
@@ -170,7 +193,7 @@ export class Modem {
 
         cardLockFacility.evtUnlockCodeRequest.attach(({ pinState, times }) => {
 
-            this.params.unlockCodeProvider(this.imei, this.imsi, pinState, times, (...inputs) => {
+            this.params.unlockCodeProvider(this.imei, this.iccid, pinState, times, (...inputs) => {
 
                 switch (pinState) {
                     case "SIM PIN":
@@ -191,7 +214,7 @@ export class Modem {
 
         });
 
-        cardLockFacility.evtPinStateReady.attachOnce(this, function callee() {
+        cardLockFacility.evtPinStateReady.attachOnce(this, async function callee() {
 
             let self = this as Modem;
 
@@ -200,10 +223,17 @@ export class Modem {
                 return;
             }
 
+            let [resp] = await pr.typed(
+                self.atStack,
+                self.atStack.runCommandDefault
+            )("AT+CIMI\r");
+
+            self.imsi = resp!.raw.split("\r\n")[1];
 
             if (self.params.enableSmsStack) self.initSmsStack();
             if (self.params.enableCardStorage) self.initCardStorage();
-            else self.callback(self, true);
+            else self.callback(null, self, true);
+
         });
 
     }
@@ -260,7 +290,7 @@ export class Modem {
 
         this.cardStorage = new CardStorage(this.atStack);
 
-        this.cardStorage.evtReady.attachOnce(() => this.callback(this, true));
+        this.cardStorage.evtReady.attachOnce(() => this.callback(null, this, true));
 
     }
 
