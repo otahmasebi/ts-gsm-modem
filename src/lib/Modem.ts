@@ -294,6 +294,10 @@ export class Modem {
 
     }
 
+    public get number(): typeof CardStorage.prototype.number {
+        return this.cardStorage.number;
+    }
+
     public get contacts(): typeof CardStorage.prototype.contacts {
         return this.cardStorage.contacts;
     }
@@ -327,6 +331,10 @@ export class Modem {
     public deleteContact = execStack(Modem, "WRITE", (
         (...inputs) => this.cardStorage.deleteContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.deleteContact);
+
+    public writeNumber = execStack(Modem, "WRITE", (
+        (...inputs) => this.cardStorage.writeNumber.apply(this.cardStorage, inputs)
+    ) as typeof CardStorage.prototype.writeNumber);
 
 
 }

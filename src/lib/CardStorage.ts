@@ -2,6 +2,7 @@
 import { AtStack } from "./AtStack";
 import {
     AtMessage,
+    AtMessageList,
     AtImps,
     NumberingPlanIdentification,
     TypeOfNumber
@@ -34,7 +35,6 @@ export class CardStorage {
 
     public readonly evtReady = new VoidSyncEvent();
 
-    public imsi: string;
 
     public get isReady(): boolean {
         return this.evtReady.postCount === 1;
@@ -164,6 +164,8 @@ export class CardStorage {
                 return;
             }
 
+            this.atStack.runCommand(`AT+CPBS="SM"\r`);
+
             this.atStack.runCommand(`AT+CSCS="IRA"\r`);
 
             this.atStack.runCommand(`AT+CPBW=${contact.index},"${contact.number}",,"${contact.name}"\r`,
@@ -221,6 +223,8 @@ export class CardStorage {
                 }
             }
 
+            this.atStack.runCommand(`AT+CPBS="SM"\r`);
+
             this.atStack.runCommand(`AT+CSCS="${enc}"\r`);
 
             this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`,
@@ -245,6 +249,8 @@ export class CardStorage {
                 return;
             }
 
+            this.atStack.runCommand(`AT+CPBS="SM"\r`);
+
             this.atStack.runCommand(`AT+CPBW=${index}\r`,
                 () => {
                     delete this.contactByIndex[index];
@@ -257,18 +263,47 @@ export class CardStorage {
         [index: number]: Contact;
     } = {};
 
+    public number: string | undefined= undefined;
+
+    public writeNumber = execStack("WRITE",
+        (number: string, callback?: () => void): void => {
+
+            this.number = number;
+
+            this.atStack.runCommand(`AT+CPBS="ON"\r`);
+
+            this.atStack.runCommand(`AT+CPBW=1,"${number}"\r`);
+
+            this.atStack.runCommand(`AT+CPBS="SM"\r`, () => callback!());
+
+        });
+
 
     private init(callback: () => void): void {
         (async () => {
 
             debug("Init");
 
+            this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
+
             let [resp] = await pr.typed(
                 this.atStack,
                 this.atStack.runCommandDefault
-            )("AT+CIMI\r");
+            )("AT+CNUM\r");
 
-            this.imsi= resp!.raw.split("\r\n")[1];
+            let atMessageList= resp as AtMessageList;
+
+            if( atMessageList.atMessages.length ){
+
+                let p_CNUM_EXEC= atMessageList.atMessages[0] as AtImps.P_CNUM_EXEC;
+
+                this.number= p_CNUM_EXEC.number;
+
+            }
+
+            debug(`number: ${this.number}`);
+            
+            this.atStack.runCommand(`AT+CPBS="SM"\r`);
 
             resp = (await pr.typed(
                 this.atStack,
@@ -283,22 +318,22 @@ export class CardStorage {
 
                 this.atStack.runCommand(`AT+CSCS="IRA"\r`);
 
-                let [resp, final]= await pr.typed(
+                let [resp, final] = await pr.typed(
                     this.atStack,
                     this.atStack.runCommandExt
                 )(`AT+CPBR=${index}\r`, { "recoverable": true });
 
-                if( final.isError && (final as AtImps.P_CME_ERROR).code === 22 )
+                if (final.isError && (final as AtImps.P_CME_ERROR).code === 22)
                     continue;
 
-                let name= "\uFFFD";
-                let number= "";
+                let name = "\uFFFD";
+                let number = "";
 
-                if( resp ){
+                if (resp) {
 
                     let p_CPBR_EXEC = resp as AtImps.P_CPBR_EXEC;
 
-                    name= p_CPBR_EXEC.text;
+                    name = p_CPBR_EXEC.text;
                     number = p_CPBR_EXEC.number;
 
                 }
@@ -312,23 +347,23 @@ export class CardStorage {
                         this.atStack.runCommandExt
                     )(`AT+CPBR=${index}\r`, { "recoverable": true });
 
-                    if( !resp && !number ) continue;
+                    if (!resp && !number) continue;
 
-                    if( resp ){
+                    if (resp) {
 
                         let p_CPBR_EXEC = resp as AtImps.P_CPBR_EXEC;
 
                         let nameAsUcs2 = CardStorage.decodeUCS2(p_CPBR_EXEC.text);
-                        if( !number ) number= p_CPBR_EXEC.number;
+                        if (!number) number = p_CPBR_EXEC.number;
 
-                        if( CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name) )
-                            name= nameAsUcs2;
+                        if (CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name))
+                            name = nameAsUcs2;
 
                     }
 
                 }
 
-                this.contactByIndex[index]=  { index, number, name };
+                this.contactByIndex[index] = { index, number, name };
 
             }
 
@@ -398,7 +433,7 @@ export class CardStorage {
 
     }
 
-    private static hasExtendedChar(text: string): boolean{
+    private static hasExtendedChar(text: string): boolean {
 
         return text.match(/[^a-zA-Z0-9\ <>!\&\*#"%,;\.'\(\)\?-\uFFFD]/) !== null;
 
