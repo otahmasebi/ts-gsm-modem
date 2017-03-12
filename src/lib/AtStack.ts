@@ -5,7 +5,7 @@ import { execStack, ExecStack } from "ts-exec-stack";
 import { Timer, setTimeout } from "timer-extended";
 
 import * as _debug from "debug";
-let debug= _debug("0_AtStack");
+let debug= _debug("_AtStack");
 
 
 require("colors");
@@ -112,8 +112,8 @@ export class AtStack {
 
         });
 
-        this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
-        this.evtUnsolicitedMessage.attach(atMessage => debug(JSON.stringify(atMessage, null, 2).yellow));
+        //this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
+        //this.evtUnsolicitedMessage.attach(atMessage => debug(JSON.stringify(atMessage, null, 2).yellow));
 
         this.serialPort.once("disconnect", () => { debug("disconnect"); this.evtTerminate.post(null); });
 
@@ -128,7 +128,7 @@ export class AtStack {
                 return;
             }
 
-            debug(JSON.stringify(atMessage.id));
+            //debug(JSON.stringify(atMessage.id));
 
             if (atMessage.isUnsolicited)
                 this.evtUnsolicitedMessage.post(atMessage);
@@ -334,7 +334,7 @@ export class AtStack {
 
         let timer = this.timers.add(setTimeout(() => {
 
-            //debug("on timeout!!!!!".red);
+            debug("on timeout!!!!!".red);
 
             this.evtResponseAtMessage.detach();
 
@@ -390,7 +390,7 @@ export class AtStack {
             })
         ]).then(([_, [resp, final, raw]]) => {
 
-            debug(`${JSON.stringify((resp ? resp.raw : "") + " *** " + final.raw)}`.green);
+            //debug(`${JSON.stringify((resp ? resp.raw : "") + " *** " + final.raw)}`.green);
 
             this.retryLeftReWrite = this.retryMaxWrite;
 
