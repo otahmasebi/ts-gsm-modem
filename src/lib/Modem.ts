@@ -160,6 +160,7 @@ export class Modem {
         return this.atStack.evtUnsolicitedMessage;
     }
 
+    public pin: string | undefined = undefined;
 
     private initCardLockFacility(): void {
 
@@ -167,14 +168,20 @@ export class Modem {
 
         let cardLockFacility = new CardLockFacility(this.atStack);
 
-        cardLockFacility.evtUnlockCodeRequest.attach(({pinState, times}) => {
+        cardLockFacility.evtUnlockCodeRequest.attach(({ pinState, times }) => {
 
             this.params.unlockCodeProvider(this.imei, this.imsi, pinState, times, (...inputs) => {
 
                 switch (pinState) {
-                    case "SIM PIN": cardLockFacility.enterPin(inputs[0]); return;
+                    case "SIM PIN":
+                        this.pin = inputs[0];
+                        cardLockFacility.enterPin(inputs[0]);
+                        return;
+                    case "SIM PUK":
+                        this.pin = inputs[1];
+                        cardLockFacility.enterPuk(inputs[0], inputs[1]);
+                        return;
                     case "SIM PIN2": cardLockFacility.enterPin2(inputs[0]); return;
-                    case "SIM PUK": cardLockFacility.enterPuk(inputs[0], inputs[1]); return;
                     case "SIM PUK2": cardLockFacility.enterPuk2(inputs[0], inputs[1]); return;
                 }
 
