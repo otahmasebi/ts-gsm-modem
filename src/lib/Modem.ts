@@ -30,6 +30,7 @@ export interface UnlockCodeProviderCallback {
 export interface UnlockCodeProvider {
     handler(
         imei: string,
+        imsi: string,
         pinState: LockedPinState,
         tryLeft: number,
         callback: UnlockCodeProviderCallback
@@ -51,7 +52,7 @@ export class Modem {
                 case "object":
                     let explicit = unlockCodeProvider as UnlockCodeProvider['explicit'];
                     let pins = [explicit.pinFirstTry, explicit.pinSecondTry];
-                    return (imei, pinState, tryLeft, callback) => {
+                    return (imei, imsi, pinState, tryLeft, callback) => {
 
                         if (pinState === "SIM PIN") {
 
@@ -101,6 +102,7 @@ export class Modem {
     private readonly systemState: SystemState;
 
     public imei: string;
+    public imsi: string;
 
     private constructor(
         private readonly params: {
@@ -118,6 +120,7 @@ export class Modem {
             this.imei = resp!.raw.split("\r\n")[1];
         });
 
+
         debug("Init, systemState");
 
         this.systemState = new SystemState(this.atStack);
@@ -129,7 +132,10 @@ export class Modem {
                 return;
             }
 
-            this.initCardLockFacility();
+            this.atStack.runCommand("AT+CIMI\r", resp => {
+                this.imsi = resp!.raw.split("\r\n")[1];
+                this.initCardLockFacility();
+            });
 
         });
 
@@ -163,7 +169,7 @@ export class Modem {
 
         cardLockFacility.evtUnlockCodeRequest.attach(({pinState, times}) => {
 
-            this.params.unlockCodeProvider(this.imei, pinState, times, (...inputs) => {
+            this.params.unlockCodeProvider(this.imei, this.imsi, pinState, times, (...inputs) => {
 
                 switch (pinState) {
                     case "SIM PIN": cardLockFacility.enterPin(inputs[0]); return;
