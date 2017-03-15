@@ -1,12 +1,5 @@
-
 import { AtStack } from "./AtStack";
-import {
-    AtMessage,
-    AtMessageList,
-    AtImps,
-    NumberingPlanIdentification,
-    TypeOfNumber
-} from "at-messages-parser";
+import { AtMessage } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { execStack, ExecStack } from "ts-exec-stack";
 import * as pr from "ts-promisify";
@@ -32,14 +25,11 @@ export interface Contact {
 
 export class CardStorage {
 
-
     public readonly evtReady = new VoidSyncEvent();
-
 
     public get isReady(): boolean {
         return this.evtReady.postCount === 1;
     }
-
 
     public get contacts(): Contact[] {
 
@@ -85,32 +75,35 @@ export class CardStorage {
 
     }
 
+    // cSpell:disable
+    private static readonly replaceArray: [RegExp, string][] = [
+        [/[ÀÁÂÃÄ]/g, "A"],
+        [/[àáâãä]/g, "a"],
+        [/[ÈÉÊË]/g, "E"],
+        [/[èéêë]/g, "e"],
+        [/[ÌÍÎÏ]/g, "I"],
+        [/[ìíîï]/g, "i"],
+        [/[ÒÓÔÕÖ]/g, "O"],
+        [/[òóôõö]/g, "o"],
+        [/[ÙÚÛÜ]/g, "U"],
+        [/[ùúûü]/g, "u"],
+        [/[ÝŸ]/g, "Y"],
+        [/[ýÿ]/g, "y"],
+        [/[Ñ]/g, "N"],
+        [/[ñ]/g, "n"],
+        [/[\[{]/g, "("],
+        [/[\]}]/g, ")"],
+        [/_/g, "-"],
+        [/@/g, "At"],
+        [/["`]/g, "'"],
+        [/[^a-zA-Z0-9\ <>!\&\*#%,;\.'\(\)\?-]/g, " "]
+    ];
+    // cSpell:enable
+
     public generateSafeContactName(contactName: string): string {
 
-        // cSpell:disable
-        contactName = contactName.replace(/[ÀÁÂÃÄ]/g, "A");
-        contactName = contactName.replace(/[àáâãä]/g, "a");
-        contactName = contactName.replace(/[ÈÉÊË]/g, "E");
-        contactName = contactName.replace(/[èéêë]/g, "e");
-        contactName = contactName.replace(/[ÌÍÎÏ]/g, "I");
-        contactName = contactName.replace(/[ìíîï]/g, "i");
-        contactName = contactName.replace(/[ÒÓÔÕÖ]/g, "O");
-        contactName = contactName.replace(/[òóôõö]/g, "o");
-        contactName = contactName.replace(/[ÙÚÛÜ]/g, "U");
-        contactName = contactName.replace(/[ùúûü]/g, "u");
-        contactName = contactName.replace(/[ÝŸ]/g, "Y");
-        contactName = contactName.replace(/[ýÿ]/g, "y");
-        contactName = contactName.replace(/[Ñ]/g, "N");
-        contactName = contactName.replace(/[ñ]/g, "n");
-        // cSpell:enable
-
-        contactName = contactName.replace(/[\[{]/g, "(");
-        contactName = contactName.replace(/[\]}]/g, ")");
-        contactName = contactName.replace(/_/g, "-");
-        contactName = contactName.replace(/@/g, "At");
-        contactName = contactName.replace(/["`]/g, "'");
-
-        contactName = contactName.replace(/[^a-zA-Z0-9\ <>!\&\*#%,;\.'\(\)\?-]/g, " ");
+        for (let [match, replaceBy] of CardStorage.replaceArray)
+            contactName = contactName.replace(match, replaceBy);
 
         //TODO if tLength not even
 
@@ -126,11 +119,11 @@ export class CardStorage {
 
     constructor(private readonly atStack: AtStack) {
 
-        this.init(() => this.evtReady.post() );
+        this.init(() => this.evtReady.post());
 
     }
 
-    private p_CPBR_TEST: AtImps.P_CPBR_TEST;
+    private p_CPBR_TEST: AtMessage.P_CPBR_TEST;
 
     private getFreeIndex(): number {
 
@@ -171,7 +164,7 @@ export class CardStorage {
             this.atStack.runCommand(`AT+CPBW=${contact.index},"${contact.number}",,"${contact.name}"\r`,
                 () => {
 
-                    this.contactByIndex[contact.index]= contact;
+                    this.contactByIndex[contact.index] = contact;
 
                     callback!(this.getContact(contact.index)!);
                 });
@@ -185,12 +178,12 @@ export class CardStorage {
             name?: string
         }, callback?: (contact: Contact) => void): void => {
 
-            if (!this.contactByIndex[index]){
+            if (!this.contactByIndex[index]) {
                 this.atStack.evtError.post(new Error("Contact does not exist"));
                 return;
             }
 
-            if (typeof params.name === "undefined" && typeof params.number === "undefined"){
+            if (typeof params.name === "undefined" && typeof params.number === "undefined") {
                 this.atStack.evtError.post(new Error("name and contact can not be both null"));
                 return;
             }
@@ -201,7 +194,7 @@ export class CardStorage {
 
             if (params.number !== undefined) {
                 number = params.number;
-                if (number.length > this.numberMaxLength){
+                if (number.length > this.numberMaxLength) {
                     this.atStack.evtError.post(new Error("Number too long"));
                     return;
                 }
@@ -210,16 +203,16 @@ export class CardStorage {
             let contactName = "";
             let enc: Encoding;
 
-            if ( params.name !== undefined) {
+            if (params.name !== undefined) {
                 enc = "IRA";
                 contactName = this.generateSafeContactName(params.name);
             } else {
-                if( CardStorage.hasExtendedChar(contact.name) ){
-                    enc= "UCS2";
-                    contactName= CardStorage.encodeUCS2(contact.name);
-                }else{
-                    enc= "IRA";
-                    contactName= this.generateSafeContactName(contact.name);
+                if (CardStorage.hasExtendedChar(contact.name)) {
+                    enc = "UCS2";
+                    contactName = CardStorage.encodeUCS2(contact.name);
+                } else {
+                    enc = "IRA";
+                    contactName = this.generateSafeContactName(contact.name);
                 }
             }
 
@@ -230,10 +223,10 @@ export class CardStorage {
             this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`,
                 () => {
 
-                    this.contactByIndex[index]= { 
-                        ...this.contactByIndex[index], 
-                        number, 
-                        "name": (enc === "UCS2") ? CardStorage.decodeUCS2(contactName) : contactName 
+                    this.contactByIndex[index] = {
+                        ...this.contactByIndex[index],
+                        number,
+                        "name": (enc === "UCS2") ? CardStorage.decodeUCS2(contactName) : contactName
                     };
 
                     callback!(this.getContact(index)!);
@@ -244,7 +237,7 @@ export class CardStorage {
     public deleteContact = execStack("WRITE",
         (index: number, callback?: () => void): void => {
 
-            if (!this.contactByIndex[index]){
+            if (!this.contactByIndex[index]) {
                 this.atStack.evtError.post(new Error("Contact does not exists"));
                 return;
             }
@@ -259,11 +252,7 @@ export class CardStorage {
         });
 
 
-    private readonly contactByIndex: {
-        [index: number]: Contact;
-    } = {};
-
-    public number: string | undefined= undefined;
+    public number: string | undefined = undefined;
 
     public writeNumber = execStack("WRITE",
         (number: string, callback?: () => void): void => {
@@ -278,6 +267,10 @@ export class CardStorage {
 
         });
 
+    private readonly contactByIndex: {
+        [index: number]: Contact;
+    } = {};
+
 
     private init(callback: () => void): void {
         (async () => {
@@ -291,18 +284,18 @@ export class CardStorage {
                 this.atStack.runCommandDefault
             )("AT+CNUM\r");
 
-            let atMessageList= resp as AtMessageList;
+            let atMessageList = resp as AtMessage.LIST;
 
-            if( atMessageList.atMessages.length ){
+            if (atMessageList.atMessages.length) {
 
-                let p_CNUM_EXEC= atMessageList.atMessages[0] as AtImps.P_CNUM_EXEC;
+                let p_CNUM_EXEC = atMessageList.atMessages[0] as AtMessage.P_CNUM_EXEC;
 
-                this.number= p_CNUM_EXEC.number;
+                this.number = p_CNUM_EXEC.number;
 
             }
 
             debug(`number: ${this.number}`);
-            
+
             this.atStack.runCommand(`AT+CPBS="SM"\r`);
 
             resp = (await pr.typed(
@@ -310,7 +303,7 @@ export class CardStorage {
                 this.atStack.runCommandDefault
             )("AT+CPBR=?\r"))[0];
 
-            this.p_CPBR_TEST = resp as AtImps.P_CPBR_TEST;
+            this.p_CPBR_TEST = resp as AtMessage.P_CPBR_TEST;
 
             let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
 
@@ -323,7 +316,7 @@ export class CardStorage {
                     this.atStack.runCommandExt
                 )(`AT+CPBR=${index}\r`, { "recoverable": true });
 
-                if (final.isError && (final as AtImps.P_CME_ERROR).code === 22)
+                if (final.isError && (final as AtMessage.P_CME_ERROR).code === 22)
                     continue;
 
                 let name = "\uFFFD";
@@ -331,7 +324,7 @@ export class CardStorage {
 
                 if (resp) {
 
-                    let p_CPBR_EXEC = resp as AtImps.P_CPBR_EXEC;
+                    let p_CPBR_EXEC = resp as AtMessage.P_CPBR_EXEC;
 
                     name = p_CPBR_EXEC.text;
                     number = p_CPBR_EXEC.number;
@@ -351,7 +344,7 @@ export class CardStorage {
 
                     if (resp) {
 
-                        let p_CPBR_EXEC = resp as AtImps.P_CPBR_EXEC;
+                        let p_CPBR_EXEC = resp as AtMessage.P_CPBR_EXEC;
 
                         let nameAsUcs2 = CardStorage.decodeUCS2(p_CPBR_EXEC.text);
                         if (!number) number = p_CPBR_EXEC.number;

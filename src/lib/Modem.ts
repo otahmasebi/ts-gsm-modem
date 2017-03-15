@@ -1,5 +1,5 @@
 import { AtStack } from "./AtStack";
-import { AtMessage, ReportMode, LockedPinState, AtImps } from "at-messages-parser";
+import { AtMessage } from "at-messages-parser";
 import { SystemState } from "./SystemState";
 import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 import { CardStorage, Contact } from "./CardStorage";
@@ -32,7 +32,7 @@ export interface UnlockCodeProvider {
     handler(
         imei: string,
         iccid: string,
-        pinState: LockedPinState,
+        pinState: AtMessage.LockedPinState,
         tryLeft: number,
         callback: UnlockCodeProviderCallback
     ): void;
@@ -155,7 +155,7 @@ export class Modem {
                 this.atStack.runCommandDefault
             )("AT^ICCID?\r");
 
-            this.iccid= (resp as AtImps.CX_ICCID_SET).iccid;
+            this.iccid= (resp as AtMessage.CX_ICCID_SET).iccid;
 
             this.initCardLockFacility();
 

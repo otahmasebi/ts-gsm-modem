@@ -1,15 +1,9 @@
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { AtStack } from "./AtStack";
-import {
-    atIdDict,
-    AtMessage,
-    AtImps,
-    PinState,
-    LockedPinState
-} from "at-messages-parser";
+import { AtMessage } from "at-messages-parser";
 
 export interface UnlockCodeRequest {
-    pinState: LockedPinState;
+    pinState: AtMessage.LockedPinState;
     times: number;
 }
 
@@ -59,9 +53,11 @@ export class CardLockFacility {
 
     }
 
-    private cx_CPIN_READ: AtImps.CX_CPIN_READ;
+    private cx_CPIN_READ: AtMessage.CX_CPIN_READ;
 
-    private get pinState(): PinState { return this.cx_CPIN_READ.pinState; }
+    private get pinState(): AtMessage.PinState { 
+        return this.cx_CPIN_READ.pinState; 
+    }
 
     private get times(): number { return this.cx_CPIN_READ.times; }
 
@@ -71,25 +67,24 @@ export class CardLockFacility {
 
         this.retrieving = true;
 
-        this.atStack.runCommand("AT^CPIN?\r", 
-        (resp: AtImps.CX_CPIN_READ)=>{
+        this.atStack.runCommand(
+            "AT^CPIN?\r",
+            (resp: AtMessage.CX_CPIN_READ) => {
 
-            this.retrieving = false;
+                this.retrieving = false;
 
-            this.cx_CPIN_READ = resp;
+                this.cx_CPIN_READ = resp;
 
-            if (this.pinState === "READY") 
-                return this.evtPinStateReady.post();
+                if (this.pinState === "READY")
+                    return this.evtPinStateReady.post();
 
-            this.evtUnlockCodeRequest.post({
-                "pinState": this.pinState,
-                "times": this.times
-            });
+                this.evtUnlockCodeRequest.post({
+                    "pinState": this.pinState,
+                    "times": this.times
+                });
 
-        });
-
-
-
+            }
+        );
 
     }
 
@@ -109,7 +104,7 @@ export class CardLockFacility {
 
             this.unlocking = false;
 
-            if( !final.isError ) 
+            if (!final.isError)
                 return this.evtPinStateReady.post();
 
             this.retrieveCX_CPIN_READ();

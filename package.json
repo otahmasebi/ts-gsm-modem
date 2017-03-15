@@ -1,6 +1,6 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "description": "GSM Modem manager",
   "main": "./out/lib/index.js",
   "types": "./out/lib/index.d.ts",
@@ -33,9 +33,9 @@
     "debug": "^2.6.1",
     "legacy-encoding": "^3.0.0",
     "node-python-messaging": "garronej/node-python-messaging",
-    "object-extended": "garronej/object-extended",
     "serialport": "EmergingTechnologyAdvisors/node-serialport#4.0.7",
     "timer-extended": "garronej/timer-extended",
+    "trackable-map": "github:garronej/trackable-map",
     "ts-events-extended": "garronej/ts-events-extended",
     "ts-exec-stack": "garronej/ts-exec-stack",
     "ts-promisify": "garronej/ts-promisify",

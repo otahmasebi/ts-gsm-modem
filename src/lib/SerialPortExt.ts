@@ -3,9 +3,9 @@ import * as SerialPort from "serialport";
 import { execStack, ExecStack } from "ts-exec-stack";
 import { SyncEvent } from "ts-events-extended";
 
-export class SerialPortExt extends SerialPort {
+const openTimeOut= 5000;
 
-    private readonly openTimeOut= 5000;
+export class SerialPortExt extends SerialPort {
 
     //Todo test if when terminate still running because of evtError
 
@@ -13,10 +13,7 @@ export class SerialPortExt extends SerialPort {
 
         let out= new SyncEvent<SerialPortError>();
 
-        this.on("error", error=> {
-            console.log("tick");
-            out.post(new SerialPortError(error));
-        });
+        this.on("error", error=> out.post(new SerialPortError(error)));
 
         return out;
 
@@ -52,7 +49,7 @@ export class SerialPortExt extends SerialPort {
 
                     callback!(error);
 
-                }, self.openTimeOut);
+                }, openTimeOut);
 
                 self.on("open", () => {
 

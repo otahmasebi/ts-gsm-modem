@@ -1,13 +1,5 @@
 import { AtStack } from "./AtStack";
-import {
-    AtId,
-    atIdDict,
-    AtMessage,
-    AtImps,
-    ServiceStatus,
-    SysMode,
-    SimState
-} from "at-messages-parser";
+import { AtMessage } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 
 export class SystemState {
@@ -20,24 +12,24 @@ export class SystemState {
         this.atStack.evtUnsolicitedMessage.attach(atMessage => this.update(atMessage as any));
 
         this.atStack.runCommand("AT^SYSINFO\r", 
-        (resp: AtImps.CX_SYSINFO_EXEC) => {
+        (resp: AtMessage.CX_SYSINFO_EXEC) => {
 
             this.isRoaming = resp.isRoaming;
 
-            this.evtReportSimPresence.post(resp.simState !== SimState.NO_SIM);
+            this.evtReportSimPresence.post(resp.simState !== AtMessage.SimState.NO_SIM);
 
             this.update({
-                "id": atIdDict.CX_SIMST_URC,
+                "id": AtMessage.idDict.CX_SIMST_URC,
                 "simState": resp.simState
             } as any);
 
             this.update({
-                "id": atIdDict.CX_SRVST_URC,
+                "id": AtMessage.idDict.CX_SRVST_URC,
                 "serviceStatus": resp.serviceStatus
             } as any);
 
             this.update({
-                "id": atIdDict.CX_MODE_URC,
+                "id": AtMessage.idDict.CX_MODE_URC,
                 "sysMode": resp.sysMode
             } as any);
 
@@ -45,44 +37,44 @@ export class SystemState {
 
     }
 
-    public serviceStatus: ServiceStatus;
-    public sysMode: SysMode;
-    public simState: SimState;
+    public serviceStatus: AtMessage.ServiceStatus;
+    public sysMode: AtMessage.SysMode;
+    public simState: AtMessage.SimState;
 
     public get isNetworkReady(): boolean {
         return this.isValidSim && 
-        this.serviceStatus === ServiceStatus.VALID_SERVICES &&
-        this.sysMode !== SysMode.NO_SERVICES;
+        this.serviceStatus === AtMessage.ServiceStatus.VALID_SERVICES &&
+        this.sysMode !== AtMessage.SysMode.NO_SERVICES;
     }
 
     public readonly evtNetworkReady = new VoidSyncEvent();
 
     public get isValidSim(): boolean { 
-        return this.simState === SimState.VALID_SIM; 
+        return this.simState === AtMessage.SimState.VALID_SIM; 
     }
     public readonly evtValidSim = new VoidSyncEvent();
 
     private update(atMessage: AtMessage) {
 
         switch (atMessage.id) {
-            case atIdDict.CX_SIMST_URC:
-                let simState = (atMessage as AtImps.CX_SIMST_URC).simState
+            case AtMessage.idDict.CX_SIMST_URC:
+                let simState = (atMessage as AtMessage.CX_SIMST_URC).simState
                 if (!this.isValidSim) {
                     this.simState = simState;
                     if (this.isValidSim)
                         this.evtValidSim.post();
                 } else this.simState = simState;
                 break;
-            case atIdDict.CX_SRVST_URC:
-                let serviceStatus = (atMessage as AtImps.CX_SRVST_URC).serviceStatus;
+            case AtMessage.idDict.CX_SRVST_URC:
+                let serviceStatus = (atMessage as AtMessage.CX_SRVST_URC).serviceStatus;
                 if (!this.isNetworkReady) {
                     this.serviceStatus = serviceStatus;
                     if (this.isNetworkReady)
                         this.evtNetworkReady.post();
                 } else this.serviceStatus = serviceStatus;
                 break;
-            case atIdDict.CX_MODE_URC:
-                let sysMode = (atMessage as AtImps.CX_MODE_URC).sysMode;
+            case AtMessage.idDict.CX_MODE_URC:
+                let sysMode = (atMessage as AtMessage.CX_MODE_URC).sysMode;
                 if (!this.isNetworkReady) {
                     this.sysMode = sysMode;
                     if (this.isNetworkReady)

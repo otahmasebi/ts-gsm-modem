@@ -1,6 +1,6 @@
-import { ModemWatcher, Modem as ModemAccessPoint } from "gsm-modem-connection";
+import { Monitor } from "gsm-modem-connection";
 import { Modem } from "../lib/index";
-import { MessageStat, AtMessageList, AtImps } from "at-messages-parser";
+import { AtMessage } from "at-messages-parser";
 import { CardStorage } from "../lib/CardStorage";
 import * as pr from "ts-promisify";
 import * as fs from "fs";
@@ -8,18 +8,16 @@ import * as path from "path";
 import * as repl from "repl";
 require("colors");
 
-import { NumberingPlanIdentification, TypeOfNumber } from "at-messages-parser";
 
-let modemWatcher = new ModemWatcher();
 
-modemWatcher.evtConnect.attachOnce(accessPoint => {
+Monitor.evtModemConnect.attachOnce(accessPoint => {
 
-    modemWatcher.stop();
+    Monitor.stop();
 
-    console.log("CONNECTION".green, JSON.stringify(accessPoint.infos, null, 2));
+    console.log("CONNECTION: ", accessPoint.toString());
 
     Modem.create({
-        "path": accessPoint.atInterface,
+        "path": accessPoint.dataIfPath,
         "unlockCodeProvider": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
         "disableContactsFeatures": false
     }, (error, modem, hasSim) => {
@@ -50,16 +48,13 @@ modemWatcher.evtConnect.attachOnce(accessPoint => {
         modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
         modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
-        /*
         console.log(JSON.stringify(modem.contacts, null, 2).blue);
 
         let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/out/, "src"), "utf8");
  
         console.log("Sending: \n".green, JSON.stringify(messageText));
-        
  
         modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
-        */
 
         let r = repl.start({
             "terminal": true,
