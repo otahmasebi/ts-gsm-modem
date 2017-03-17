@@ -136,6 +136,7 @@ export class Modem {
 
         this.atStack.runCommand("AT+CGSN\r", resp => {
             this.imei = resp!.raw.split("\r\n")[1];
+            debug("IMEI: ", this.imei);
         });
 
 
@@ -150,15 +151,43 @@ export class Modem {
                 return;
             }
 
-            let [resp] = await pr.typed(
-                this.atStack,
-                this.atStack.runCommandDefault
-            )("AT^ICCID?\r");
+            debug("HAS SIM: TRUE");
 
-            this.iccid= (resp as AtMessage.CX_ICCID_SET).iccid;
+            let switchedIccid: string;
+
+            let [resp, final] = await pr.typed(
+                this.atStack,
+                this.atStack.runCommandExt
+            )("AT^ICCID?\r", { "recoverable": true });
+
+            if (final.isError) {
+
+                let [resp] = await pr.typed(
+                    this.atStack,
+                    this.atStack.runCommandDefault
+                )("AT+CRSM=176,12258,0,0,10\r");
+
+                switchedIccid = (resp as AtMessage.P_CRSM_SET).response!;
+
+            } else switchedIccid = (resp as AtMessage.CX_ICCID_SET).iccid;
+
+            this.iccid = (switched => {
+
+                let out = "";
+
+                for (let i = 0; i < switched.length; i += 2)
+                    out += switched[i + 1] + switched[i];
+
+                if (out[out.length - 1].match(/^[Ff]$/))
+                    out = out.slice(0, -1);
+
+                return out;
+
+            })(switchedIccid);
+
+            debug("ICCID: ", this.iccid);
 
             this.initCardLockFacility();
-
 
         });
 
@@ -184,6 +213,8 @@ export class Modem {
     }
 
     public pin: string | undefined = undefined;
+
+    public supportedCommands: string[];
 
     private initCardLockFacility(): void {
 
@@ -214,14 +245,27 @@ export class Modem {
 
         });
 
+        let firstTime = true;
+
+
+
         cardLockFacility.evtPinStateReady.attachOnce(this, async function callee() {
+
+            if (firstTime) debug("SIM unlocked");
 
             let self = this as Modem;
 
             if (!self.systemState.isValidSim) {
+                firstTime = false;
                 self.systemState.evtValidSim.attachOnce(() => callee.call(self));
                 return;
             }
+
+            debug("SIM valid");
+
+            this.runCommand("AT+CLAC\r",
+                ({ supportedCommands }: AtMessage.P_CLAC_EXEC) => this.supportedCommands = supportedCommands
+            );
 
             let [resp] = await pr.typed(
                 self.atStack,

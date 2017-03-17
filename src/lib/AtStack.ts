@@ -65,6 +65,7 @@ export class AtStack {
     public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
     public readonly evtTerminate = new SyncEvent<Error | null>();
 
+
     private readonly serialPort: SerialPortExt;
     private readonly serialPortAtParser= getSerialPortParser(30000);
     constructor(path: string) {
@@ -78,11 +79,14 @@ export class AtStack {
         this.runCommand("ATZ\r");
 
 
+
     }
 
     public terminate(): void {
         if (this.serialPort.isOpen())
             this.serialPort.close();
+
+        debug("Manually call terminate".red);
         this.evtTerminate.post(null);
     }
 
@@ -95,13 +99,18 @@ export class AtStack {
 
     private registerListeners(): void {
 
-        this.evtError.attach(error => {
+        this.evtError.attach(async error => {
 
             debug("unrecoverable error: ".red, error);
 
-            if (this.serialPort.isOpen())
-                this.serialPort.close();
+            await new Promise<void>(resolve => setImmediate(resolve));
 
+            if (this.serialPort.isOpen()) {
+                debug("we clause because it was open");
+                this.serialPort.close();
+            }
+
+            debug("post event terminate with error");
 
             this.evtTerminate.post(error);
 
@@ -110,11 +119,20 @@ export class AtStack {
         //this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
         //this.evtUnsolicitedMessage.attach(atMessage => debug(JSON.stringify(atMessage, null, 2).yellow));
 
-        this.serialPort.once("disconnect", () => { debug("disconnect"); this.evtTerminate.post(null); });
+        this.serialPort.once("disconnect", () => {
+            debug("disconnect");
+            debug("post event terminate without error");
+            this.evtTerminate.post(null);
+        });
 
         this.serialPort.once("close", () => { debug("close"); this.timers.clearAll(); });
 
-        this.serialPort.evtError.attach(this.evtError);
+        this.serialPort.evtError.attach(error => {
+
+            debug("Serial port error: ", error);
+
+            this.evtError.post(error);
+        });
 
         this.serialPort.on("data", (atMessage: AtMessage | null, unparsed: string) => {
 
@@ -385,6 +403,7 @@ export class AtStack {
                     command,
                     serialPortError => {
                         if (serialPortError) {
+                            debug("serial port error run command base", serialPortError);
                             this.serialPort.evtError.post(serialPortError);
                             return;
                         }

@@ -10,9 +10,9 @@ require("colors");
 
 
 
-Monitor.evtModemConnect.attachOnce(accessPoint => {
+Monitor.evtModemConnect.attach(accessPoint => {
 
-    Monitor.stop();
+    //Monitor.stop();
 
     console.log("CONNECTION: ", accessPoint.toString());
 
@@ -50,21 +50,46 @@ Monitor.evtModemConnect.attachOnce(accessPoint => {
 
         console.log(JSON.stringify(modem.contacts, null, 2).blue);
 
+        /*
+
         let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/out/, "src"), "utf8");
  
         console.log("Sending: \n".green, JSON.stringify(messageText));
  
         modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
 
+        */
+
         let r = repl.start({
             "terminal": true,
             "prompt": "> "
         });
 
-        Object.assign((r as any).context, { modem });
+        Object.assign((r as any).context, {
+            modem,
+            "run": (command: string): string => {
+
+                modem.runCommand(command + "\r", { "recoverable": true, "retryOnErrors": false }, (resp, final) => {
+
+                    if (resp)
+                        console.log(JSON.stringify(resp, null, 2));
+
+                    if (final.isError)
+                        console.log(JSON.stringify(final, null, 2).red);
+                    else
+                        console.log(final.raw.green);
+
+                });
+
+                return "COMMAND QUEUED";
+
+            }
+        });
 
 
 
-    });
+
+
+        });
 
 });

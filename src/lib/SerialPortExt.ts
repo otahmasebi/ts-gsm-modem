@@ -13,7 +13,12 @@ export class SerialPortExt extends SerialPort {
 
         let out= new SyncEvent<SerialPortError>();
 
-        this.on("error", error=> out.post(new SerialPortError(error)));
+        this.on("error", error=> {
+
+            console.log("=====================>", error);
+
+            out.post(new SerialPortError(error))
+        });
 
         return out;
 
