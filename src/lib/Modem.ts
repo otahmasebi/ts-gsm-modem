@@ -3,6 +3,7 @@ import { AtMessage } from "at-messages-parser";
 import { SystemState } from "./SystemState";
 import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 import { CardStorage, Contact } from "./CardStorage";
+import { SerialPortExt } from "./SerialPortExt";
 
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
@@ -89,6 +90,7 @@ export class Modem {
         callback: CreateCallback
     ): void {
 
+
         let modem = new Modem({
             "path": params.path,
             "unlockCodeProvider": Modem.getSafeUnlockCodeProvider(params.unlockCodeProvider),
@@ -105,7 +107,7 @@ export class Modem {
         modem.evtTerminate.attachOnce(
             error => callback(
                 error ? error : new Error("Modem has disconnected"),
-                null as any,
+                modem,
                 false
             )
         );
@@ -120,6 +122,7 @@ export class Modem {
 
     public imei: string;
     public iccid: string;
+    public iccidAvailableBeforeUnlock: boolean;
     public imsi: string;
 
     private constructor(
@@ -153,27 +156,44 @@ export class Modem {
 
             debug("HAS SIM: TRUE");
 
-            let switchedIccid: string;
+            this.iccid= await this.readIccid();
+
+            this.iccidAvailableBeforeUnlock= (this.iccid)?true:false;
+
+            debug("ICCID before unlock: ", this.iccid);
+
+            this.initCardLockFacility();
+
+        });
+
+    }
+
+    private async readIccid(): Promise<string> {
+
+            let switchedIccid: string | undefined;
 
             let [resp, final] = await pr.typed(
-                this.atStack,
-                this.atStack.runCommandExt
+                this.atStack, this.atStack.runCommandExt
             )("AT^ICCID?\r", { "recoverable": true });
+
 
             if (final.isError) {
 
-                let [resp] = await pr.typed(
-                    this.atStack,
-                    this.atStack.runCommandDefault
-                )("AT+CRSM=176,12258,0,0,10\r");
+                let [resp, final] = await pr.typed(
+                    this.atStack, this.atStack.runCommandExt
+                )("AT+CRSM=176,12258,0,0,10\r", { "recoverable": true });
 
-                switchedIccid = (resp as AtMessage.P_CRSM_SET).response!;
+                if( final.isError )
+                    switchedIccid= undefined;
+                else switchedIccid = (resp as AtMessage.P_CRSM_SET).response!;
 
             } else switchedIccid = (resp as AtMessage.CX_ICCID_SET).iccid;
 
-            this.iccid = (switched => {
+            return (switched => {
 
                 let out = "";
+
+                if( !switched ) return out;
 
                 for (let i = 0; i < switched.length; i += 2)
                     out += switched[i + 1] + switched[i];
@@ -184,12 +204,6 @@ export class Modem {
                 return out;
 
             })(switchedIccid);
-
-            debug("ICCID: ", this.iccid);
-
-            this.initCardLockFacility();
-
-        });
 
     }
 
@@ -213,8 +227,6 @@ export class Modem {
     }
 
     public pin: string | undefined = undefined;
-
-    public supportedCommands: string[];
 
     private initCardLockFacility(): void {
 
@@ -263,9 +275,25 @@ export class Modem {
 
             debug("SIM valid");
 
+            //this.atStack.runCommand("AT^SPN=0\r", { "recoverable": true }, (resp, final) => console.log("=====>",resp, final));
+
+            /*
+
+            this.runCommand("AT+IPR?\r", { "recoverable": true }, (_, __, raw) => console.log(raw));
+
             this.runCommand("AT+CLAC\r",
-                ({ supportedCommands }: AtMessage.P_CLAC_EXEC) => this.supportedCommands = supportedCommands
+                ({ supportedCommands }: AtMessage.P_CLAC_EXEC) => { debug("CLAC successful"); this.supportedCommands = supportedCommands; }
             );
+
+            */
+
+            if( !self.iccidAvailableBeforeUnlock ){
+
+                self.iccid= await self.readIccid();
+
+                debug("ICCID after unlock: ", self.iccid);
+
+            }
 
             let [resp] = await pr.typed(
                 self.atStack,
@@ -273,6 +301,8 @@ export class Modem {
             )("AT+CIMI\r");
 
             self.imsi = resp!.raw.split("\r\n")[1];
+
+            debug("IMSI: ", self.imsi);
 
             if (self.params.enableSmsStack) self.initSmsStack();
             if (self.params.enableCardStorage) self.initCardStorage();

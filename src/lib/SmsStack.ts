@@ -17,6 +17,9 @@ import { TrackableMap } from "trackable-map"
 
 import * as pr from "ts-promisify";
 
+import * as _debug from "debug";
+let debug= _debug("_SmsStack");
+
 require("colors");
 
 export interface Message {
@@ -102,10 +105,6 @@ export class SmsStack {
 
     }
 
-    private generateMessageId: () => number = (() => {
-        let id = 1;
-        return () => { return id++; }
-    })();
 
     private readonly statusReportMap: {
         [messageId: number]: {
@@ -166,7 +165,7 @@ export class SmsStack {
                     return;
                 }
 
-                let messageId = this.generateMessageId();
+                let messageId = Date.now();
 
                 this.statusReportMap[messageId] = {
                     "cnt": pdus.length,
@@ -304,7 +303,7 @@ export class SmsStack {
 
                 timer = this.atStack.timers.add(setTimeout((logMessage: string) => {
 
-                    //console.log(logMessage);
+                    debug(logMessage);
 
                     let partRefs = TrackableMap.intKeyAsSortedArray(parts);
                     let partRefPrev = 0;
@@ -351,8 +350,10 @@ export class SmsStack {
 
             if (Object.keys(parts).length === totalPartInMessage)
                 timer.runNow("message complete");
-            else
+            else{
+                debug(`Message ${messageRef}: ${Object.keys(parts).length}/${totalPartInMessage}`);
                 timer.resetDelay();
+            }
 
         });
 

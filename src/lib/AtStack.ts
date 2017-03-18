@@ -70,14 +70,17 @@ export class AtStack {
     private readonly serialPortAtParser= getSerialPortParser(30000);
     constructor(path: string) {
 
+        //debug("=============================================>with baud rate 9600");
+
         this.serialPort = new SerialPortExt(path, {
+            //"baudRate": 9600,
             "parser": this.serialPortAtParser
         });
 
         this.registerListeners();
+        
 
         this.runCommand("ATZ\r");
-
 
 
     }
@@ -125,7 +128,7 @@ export class AtStack {
             this.evtTerminate.post(null);
         });
 
-        this.serialPort.once("close", () => { debug("close"); this.timers.clearAll(); });
+        this.serialPort.once("close", () => { debug("close and clear all timeout"); this.timers.clearAll(); this.serialPortAtParser.flush(); });
 
         this.serialPort.evtError.attach(error => {
 
@@ -344,6 +347,8 @@ export class AtStack {
                     return;
 
                 }
+
+                debug(`Retrying ${JSON.stringify(command)} because ${JSON.stringify(final, null,2)}`.yellow);
 
                 this.timers.add(
                     setTimeout(
