@@ -151,7 +151,7 @@ export class SmsStack {
         (number: string,
             text: string,
             callback?: (messageId: number) => void
-        ): void => {
+        ): Promise<[number]> => {
             (async () => {
 
                 let [error, pdus] = await pr.typed(buildSmsSubmitPdus)({
@@ -214,6 +214,8 @@ export class SmsStack {
                 callback!(messageId);
 
             })();
+
+            return null as any;
 
         }
     );

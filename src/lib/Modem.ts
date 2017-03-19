@@ -149,6 +149,8 @@ export class Modem {
 
         this.systemState.evtReportSimPresence.attachOnce(async hasSim => {
 
+
+
             if (!hasSim) {
                 callback(null, this, false);
                 return;
@@ -170,40 +172,41 @@ export class Modem {
 
     private async readIccid(): Promise<string> {
 
-            let switchedIccid: string | undefined;
+        let switchedIccid: string | undefined;
 
-            let [resp, final] = await pr.typed(
-                this.atStack, this.atStack.runCommandExt
-            )("AT^ICCID?\r", { "recoverable": true });
+        let [resp, final] = await this.atStack.runCommand(
+            "AT^ICCID?\r",
+            { "recoverable": true }
+        );
 
+        if (final.isError) {
 
-            if (final.isError) {
+            let [resp, final] = await this.atStack.runCommand(
+                "AT+CRSM=176,12258,0,0,10\r",
+                { "recoverable": true }
+            );
 
-                let [resp, final] = await pr.typed(
-                    this.atStack, this.atStack.runCommandExt
-                )("AT+CRSM=176,12258,0,0,10\r", { "recoverable": true });
+            if (final.isError)
+                switchedIccid = undefined;
+            else switchedIccid = (resp as AtMessage.P_CRSM_SET).response!;
 
-                if( final.isError )
-                    switchedIccid= undefined;
-                else switchedIccid = (resp as AtMessage.P_CRSM_SET).response!;
+        } else switchedIccid = (resp as AtMessage.CX_ICCID_SET).iccid;
 
-            } else switchedIccid = (resp as AtMessage.CX_ICCID_SET).iccid;
+        return (switched => {
 
-            return (switched => {
+            let out = "";
 
-                let out = "";
+            if (!switched) return out;
 
-                if( !switched ) return out;
+            for (let i = 0; i < switched.length; i += 2)
+                out += switched[i + 1] + switched[i];
 
-                for (let i = 0; i < switched.length; i += 2)
-                    out += switched[i + 1] + switched[i];
+            if (out[out.length - 1].match(/^[Ff]$/))
+                out = out.slice(0, -1);
 
-                if (out[out.length - 1].match(/^[Ff]$/))
-                    out = out.slice(0, -1);
+            return out;
 
-                return out;
-
-            })(switchedIccid);
+        })(switchedIccid);
 
     }
 
@@ -277,28 +280,18 @@ export class Modem {
 
             //this.atStack.runCommand("AT^SPN=0\r", { "recoverable": true }, (resp, final) => console.log("=====>",resp, final));
 
-            /*
 
-            this.runCommand("AT+IPR?\r", { "recoverable": true }, (_, __, raw) => console.log(raw));
 
-            this.runCommand("AT+CLAC\r",
-                ({ supportedCommands }: AtMessage.P_CLAC_EXEC) => { debug("CLAC successful"); this.supportedCommands = supportedCommands; }
-            );
 
-            */
+            if (!self.iccidAvailableBeforeUnlock) {
 
-            if( !self.iccidAvailableBeforeUnlock ){
-
-                self.iccid= await self.readIccid();
+                self.iccid = await self.readIccid();
 
                 debug("ICCID after unlock: ", self.iccid);
 
             }
 
-            let [resp] = await pr.typed(
-                self.atStack,
-                self.atStack.runCommandDefault
-            )("AT+CIMI\r");
+            let [resp] = await self.atStack.runCommand("AT+CIMI\r");
 
             self.imsi = resp!.raw.split("\r\n")[1];
 

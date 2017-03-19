@@ -17,6 +17,8 @@ import {
 
 export type RunCallback= (resp: AtMessage | undefined, final: AtMessage, raw: string)=> void;
 
+export type RunPromise= Promise<[AtMessage | undefined, AtMessage, string]>;
+
 export type RunParams= {
     userProvided: {
         recoverable?: boolean;
@@ -70,15 +72,11 @@ export class AtStack {
     private readonly serialPortAtParser= getSerialPortParser(30000);
     constructor(path: string) {
 
-        //debug("=============================================>with baud rate 9600");
-
         this.serialPort = new SerialPortExt(path, {
-            //"baudRate": 9600,
             "parser": this.serialPortAtParser
         });
 
         this.registerListeners();
-        
 
         this.runCommand("ATZ\r");
 
@@ -86,10 +84,12 @@ export class AtStack {
     }
 
     public terminate(): void {
+
+        debug("terminate have been called externally".red);
+
         if (this.serialPort.isOpen())
             this.serialPort.close();
 
-        debug("Manually call terminate".red);
         this.evtTerminate.post(null);
     }
 
@@ -159,16 +159,13 @@ export class AtStack {
 
     public runCommand = execStack(this.runCommandManageParams);
 
-    public runCommandExt: (command: String, params: RunParams['userProvided'], callback?: RunCallback) => void = this.runCommand;
-    public runCommandDefault: (command: string, callback?: RunCallback) => void = this.runCommand;
-
-    private runCommandManageParams(command: string, callback?: RunCallback): void;
-    private runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): void;
-    private runCommandManageParams(...inputs: any[]): void {
+    private runCommandManageParams(command: string, callback?: RunCallback): RunPromise;
+    private runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): RunPromise;
+    private runCommandManageParams(...inputs: any[]): any {
 
         let command: string | undefined = undefined;
         let params: RunParams['userProvided'] | undefined = undefined;
-        let callback: RunCallback = function () { };
+        let callback: RunCallback | undefined = undefined;
 
         for (let input of inputs) {
             switch (typeof input) {
@@ -177,6 +174,8 @@ export class AtStack {
                 case "function": callback = input; break;
             }
         }
+
+        callback= callback!;
 
         this.runCommandSetReportMode(
             command!,
