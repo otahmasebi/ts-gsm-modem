@@ -87,30 +87,36 @@ export class Modem {
             disableSmsFeatures?: boolean;
             disableContactsFeatures?: boolean;
         },
-        callback: CreateCallback
-    ): void {
+        callback?: CreateCallback
+    ): Promise<[null | Error, Modem, boolean]> {
 
+        return new Promise<[null | Error, Modem, boolean]>(resolve => {
 
-        let modem = new Modem({
-            "path": params.path,
-            "unlockCodeProvider": Modem.getSafeUnlockCodeProvider(params.unlockCodeProvider),
-            "enableSmsStack": !(params.disableSmsFeatures === true),
-            "enableCardStorage": !(params.disableContactsFeatures === true)
-        }, (...inputs) => {
+            let modem = new Modem({
+                "path": params.path,
+                "unlockCodeProvider": Modem.getSafeUnlockCodeProvider(params.unlockCodeProvider),
+                "enableSmsStack": !(params.disableSmsFeatures === true),
+                "enableCardStorage": !(params.disableContactsFeatures === true)
+            }, (error, modem, hasSim) => {
 
-            modem.evtTerminate.detach();
+                modem.evtTerminate.detach();
 
-            callback.apply(null, inputs);
+                if (callback) callback(error, modem, hasSim);
+
+                resolve([error, modem, hasSim]);
+
+            });
+
+            modem.evtTerminate.attachOnce(error => {
+
+                error = error || new Error("Modem has disconnected");
+
+                if (callback) callback(error, modem, false);
+                resolve([error, modem, false]);
+            });
+
 
         });
-
-        modem.evtTerminate.attachOnce(
-            error => callback(
-                error ? error : new Error("Modem has disconnected"),
-                modem,
-                false
-            )
-        );
 
 
     };
@@ -142,14 +148,13 @@ export class Modem {
             debug("IMEI: ", this.imei);
         });
 
-
         debug("Init, systemState");
 
         this.systemState = new SystemState(this.atStack);
 
-        this.systemState.evtReportSimPresence.attachOnce(async hasSim => {
+        (async () => {
 
-
+            let hasSim = await this.systemState.evtReportSimPresence.waitFor();
 
             if (!hasSim) {
                 callback(null, this, false);
@@ -158,17 +163,20 @@ export class Modem {
 
             debug("HAS SIM: TRUE");
 
-            this.iccid= await this.readIccid();
+            this.iccid = await this.readIccid();
 
-            this.iccidAvailableBeforeUnlock= (this.iccid)?true:false;
+            this.iccidAvailableBeforeUnlock = (this.iccid) ? true : false;
 
             debug("ICCID before unlock: ", this.iccid);
 
             this.initCardLockFacility();
 
-        });
+
+        })();
+
 
     }
+
 
     private async readIccid(): Promise<string> {
 
@@ -217,8 +225,7 @@ export class Modem {
     );
 
 
-    public terminate: typeof AtStack.prototype.terminate =
-    (...inputs) => this.atStack.terminate.apply(this.atStack, inputs);
+    public terminate = (): void => this.atStack.terminate.apply(this.atStack);
 
 
     public get evtTerminate(): typeof AtStack.prototype.evtTerminate {
@@ -231,7 +238,7 @@ export class Modem {
 
     public pin: string | undefined = undefined;
 
-    private initCardLockFacility(): void {
+    private async initCardLockFacility(): Promise<void> {
 
         debug("Init cardLockFacility");
 
@@ -257,51 +264,41 @@ export class Modem {
             });
 
 
-
         });
 
-        let firstTime = true;
 
 
+        await cardLockFacility.evtPinStateReady.waitFor();
 
-        cardLockFacility.evtPinStateReady.attachOnce(this, async function callee() {
+        debug("SIM unlocked");
 
-            if (firstTime) debug("SIM unlocked");
+        if (!this.systemState.isValidSim)
+            await this.systemState.evtValidSim.waitFor();
 
-            let self = this as Modem;
-
-            if (!self.systemState.isValidSim) {
-                firstTime = false;
-                self.systemState.evtValidSim.attachOnce(() => callee.call(self));
-                return;
-            }
-
-            debug("SIM valid");
-
-            //this.atStack.runCommand("AT^SPN=0\r", { "recoverable": true }, (resp, final) => console.log("=====>",resp, final));
+        debug("SIM valid");
 
 
+        //this.atStack.runCommand("AT^SPN=0\r", { "recoverable": true }, (resp, final) => console.log("=====>",resp, final));
 
 
-            if (!self.iccidAvailableBeforeUnlock) {
+        if (!this.iccidAvailableBeforeUnlock) {
 
-                self.iccid = await self.readIccid();
+            this.iccid = await this.readIccid();
 
-                debug("ICCID after unlock: ", self.iccid);
+            debug("ICCID after unlock: ", this.iccid);
 
-            }
+        }
 
-            let [resp] = await self.atStack.runCommand("AT+CIMI\r");
+        let [resp] = await this.atStack.runCommand("AT+CIMI\r");
 
-            self.imsi = resp!.raw.split("\r\n")[1];
+        this.imsi = resp!.raw.split("\r\n")[1];
 
-            debug("IMSI: ", self.imsi);
+        debug("IMSI: ", this.imsi);
 
-            if (self.params.enableSmsStack) self.initSmsStack();
-            if (self.params.enableCardStorage) self.initCardStorage();
-            else self.callback(null, self, true);
+        if (this.params.enableSmsStack) this.initSmsStack();
+        if (this.params.enableCardStorage) this.initCardStorage();
+        else this.callback(null, this, true);
 
-        });
 
     }
 
@@ -316,48 +313,47 @@ export class Modem {
 
         this.smsStack = new SmsStack(this.atStack);
 
-        this.smsStack.evtMessage.attach(data => {
+        this.smsStack.evtMessage.attach(async data => {
             if (!this.evtMessage.evtAttach.postCount)
-                this.evtMessage.evtAttach.attachOnce(() => this.evtMessage.post(data));
-            else
-                this.evtMessage.post(data);
+                await this.evtMessage.evtAttach.waitFor();
+
+            this.evtMessage.post(data);
         });
 
-        this.smsStack.evtMessageStatusReport.attach(data => {
+        this.smsStack.evtMessageStatusReport.attach(async data => {
             if (!this.evtMessageStatusReport.evtAttach.postCount)
-                this.evtMessageStatusReport.evtAttach.attachOnce(() => this.evtMessageStatusReport.post(data));
-            else
-                this.evtMessageStatusReport.post(data);
+                await this.evtMessageStatusReport.evtAttach.waitFor();
+
+            this.evtMessageStatusReport.post(data);
         });
 
     }
 
+    //TODO test !!!
 
-    public sendMessage = execStack(function callee(...inputs) {
+    public sendMessage = execStack((async (...inputs) => {
 
-        let self = this as Modem;
+        if (!this.systemState.isNetworkReady)
+            await this.systemState.evtNetworkReady.waitFor();
 
-        if (!self.systemState.isNetworkReady) {
-            self.systemState.evtNetworkReady.attachOnce(() => callee.apply(self, inputs));
-            return;
-        }
+        this.smsStack.sendMessage.apply(this.smsStack, inputs);
 
-        self.smsStack.sendMessage.apply(self.smsStack, inputs);
-
-    } as typeof SmsStack.prototype.sendMessage);
+    }) as any as typeof SmsStack.prototype.sendMessage);
 
 
 
 
     private cardStorage: CardStorage;
 
-    private initCardStorage(): void {
+    private async initCardStorage(): Promise<void> {
 
         debug("Init cardStorage");
 
         this.cardStorage = new CardStorage(this.atStack);
 
-        this.cardStorage.evtReady.attachOnce(() => this.callback(null, this, true));
+        await this.cardStorage.evtReady.waitFor();
+
+        this.callback(null, this, true);
 
     }
 

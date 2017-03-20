@@ -7,12 +7,10 @@ import * as pr from "ts-promisify";
 import * as encoding from "legacy-encoding";
 
 import * as _debug from "debug";
-let debug= _debug("_CardStorage");
+let debug = _debug("_CardStorage");
 
 
 export type Encoding = "IRA" | "GSM" | "UCS2";
-
-export type Action = "UPDATE" | "CREATE";
 
 
 export interface Contact {
@@ -21,7 +19,30 @@ export interface Contact {
     name: string;
 }
 
-//TODO: CNUM 
+// cSpell:disable
+const replaceArray: [RegExp, string][] = [
+    [/[ÀÁÂÃÄ]/g, "A"],
+    [/[àáâãä]/g, "a"],
+    [/[ÈÉÊË]/g, "E"],
+    [/[èéêë]/g, "e"],
+    [/[ÌÍÎÏ]/g, "I"],
+    [/[ìíîï]/g, "i"],
+    [/[ÒÓÔÕÖ]/g, "O"],
+    [/[òóôõö]/g, "o"],
+    [/[ÙÚÛÜ]/g, "U"],
+    [/[ùúûü]/g, "u"],
+    [/[ÝŸ]/g, "Y"],
+    [/[ýÿ]/g, "y"],
+    [/[Ñ]/g, "N"],
+    [/[ñ]/g, "n"],
+    [/[\[{]/g, "("],
+    [/[\]}]/g, ")"],
+    [/_/g, "-"],
+    [/@/g, "At"],
+    [/["`]/g, "'"],
+    [/[^a-zA-Z0-9\ <>!\&\*#%,;\.'\(\)\?-]/g, " "]
+];
+// cSpell:enable
 
 export class CardStorage {
 
@@ -39,7 +60,7 @@ export class CardStorage {
 
             let index = parseInt(indexStr);
 
-            let contact= { ...this.contactByIndex[index] };
+            let contact = { ...this.contactByIndex[index] };
 
             out.push(contact);
         }
@@ -52,7 +73,7 @@ export class CardStorage {
 
         let contact = this.contactByIndex[index];
 
-        return contact?{...contact}:undefined;
+        return contact ? { ...contact } : undefined;
 
     }
 
@@ -75,34 +96,10 @@ export class CardStorage {
 
     }
 
-    // cSpell:disable
-    private static readonly replaceArray: [RegExp, string][] = [
-        [/[ÀÁÂÃÄ]/g, "A"],
-        [/[àáâãä]/g, "a"],
-        [/[ÈÉÊË]/g, "E"],
-        [/[èéêë]/g, "e"],
-        [/[ÌÍÎÏ]/g, "I"],
-        [/[ìíîï]/g, "i"],
-        [/[ÒÓÔÕÖ]/g, "O"],
-        [/[òóôõö]/g, "o"],
-        [/[ÙÚÛÜ]/g, "U"],
-        [/[ùúûü]/g, "u"],
-        [/[ÝŸ]/g, "Y"],
-        [/[ýÿ]/g, "y"],
-        [/[Ñ]/g, "N"],
-        [/[ñ]/g, "n"],
-        [/[\[{]/g, "("],
-        [/[\]}]/g, ")"],
-        [/_/g, "-"],
-        [/@/g, "At"],
-        [/["`]/g, "'"],
-        [/[^a-zA-Z0-9\ <>!\&\*#%,;\.'\(\)\?-]/g, " "]
-    ];
-    // cSpell:enable
 
     public generateSafeContactName(contactName: string): string {
 
-        for (let [match, replaceBy] of CardStorage.replaceArray)
+        for (let [match, replaceBy] of replaceArray)
             contactName = contactName.replace(match, replaceBy);
 
         //TODO if tLength not even
@@ -119,7 +116,7 @@ export class CardStorage {
 
     constructor(private readonly atStack: AtStack) {
 
-        this.init(() => this.evtReady.post());
+        this.init().then(() => this.evtReady.post());
 
     }
 
@@ -137,7 +134,7 @@ export class CardStorage {
     }
 
     public createContact = execStack("WRITE",
-        (number: string, name: string, callback?: (contact: Contact) => void): Promise<[Contact]> => {
+        (number: string, name: string, callback?: (contact: Contact) => void): Promise<Contact> => {
 
             let contact: Contact = {
                 "index": this.getFreeIndex(),
@@ -180,7 +177,7 @@ export class CardStorage {
         (index: number, params: {
             number?: string,
             name?: string
-        }, callback?: (contact: Contact) => void): Promise<[Contact]> => {
+        }, callback?: (contact: Contact) => void): Promise<Contact> => {
 
             if (!this.contactByIndex[index]) {
                 this.atStack.evtError.post(new Error("Contact does not exist"));
@@ -287,93 +284,89 @@ export class CardStorage {
     } = {};
 
 
-    private init(callback: () => void): void {
-        (async () => {
+    private async init(): Promise<void> {
 
-            debug("Init");
+        debug("Init");
 
-            this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
+        this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
 
-            let [resp] = await this.atStack.runCommand("AT+CNUM\r");
+        let [resp] = await this.atStack.runCommand("AT+CNUM\r");
 
-            let atMessageList = resp as AtMessage.LIST;
+        let atMessageList = resp as AtMessage.LIST;
 
-            if (atMessageList.atMessages.length) {
+        if (atMessageList.atMessages.length) {
 
-                let p_CNUM_EXEC = atMessageList.atMessages[0] as AtMessage.P_CNUM_EXEC;
+            let p_CNUM_EXEC = atMessageList.atMessages[0] as AtMessage.P_CNUM_EXEC;
 
-                this.number = p_CNUM_EXEC.number;
+            this.number = p_CNUM_EXEC.number;
+
+        }
+
+        debug(`number: ${this.number}`);
+
+        this.atStack.runCommand(`AT+CPBS="SM"\r`);
+
+        resp = (await this.atStack.runCommand("AT+CPBR=?\r"))[0];
+
+        this.p_CPBR_TEST = resp as AtMessage.P_CPBR_TEST;
+
+        let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
+
+        for (let index = minIndex; index <= maxIndex; index++) {
+
+            this.atStack.runCommand(`AT+CSCS="IRA"\r`);
+
+            let [resp, final] = await this.atStack.runCommand(
+                `AT+CPBR=${index}\r`,
+                { "recoverable": true }
+            );
+
+            if (final.isError && (final as AtMessage.P_CME_ERROR).code === 22)
+                continue;
+
+            let name = "\uFFFD";
+            let number = "";
+
+            if (resp) {
+
+                let p_CPBR_EXEC = resp as AtMessage.P_CPBR_EXEC;
+
+                name = p_CPBR_EXEC.text;
+                number = p_CPBR_EXEC.number;
 
             }
 
-            debug(`number: ${this.number}`);
+            if (!resp || CardStorage.countFFFD(name)) {
 
-            this.atStack.runCommand(`AT+CPBS="SM"\r`);
-
-            resp = (await this.atStack.runCommand("AT+CPBR=?\r"))[0];
-
-            this.p_CPBR_TEST = resp as AtMessage.P_CPBR_TEST;
-
-            let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
-
-            for (let index = minIndex; index <= maxIndex; index++) {
-
-                this.atStack.runCommand(`AT+CSCS="IRA"\r`);
+                this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
 
                 let [resp, final] = await this.atStack.runCommand(
                     `AT+CPBR=${index}\r`,
                     { "recoverable": true }
                 );
 
-                if (final.isError && (final as AtMessage.P_CME_ERROR).code === 22)
-                    continue;
-
-                let name = "\uFFFD";
-                let number = "";
+                if (!resp && !number) continue;
 
                 if (resp) {
 
                     let p_CPBR_EXEC = resp as AtMessage.P_CPBR_EXEC;
 
-                    name = p_CPBR_EXEC.text;
-                    number = p_CPBR_EXEC.number;
+                    let nameAsUcs2 = CardStorage.decodeUCS2(p_CPBR_EXEC.text);
+                    if (!number) number = p_CPBR_EXEC.number;
+
+                    if (CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name))
+                        name = nameAsUcs2;
 
                 }
-
-                if (!resp || CardStorage.countFFFD(name)) {
-
-                    this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
-
-                    let [resp, final] = await this.atStack.runCommand(
-                        `AT+CPBR=${index}\r`,
-                        { "recoverable": true }
-                    );
-
-                    if (!resp && !number) continue;
-
-                    if (resp) {
-
-                        let p_CPBR_EXEC = resp as AtMessage.P_CPBR_EXEC;
-
-                        let nameAsUcs2 = CardStorage.decodeUCS2(p_CPBR_EXEC.text);
-                        if (!number) number = p_CPBR_EXEC.number;
-
-                        if (CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name))
-                            name = nameAsUcs2;
-
-                    }
-
-                }
-
-                this.contactByIndex[index] = { index, number, name };
 
             }
 
-            debug("Contacts ready");
+            this.contactByIndex[index] = { index, number, name };
 
-            callback();
+        }
 
-        })();
+        debug("Contacts ready");
+
     }
 
 

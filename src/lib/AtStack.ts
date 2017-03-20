@@ -83,14 +83,14 @@ export class AtStack {
 
     }
 
-    public terminate(): void {
+    public terminate(error?: Error): void {
 
         debug("terminate have been called externally".red);
 
         if (this.serialPort.isOpen())
             this.serialPort.close();
 
-        this.evtTerminate.post(null);
+        this.evtTerminate.post((error)?error:null);
     }
 
     public readonly evtError = new SyncEvent<Error>();
@@ -124,7 +124,6 @@ export class AtStack {
 
         this.serialPort.once("disconnect", () => {
             debug("disconnect");
-            debug("post event terminate without error");
             this.evtTerminate.post(null);
         });
 
