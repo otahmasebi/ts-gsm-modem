@@ -1,7 +1,8 @@
 /// <reference path="./ambient/serialport.d.ts"/>
 import * as SerialPort from "serialport";
 import { execStack, ExecStack } from "ts-exec-stack";
-import { SyncEvent } from "ts-events-extended";
+import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import * as pr from "ts-promisify";
 
 const openTimeOut= 5000;
 
@@ -9,99 +10,57 @@ export class SerialPortExt extends SerialPort {
 
     //Todo test if when terminate still running because of evtError
 
-    public readonly evtError= (()=>{
+    public readonly evtError = new SyncEvent<SerialPortError>();
 
-        let out= new SyncEvent<SerialPortError>();
+    public readonly evtOpen= new VoidSyncEvent();
 
-        this.on("error", error=> {
+    private registerListener: void= (()=>{
 
-            console.log("=====================>", error);
+        this.on("error", error => this.evtError.post(new SerialPortError(error)));
 
-            out.post(new SerialPortError(error))
-        });
-
-        return out;
+        this.on("open", () => this.evtOpen.post());
 
     })();
 
-    private timer: NodeJS.Timer | undefined= undefined;
-
-
-    public close(callback?: (error: string | Error | null) => void): void{
-
-        if( this.timer ) clearTimeout(this.timer);
-
-        super.close(callback);
-
-    }
 
     public writeAndDrain = execStack(
-        function callee(
+        async (
             buffer: Buffer | string,
-            callback?: (error: SerialPortError | null) => void
-        ): void {
+            callback?: () => void
+        ): Promise<void> => {
 
-            let self = this as SerialPortExt;
+            if (!this.isOpen()) {
 
-            if (!self.isOpen()) {
+                let hasTimeout = await this.evtOpen.waitFor(openTimeOut);
 
-                self.timer = setTimeout(() => {
-
-                    let error= new SerialPortError("Serial port took too much time to open", "open time out");
-
-                    if( !(callback as any).hasCallback )
-                        self.evtError.post(error);
-
-                    callback!(error);
-
-                }, openTimeOut);
-
-                self.on("open", () => {
-
-                    clearTimeout(self.timer!);
-
-                    callee.call(self, buffer, callback);
-
-                });
-
-                return;
-
-            }
-
-
-            self.write(buffer, error => {
-
-                if (error) {
-                    let serialPortError= new SerialPortError(error, "write");
-
-                    if( !(callback as any).hasCallback )
-                        self.evtError.post(serialPortError);
-
-                    callback!(serialPortError);
+                if (hasTimeout) {
+                    let error = new SerialPortError("Serial port took too much time to open", "OPEN_TIMEOUT");
+                    this.evtError.post(error);
                     return;
                 }
+            }
 
-                self.drain(error => {
+            let [errorWrite] = await pr.typed(this, this.write)(buffer);
 
-                    if (error) {
-                        let serialPortError= new SerialPortError(error, "drain");
+            if (errorWrite) {
+                let serialPortError = new SerialPortError(errorWrite, "WRITE");
+                this.evtError.post(serialPortError);
+                return;
+            }
 
-                        if (!(callback as any).hasCallback )
-                            self.evtError.post(serialPortError);
+            let [errorDrain] = await pr.typed(this, this.drain)();
 
-                        callback!(serialPortError);
+            if (errorDrain) {
+                let serialPortError = new SerialPortError(errorDrain, "DRAIN");
+                this.evtError.post(serialPortError);
+                return;
+            }
 
-                        return;
-                    }
+            callback!();
 
-                    //console.log("write success".blue, JSON.stringify(buffer));
+        }
+    );
 
-                    callback!(null);
-
-                });
-
-            });
-        });
 
 }
 
@@ -110,7 +69,7 @@ export class SerialPortError extends Error {
 
     public readonly originalError: Error;
 
-    constructor(originalError: Error | string, public readonly causedBy?: "drain" | "write" | "open time out") {
+    constructor(originalError: Error | string, public readonly causedBy?: "DRAIN" | "WRITE" | "OPEN_TIMEOUT") {
         super(SerialPortError.name);
         Object.setPrototypeOf(this, SerialPortError.prototype)
 

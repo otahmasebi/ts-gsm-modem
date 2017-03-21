@@ -15,9 +15,8 @@ import {
 } from "at-messages-parser";
 
 
-export type RunCallback= (resp: AtMessage | undefined, final: AtMessage, raw: string)=> void;
-
-export type RunPromise= Promise<[AtMessage | undefined, AtMessage, string]>;
+export type RunOutputs= [ AtMessage | undefined, AtMessage, string ];
+export type RunCallback= (resp: RunOutputs[0], final: RunOutputs[1], raw: RunOutputs[2])=> void;
 
 export type RunParams= {
     userProvided: {
@@ -127,7 +126,11 @@ export class AtStack {
             this.evtTerminate.post(null);
         });
 
-        this.serialPort.once("close", () => { debug("close and clear all timeout"); this.timers.clearAll(); this.serialPortAtParser.flush(); });
+        this.serialPort.once("close", () => { 
+            debug("close and clear all timeout"); 
+            this.timers.clearAll(); 
+            this.serialPortAtParser.flush(); 
+        });
 
         this.serialPort.evtError.attach(error => {
 
@@ -154,36 +157,6 @@ export class AtStack {
         });
 
     }
-
-
-    public runCommand = execStack(this.runCommandManageParams);
-
-    private runCommandManageParams(command: string, callback?: RunCallback): RunPromise;
-    private runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): RunPromise;
-    private runCommandManageParams(...inputs: any[]): any {
-
-        let command: string | undefined = undefined;
-        let params: RunParams['userProvided'] | undefined = undefined;
-        let callback: RunCallback | undefined = undefined;
-
-        for (let input of inputs) {
-            switch (typeof input) {
-                case "string": command = input; break;
-                case "object": params = input; break;
-                case "function": callback = input; break;
-            }
-        }
-
-        callback= callback!;
-
-        this.runCommandSetReportMode(
-            command!,
-            AtStack.generateSafeRunParams(params),
-            callback
-        );
-
-    }
-
 
     private static generateSafeRunParams(
         params: RunParams['userProvided'] | undefined
@@ -222,78 +195,103 @@ export class AtStack {
 
     }
 
+
+    public runCommand = execStack(this.runCommandManageParams);
+
+    private async runCommandManageParams(command: string, callback?: RunCallback): Promise<RunOutputs>;
+    private async runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): Promise<RunOutputs>;
+    private async runCommandManageParams(...inputs: any[]): Promise<any> {
+
+        let command: string | undefined = undefined;
+        let params: RunParams['userProvided'] | undefined = undefined;
+        let callback: RunCallback | undefined = undefined;
+
+        for (let input of inputs) {
+            switch (typeof input) {
+                case "string": command = input; break;
+                case "object": params = input; break;
+                case "function": callback = input; break;
+            }
+        }
+
+
+        let [ resp, final, raw ]= await this.runCommandSetReportMode(
+            command!,
+            AtStack.generateSafeRunParams(params),
+        );
+
+        callback!(resp, final, raw);
+
+        return null as any;
+
+    }
+
+
+
     private reportMode: AtMessage.ReportMode | undefined = undefined;
 
-    private runCommandSetReportMode(
+    private async runCommandSetReportMode(
         command: string,
-        params: RunParams['safe'],
-        callback: RunCallback
-    ): void {
+        params: RunParams['safe']
+    ): Promise<RunOutputs> {
 
         let { reportMode } = params;
 
         if (reportMode !== this.reportMode) {
 
-            this.runCommandSetEcho(`AT+CMEE=${reportMode}\r`,
-                { "recoverable": false, "retryOnErrors": [] } as any,
-                () => {
-                    this.reportMode = params.reportMode;
-                    this.runCommandSetEcho(command,
-                        params,
-                        (resp, final, raw) => {
+            await this.runCommandSetEcho(
+                `AT+CMEE=${reportMode}\r`,
+                { "recoverable": false, "retryOnErrors": [] } as any
+            );
 
-                            if (command.match(/(^ATZ\r$)|(^AT\+CMEE=\ ?[0-9]\r$)/))
-                                this.reportMode = undefined;
+            this.reportMode = params.reportMode;
 
-                            callback(resp, final, raw);
-
-                        })
-                });
-            return;
         }
 
-        this.runCommandSetEcho(command, params, callback);
+        let runOutputs = await this.runCommandSetEcho(command, params);
+
+
+        if (command.match(/(^ATZ\r$)|(^AT\+CMEE=\ ?[0-9]\r$)/))
+            this.reportMode = undefined;
+
+        return runOutputs;
+
 
     }
 
     private isEchoEnable: boolean | undefined = undefined;
     private hideEcho = false;
 
-    private runCommandSetEcho(
+    private async runCommandSetEcho(
         command: string,
         params: RunParams['safe'],
-        callback: RunCallback
-    ): void {
-
-        let finalCallback: RunCallback = (...inputs) => {
-
-            this.isEchoEnable = true;
-
-            if (command.match(/^ATZ\r$/)) {
-                this.isEchoEnable = undefined;
-                this.hideEcho = false;
-            } else if (command.match(/^ATE0\r$/)) {
-                this.isEchoEnable = false;
-                this.hideEcho = true;
-            } else if (command.match(/^ATE1?\r$/)) {
-                this.isEchoEnable = true;
-                this.hideEcho = false;
-            }
-
-            callback.apply(null, inputs);
-
-        };
+    ): Promise<RunOutputs> {
 
         if (!this.isEchoEnable) {
 
-            this.runCommandRetry(`ATE1\r`,
-                { "recoverable": false, "retryOnErrors": [] } as any,
-                () => this.runCommandRetry(command, params, finalCallback));
-            return;
+            await this.runCommandRetry(
+                `ATE1\r`,
+                { "recoverable": false, "retryOnErrors": [] } as any
+            );
+
+            this.isEchoEnable = true;
 
         }
 
-        this.runCommandRetry(command, params, finalCallback);
+        let runOutputs = await this.runCommandRetry(command, params);
+
+        if (command.match(/^ATZ\r$/)) {
+            this.isEchoEnable = undefined;
+            this.hideEcho = false;
+        } else if (command.match(/^ATE0\r$/)) {
+            this.isEchoEnable = false;
+            this.hideEcho = true;
+        } else if (command.match(/^ATE1?\r$/)) {
+            this.isEchoEnable = true;
+            this.hideEcho = false;
+        }
+
+        return runOutputs;
 
     }
 
@@ -303,148 +301,132 @@ export class AtStack {
 
     private retryLeft = this.maxRetry;
 
-    private runCommandRetry(
+    private async runCommandRetry(
         command: string,
         params: RunParams['safe'],
-        callback: RunCallback
-    ): void {
+    ): Promise<RunOutputs> {
 
         let { retryOnErrors, recoverable } = params;
 
-        let finalCallback: RunCallback = (...inputs) => {
+        let [resp, final, raw] = await promisify.typed(this, this.runCommandBase)(command);
 
-            this.retryLeft = this.maxRetry;
+        if (final.isError) {
 
-            callback.apply(null, inputs);
+            let code = NaN;
 
-        };
+            if (
+                final.id === AtMessage.idDict.COMMAND_NOT_SUPPORT ||
+                final.id === AtMessage.idDict.TOO_MANY_PARAMETERS
+            ) this.retryLeft = 0;
+            else if (
+                final.id === AtMessage.idDict.P_CME_ERROR ||
+                final.id === AtMessage.idDict.P_CMS_ERROR
+            ) code = (final as AtMessage.P_CME_ERROR | AtMessage.P_CMS_ERROR).code;
 
-        this.runCommandBase(command, (resp, final, raw) => {
-            if (final.isError) {
+            if (!this.retryLeft-- || retryOnErrors.indexOf(code) < 0) {
 
-                let code = NaN;
-
-                if (
-                    final.id === AtMessage.idDict.COMMAND_NOT_SUPPORT ||
-                    final.id === AtMessage.idDict.TOO_MANY_PARAMETERS
-                ) this.retryLeft = 0;
-                else if (
-                    final.id === AtMessage.idDict.P_CME_ERROR ||
-                    final.id === AtMessage.idDict.P_CMS_ERROR
-                ) code = (final as AtMessage.P_CME_ERROR | AtMessage.P_CMS_ERROR).code;
-
-                if (!this.retryLeft-- || retryOnErrors.indexOf(code) < 0) {
-
-                    if (!recoverable) {
-                        this.evtError.post(new RunCommandError(command, final));
-                        return;
-                    }
-
-                    finalCallback(resp, final, raw);
-
-                    return;
-
+                if (!recoverable) {
+                    this.evtError.post(new RunCommandError(command, final));
+                    await new Promise<void>(resolve => {});
                 }
 
-                debug(`Retrying ${JSON.stringify(command)} because ${JSON.stringify(final, null,2)}`.yellow);
+            } else {
 
-                this.timers.add(
-                    setTimeout(
-                        () => this.runCommandRetry(command, params, callback),
-                        this.delayBeforeRetry
+                debug(`Retrying ${JSON.stringify(command)} because ${JSON.stringify(final, null, 2)}`.yellow);
+
+                await new Promise<void>(
+                    resolve => this.timers.add(
+                        setTimeout(resolve, this.delayBeforeRetry)
                     )
                 );
 
-                return;
+                return await this.runCommandRetry(command, params);
             }
 
-            finalCallback(resp, final, raw);
 
-        });
+        }
+
+        this.retryLeft = this.maxRetry;
+
+        return [resp, final, raw];
+
+
     }
 
 
-    private readonly retryMaxWrite = 3;
+    private readonly maxRetryWrite = 3;
     private readonly delayReWrite = 5000;
-    private retryLeftReWrite = this.retryMaxWrite;
+    private retryLeftWrite = this.maxRetryWrite;
 
-    private runCommandBase(
+    private async runCommandBase(
         command: string,
         callback: RunCallback
-    ): void {
+    ): Promise<void> {
 
         //debug(JSON.stringify(command).blue);
 
+        let echo = "";
+        let resp: AtMessage | undefined = undefined;
+        let final: AtMessage;
+
+        let writeAndDrainPromise = this.serialPort.writeAndDrain(command);
+
+        let evtIterator = this.evtResponseAtMessage.asyncLoop();
+
         let timer = this.timers.add(setTimeout(() => {
 
-            debug("on timeout!!!!!".red);
+            debug("Modem response timeout!".red);
 
-            this.evtResponseAtMessage.detach();
+            evtIterator.next("STOP");
 
             let unparsed = this.serialPortAtParser.flush();
 
             if (unparsed) {
-                console.log("on est là unparsed");
                 (this.serialPort as any).emit("data", null, unparsed);
                 return;
             }
 
-            if (!this.retryLeftReWrite--) {
+            if (!this.retryLeftWrite--) {
                 this.evtError.post(new Error("Modem not responding"));
                 return;
             }
 
-            this.runCommandBase(command, callback);
+            debug(`Retrying command ${JSON.stringify(command)}`);
 
+            this.runCommandBase(command, callback);
 
         }, this.delayReWrite));
 
+        while (true) {
 
-        Promise.all([
-            new Promise(
-                resolve => this.serialPort.writeAndDrain(
-                    command,
-                    serialPortError => {
-                        if (serialPortError) {
-                            debug("serial port error run command base", serialPortError);
-                            this.serialPort.evtError.post(serialPortError);
-                            return;
-                        }
-                        resolve();
-                    }
-                )
-            ),
-            new Promise<[AtMessage | undefined, AtMessage, string]>(resolve => {
+            let atMessage = await evtIterator.next().value;
 
-                let rawEcho = "";
-                let resp: AtMessage | undefined = undefined;
+            if (!timer.hasBeenCleared) timer.clear();
 
-                this.evtResponseAtMessage.attach(atMessage => {
+            if (atMessage.isFinal) {
+                final = atMessage;
+                evtIterator.next("STOP");
+                break;
+            } else if (atMessage.id === AtMessage.idDict.ECHO)
+                echo += atMessage.raw;
+            else resp = atMessage;
 
-                    timer.clear();
+        }
 
-                    if (atMessage.isFinal) {
-                        this.evtResponseAtMessage.detach();
-                        resolve([resp, atMessage, [
-                            (this.hideEcho) ? "" : rawEcho,
-                            (resp) ? resp.raw : "",
-                            atMessage.raw
-                        ].join("")]);
-                    } else if (atMessage.id === AtMessage.idDict.ECHO)
-                        rawEcho += atMessage.raw;
-                    else resp = atMessage;
+        await writeAndDrainPromise;
 
-                });
+        let raw = [
+            (this.hideEcho) ? "" : echo,
+            (resp) ? resp.raw : "",
+            final.raw
+        ].join("");
 
-            })
-        ]).then(([_, [resp, final, raw]]) => {
+        if (this.retryLeftWrite !== this.maxRetryWrite)
+            debug("Rewrite success!".green);
 
-            //debug(`${JSON.stringify((resp ? resp.raw : "") + " *** " + final.raw)}`.green);
+        this.retryLeftWrite = this.maxRetryWrite;
 
-            this.retryLeftReWrite = this.retryMaxWrite;
-
-            callback(resp, final, raw);
-        });
+        callback(resp, final, raw);
 
     }
 
