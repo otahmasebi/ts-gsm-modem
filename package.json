@@ -1,6 +1,6 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.13.5",
+  "version": "0.13.6",
   "description": "GSM Modem manager",
   "main": "./out/lib/index.js",
   "types": "./out/lib/index.d.ts",

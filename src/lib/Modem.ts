@@ -225,8 +225,12 @@ export class Modem {
     );
 
 
-    public terminate = (): void => this.atStack.terminate.apply(this.atStack);
+    public terminate: typeof AtStack.prototype.terminate =
+    (...inputs) => this.atStack.terminate.apply(this.atStack, inputs);
 
+    public get isTerminated(): typeof AtStack.prototype.isTerminated {
+        return this.atStack.isTerminated;
+    }
 
     public get evtTerminate(): typeof AtStack.prototype.evtTerminate {
         return this.atStack.evtTerminate;

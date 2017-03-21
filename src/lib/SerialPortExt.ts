@@ -14,13 +14,20 @@ export class SerialPortExt extends SerialPort {
 
     public readonly evtOpen= new VoidSyncEvent();
 
+    public readonly evtData= new SyncEvent<any[]>();
+
+
+
     private registerListener: void= (()=>{
 
         this.on("error", error => this.evtError.post(new SerialPortError(error)));
 
         this.on("open", () => this.evtOpen.post());
 
+        this.on("data", (...data) => this.evtData.post(data));
+
     })();
+
 
 
     public writeAndDrain = execStack(

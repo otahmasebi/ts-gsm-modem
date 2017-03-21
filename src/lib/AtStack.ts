@@ -66,6 +66,10 @@ export class AtStack {
     public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
     public readonly evtTerminate = new SyncEvent<Error | null>();
 
+    public get isTerminated(): boolean {
+        return (this.evtTerminate.postCount !== 0);
+    }
+
 
     private readonly serialPort: SerialPortExt;
     private readonly serialPortAtParser= getSerialPortParser(30000);
@@ -127,7 +131,7 @@ export class AtStack {
         });
 
         this.serialPort.once("close", () => { 
-            debug("close and clear all timeout"); 
+            debug("close, clear all timeout"); 
             this.timers.clearAll(); 
             this.serialPortAtParser.flush(); 
         });
@@ -202,6 +206,7 @@ export class AtStack {
     private async runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): Promise<RunOutputs>;
     private async runCommandManageParams(...inputs: any[]): Promise<any> {
 
+
         let command: string | undefined = undefined;
         let params: RunParams['userProvided'] | undefined = undefined;
         let callback: RunCallback | undefined = undefined;
@@ -221,6 +226,7 @@ export class AtStack {
         );
 
         callback!(resp, final, raw);
+
 
         return null as any;
 
