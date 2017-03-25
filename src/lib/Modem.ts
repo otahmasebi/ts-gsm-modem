@@ -7,7 +7,7 @@ import { SerialPortExt } from "./SerialPortExt";
 
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import { execStack, ExecStack} from "ts-exec-stack";
+import { execQueue, ExecQueue} from "ts-exec-queue";
 
 import * as pr from "ts-promisify";
 import * as _debug from "debug";
@@ -219,7 +219,7 @@ export class Modem {
     }
 
 
-    public readonly runCommand = execStack(
+    public readonly runCommand = execQueue(
         ((...inputs) => this.atStack.runCommand.apply(this.atStack, inputs)
         ) as typeof AtStack.prototype.runCommand
     );
@@ -335,7 +335,7 @@ export class Modem {
 
     //TODO test !!!
 
-    public sendMessage = execStack((async (...inputs) => {
+    public sendMessage = execQueue((async (...inputs) => {
 
         if (!this.systemState.isNetworkReady)
             await this.systemState.evtNetworkReady.waitFor();
@@ -387,19 +387,19 @@ export class Modem {
     public getContact: typeof CardStorage.prototype.getContact =
     (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
-    public createContact = execStack(Modem, "WRITE", (
+    public createContact = execQueue(Modem, "WRITE", (
         (...inputs) => this.cardStorage.createContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.createContact);
 
-    public updateContact = execStack(Modem, "WRITE", (
+    public updateContact = execQueue(Modem, "WRITE", (
         (...inputs) => this.cardStorage.updateContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.updateContact);
 
-    public deleteContact = execStack(Modem, "WRITE", (
+    public deleteContact = execQueue(Modem, "WRITE", (
         (...inputs) => this.cardStorage.deleteContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.deleteContact);
 
-    public writeNumber = execStack(Modem, "WRITE", (
+    public writeNumber = execQueue(Modem, "WRITE", (
         (...inputs) => this.cardStorage.writeNumber.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.writeNumber);
 

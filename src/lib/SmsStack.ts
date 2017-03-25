@@ -10,7 +10,7 @@ import {
     decodePdu, 
     buildSmsSubmitPdus 
 } from "node-python-messaging";
-import { execStack, ExecStack } from "ts-exec-stack";
+import { execQueue, ExecQueue } from "ts-exec-queue";
 import { SyncEvent } from "ts-events-extended";
 import { Timer, setTimeout } from "timer-extended";
 import { TrackableMap } from "trackable-map"
@@ -139,7 +139,7 @@ export class SmsStack {
 
     //TODO: More test for when message fail
 
-    public sendMessage = execStack(
+    public sendMessage = execQueue(
         async (number: string,
             text: string,
             callback?: (messageId: number) => void

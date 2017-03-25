@@ -1,13 +1,12 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.13.6",
+  "version": "0.13.7",
   "description": "GSM Modem manager",
-  "main": "./out/lib/index.js",
-  "types": "./out/lib/index.d.ts",
+  "main": "./dist/lib/index.js",
+  "types": "./dist/lib/index.d.ts",
   "scripts": {
-    "postinstall": "npm run tsc",
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
-    "test": "DEBUG=_* node ./out/test/main"
+    "test": "DEBUG=_* node ./dist/test/main"
   },
   "repository": {
     "type": "git",
@@ -24,10 +23,6 @@
   "author": "Joseph Garrone",
   "license": "MIT",
   "dependencies": {
-    "@types/chai": "^3.4.34",
-    "@types/colors": "^1.1.1",
-    "@types/debug": "0.0.29",
-    "@types/node": "^4.2.2",
     "at-messages-parser": "garronej/at-messages-parser",
     "colors": "^1.1.2",
     "debug": "^2.6.1",
@@ -38,10 +33,14 @@
     "trackable-map": "github:garronej/trackable-map",
     "ts-events-extended": "garronej/ts-events-extended",
     "ts-exec-stack": "garronej/ts-exec-stack",
-    "ts-promisify": "garronej/ts-promisify",
-    "typescript": "^2.2.1"
+    "ts-promisify": "garronej/ts-promisify"
   },
   "devDependencies": {
-    "gsm-modem-connection": "garronej/gsm-modem-connection"
+    "gsm-modem-connection": "garronej/gsm-modem-connection",
+    "typescript": "^2.2.1",
+    "@types/colors": "^1.1.1",
+    "@types/chai": "^3.4.34",
+    "@types/debug": "0.0.29",
+    "@types/node": "^4.2.2"
   }
 }

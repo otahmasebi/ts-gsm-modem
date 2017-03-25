@@ -1,7 +1,7 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import { execStack, ExecStack } from "ts-exec-stack";
+import { execQueue, ExecQueue } from "ts-exec-queue";
 import * as pr from "ts-promisify";
 
 import * as encoding from "legacy-encoding";
@@ -133,7 +133,7 @@ export class CardStorage {
 
     }
 
-    public createContact = execStack("WRITE",
+    public createContact = execQueue("WRITE",
         (number: string, name: string, callback?: (contact: Contact) => void): Promise<Contact> => {
 
             let contact: Contact = {
@@ -173,7 +173,7 @@ export class CardStorage {
     );
 
 
-    public updateContact = execStack("WRITE",
+    public updateContact = execQueue("WRITE",
         (index: number, params: {
             number?: string,
             name?: string
@@ -239,7 +239,7 @@ export class CardStorage {
         }
     );
 
-    public deleteContact = execStack("WRITE",
+    public deleteContact = execQueue("WRITE",
         (index: number, callback?: () => void): Promise<void> => {
 
             if (!this.contactByIndex[index]) {
@@ -263,7 +263,7 @@ export class CardStorage {
 
     public number: string | undefined = undefined;
 
-    public writeNumber = execStack("WRITE",
+    public writeNumber = execQueue("WRITE",
         (number: string, callback?: () => void): Promise<void> => {
 
             this.number = number;

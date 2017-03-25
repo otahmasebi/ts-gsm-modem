@@ -1,6 +1,6 @@
 /// <reference path="./ambient/serialport.d.ts"/>
 import * as SerialPort from "serialport";
-import { execStack, ExecStack } from "ts-exec-stack";
+import { execQueue, ExecQueue } from "ts-exec-queue";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import * as pr from "ts-promisify";
 
@@ -30,7 +30,7 @@ export class SerialPortExt extends SerialPort {
 
 
 
-    public writeAndDrain = execStack(
+    public writeAndDrain = execQueue(
         async (
             buffer: Buffer | string,
             callback?: () => void

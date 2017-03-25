@@ -1,7 +1,7 @@
 import { SerialPortExt } from "./SerialPortExt";
 import * as promisify from "ts-promisify";
 import { SyncEvent } from "ts-events-extended";
-import { execStack, ExecStack } from "ts-exec-stack";
+import { execQueue, ExecQueue } from "ts-exec-queue";
 import { Timer, setTimeout } from "timer-extended";
 
 import * as _debug from "debug";
@@ -200,7 +200,7 @@ export class AtStack {
     }
 
 
-    public runCommand = execStack(this.runCommandManageParams);
+    public runCommand = execQueue(this.runCommandManageParams);
 
     private async runCommandManageParams(command: string, callback?: RunCallback): Promise<RunOutputs>;
     private async runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): Promise<RunOutputs>;
@@ -377,13 +377,11 @@ export class AtStack {
 
         let writeAndDrainPromise = this.serialPort.writeAndDrain(command);
 
-        let evtIterator = this.evtResponseAtMessage.asyncLoop();
-
         let timer = this.timers.add(setTimeout(() => {
 
             debug("Modem response timeout!".red);
 
-            evtIterator.next("STOP");
+            this.evtResponseAtMessage.stopWaiting();
 
             let unparsed = this.serialPortAtParser.flush();
 
@@ -405,13 +403,12 @@ export class AtStack {
 
         while (true) {
 
-            let atMessage = await evtIterator.next().value;
+            let atMessage= await this.evtResponseAtMessage.waitFor();
 
             if (!timer.hasBeenCleared) timer.clear();
 
             if (atMessage.isFinal) {
                 final = atMessage;
-                evtIterator.next("STOP");
                 break;
             } else if (atMessage.id === AtMessage.idDict.ECHO)
                 echo += atMessage.raw;
