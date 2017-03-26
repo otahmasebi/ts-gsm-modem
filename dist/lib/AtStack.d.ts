@@ -57,7 +57,7 @@ export declare class AtStack {
     private readonly maxRetryWrite;
     private readonly delayReWrite;
     private retryLeftWrite;
-    private runCommandBase(command, callback);
+    private runCommandBase(command);
 }
 export declare class RunCommandError extends Error {
     readonly command: string;

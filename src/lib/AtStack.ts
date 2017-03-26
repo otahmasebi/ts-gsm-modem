@@ -227,7 +227,6 @@ export class AtStack {
 
         callback!(resp, final, raw);
 
-
         return null as any;
 
     }
@@ -314,7 +313,7 @@ export class AtStack {
 
         let { retryOnErrors, recoverable } = params;
 
-        let [resp, final, raw] = await promisify.typed(this, this.runCommandBase)(command);
+        let [ resp, final, raw ]= await this.runCommandBase(command);
 
         if (final.isError) {
 
@@ -356,7 +355,6 @@ export class AtStack {
 
         return [resp, final, raw];
 
-
     }
 
 
@@ -365,9 +363,8 @@ export class AtStack {
     private retryLeftWrite = this.maxRetryWrite;
 
     private async runCommandBase(
-        command: string,
-        callback: RunCallback
-    ): Promise<void> {
+        command: string
+    ): Promise<RunOutputs> {
 
         //debug(JSON.stringify(command).blue);
 
@@ -377,35 +374,36 @@ export class AtStack {
 
         let writeAndDrainPromise = this.serialPort.writeAndDrain(command);
 
-        let timer = this.timers.add(setTimeout(() => {
-
-            debug("Modem response timeout!".red);
-
-            this.evtResponseAtMessage.stopWaiting();
-
-            let unparsed = this.serialPortAtParser.flush();
-
-            if (unparsed) {
-                (this.serialPort as any).emit("data", null, unparsed);
-                return;
-            }
-
-            if (!this.retryLeftWrite--) {
-                this.evtError.post(new Error("Modem not responding"));
-                return;
-            }
-
-            debug(`Retrying command ${JSON.stringify(command)}`);
-
-            this.runCommandBase(command, callback);
-
-        }, this.delayReWrite));
-
         while (true) {
 
-            let atMessage= await this.evtResponseAtMessage.waitFor();
+            let atMessage: AtMessage;
 
-            if (!timer.hasBeenCleared) timer.clear();
+            try {
+
+                atMessage = await this.evtResponseAtMessage.waitFor(this.delayReWrite);
+
+            } catch (error) {
+
+                debug("Modem response timeout!".red);
+
+                let unparsed = this.serialPortAtParser.flush();
+
+                if (unparsed) {
+                    (this.serialPort as any).emit("data", null, unparsed);
+                    await new Promise(resolve => {});
+                }
+
+                if (!this.retryLeftWrite--) {
+                    this.evtError.post(new Error("Modem not responding"));
+                    await new Promise(resolve => {});
+                }
+
+                debug(`Retrying command ${JSON.stringify(command)}`);
+
+                return await this.runCommandBase(command);
+
+
+            }
 
             if (atMessage.isFinal) {
                 final = atMessage;
@@ -413,6 +411,7 @@ export class AtStack {
             } else if (atMessage.id === AtMessage.idDict.ECHO)
                 echo += atMessage.raw;
             else resp = atMessage;
+
 
         }
 
@@ -429,9 +428,11 @@ export class AtStack {
 
         this.retryLeftWrite = this.maxRetryWrite;
 
-        callback(resp, final, raw);
+        return [ resp, final, raw ];
 
     }
+
+
 
 }
 

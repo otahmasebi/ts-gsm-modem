@@ -50,8 +50,6 @@ Monitor.evtModemConnect.attach(async accessPoint => {
 
     modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
 
-
-
     let r = repl.start({
         "terminal": true,
         "prompt": "> "

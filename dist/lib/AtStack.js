@@ -46,7 +46,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var SerialPortExt_1 = require("./SerialPortExt");
-var promisify = require("ts-promisify");
 var ts_events_extended_1 = require("ts-events-extended");
 var ts_exec_queue_1 = require("ts-exec-queue");
 var timer_extended_1 = require("timer-extended");
@@ -296,7 +295,7 @@ var AtStack = (function () {
                 switch (_b.label) {
                     case 0:
                         retryOnErrors = params.retryOnErrors, recoverable = params.recoverable;
-                        return [4 /*yield*/, promisify.typed(this, this.runCommandBase)(command)];
+                        return [4 /*yield*/, this.runCommandBase(command)];
                     case 1:
                         _a = _b.sent(), resp = _a[0], final = _a[1], raw = _a[2];
                         if (!final.isError) return [3 /*break*/, 7];
@@ -329,50 +328,59 @@ var AtStack = (function () {
             });
         });
     };
-    AtStack.prototype.runCommandBase = function (command, callback) {
+    AtStack.prototype.runCommandBase = function (command) {
         return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
-            var echo, resp, final, writeAndDrainPromise, timer, atMessage, raw;
+            var echo, resp, final, writeAndDrainPromise, atMessage, error_1, unparsed, raw;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         echo = "";
                         resp = undefined;
                         writeAndDrainPromise = this.serialPort.writeAndDrain(command);
-                        timer = this.timers.add(timer_extended_1.setTimeout(function () {
-                            debug("Modem response timeout!".red);
-                            _this.evtResponseAtMessage.stopWaiting();
-                            var unparsed = _this.serialPortAtParser.flush();
-                            if (unparsed) {
-                                _this.serialPort.emit("data", null, unparsed);
-                                return;
-                            }
-                            if (!_this.retryLeftWrite--) {
-                                _this.evtError.post(new Error("Modem not responding"));
-                                return;
-                            }
-                            debug("Retrying command " + JSON.stringify(command));
-                            _this.runCommandBase(command, callback);
-                        }, this.delayReWrite));
                         _a.label = 1;
                     case 1:
-                        if (!true) return [3 /*break*/, 3];
-                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor()];
+                        if (!true) return [3 /*break*/, 11];
+                        atMessage = void 0;
+                        _a.label = 2;
                     case 2:
+                        _a.trys.push([2, 4, , 10]);
+                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor(this.delayReWrite)];
+                    case 3:
                         atMessage = _a.sent();
-                        if (!timer.hasBeenCleared)
-                            timer.clear();
+                        return [3 /*break*/, 10];
+                    case 4:
+                        error_1 = _a.sent();
+                        debug("Modem response timeout!".red);
+                        unparsed = this.serialPortAtParser.flush();
+                        if (!unparsed) return [3 /*break*/, 6];
+                        this.serialPort.emit("data", null, unparsed);
+                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                    case 5:
+                        _a.sent();
+                        _a.label = 6;
+                    case 6:
+                        if (!!this.retryLeftWrite--) return [3 /*break*/, 8];
+                        this.evtError.post(new Error("Modem not responding"));
+                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                    case 7:
+                        _a.sent();
+                        _a.label = 8;
+                    case 8:
+                        debug("Retrying command " + JSON.stringify(command));
+                        return [4 /*yield*/, this.runCommandBase(command)];
+                    case 9: return [2 /*return*/, _a.sent()];
+                    case 10:
                         if (atMessage.isFinal) {
                             final = atMessage;
-                            return [3 /*break*/, 3];
+                            return [3 /*break*/, 11];
                         }
                         else if (atMessage.id === at_messages_parser_1.AtMessage.idDict.ECHO)
                             echo += atMessage.raw;
                         else
                             resp = atMessage;
                         return [3 /*break*/, 1];
-                    case 3: return [4 /*yield*/, writeAndDrainPromise];
-                    case 4:
+                    case 11: return [4 /*yield*/, writeAndDrainPromise];
+                    case 12:
                         _a.sent();
                         raw = [
                             (this.hideEcho) ? "" : echo,
@@ -382,8 +390,7 @@ var AtStack = (function () {
                         if (this.retryLeftWrite !== this.maxRetryWrite)
                             debug("Rewrite success!".green);
                         this.retryLeftWrite = this.maxRetryWrite;
-                        callback(resp, final, raw);
-                        return [2 /*return*/];
+                        return [2 /*return*/, [resp, final, raw]];
                 }
             });
         });
