@@ -55,6 +55,7 @@ var Modem = (function () {
         var _this = this;
         this.params = params;
         this.callback = callback;
+        this.serviceProviderName = undefined;
         this.runCommand = ts_exec_queue_1.execQueue((function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
@@ -72,7 +73,6 @@ var Modem = (function () {
         this.pin = undefined;
         this.evtMessage = new ts_events_extended_1.SyncEvent();
         this.evtMessageStatusReport = new ts_events_extended_1.SyncEvent();
-        //TODO test !!!
         this.sendMessage = ts_exec_queue_1.execQueue((function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
@@ -270,7 +270,7 @@ var Modem = (function () {
     Modem.prototype.initCardLockFacility = function () {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var cardLockFacility, _a, resp;
+            var cardLockFacility, cx_SPN_SET, _a, resp;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
@@ -312,15 +312,21 @@ var Modem = (function () {
                         _b.label = 3;
                     case 3:
                         debug("SIM valid");
-                        if (!!this.iccidAvailableBeforeUnlock) return [3 /*break*/, 5];
+                        return [4 /*yield*/, this.atStack.runCommand("AT^SPN=0\r", { "recoverable": true })];
+                    case 4:
+                        cx_SPN_SET = (_b.sent())[0];
+                        if (cx_SPN_SET)
+                            this.serviceProviderName = cx_SPN_SET.serviceProviderName;
+                        debug("Service Provider name: " + this.serviceProviderName);
+                        if (!!this.iccidAvailableBeforeUnlock) return [3 /*break*/, 6];
                         _a = this;
                         return [4 /*yield*/, this.readIccid()];
-                    case 4:
+                    case 5:
                         _a.iccid = _b.sent();
                         debug("ICCID after unlock: ", this.iccid);
-                        _b.label = 5;
-                    case 5: return [4 /*yield*/, this.atStack.runCommand("AT+CIMI\r")];
-                    case 6:
+                        _b.label = 6;
+                    case 6: return [4 /*yield*/, this.atStack.runCommand("AT+CIMI\r")];
+                    case 7:
                         resp = (_b.sent())[0];
                         this.imsi = resp.raw.split("\r\n")[1];
                         debug("IMSI: ", this.imsi);

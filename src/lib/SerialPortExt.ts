@@ -26,6 +26,8 @@ export class SerialPortExt extends SerialPort {
 
         this.on("data", (...data) => this.evtData.post(data));
 
+        this.on("close", ()=> this.evtOpen.stopWaiting());
+
     })();
 
 

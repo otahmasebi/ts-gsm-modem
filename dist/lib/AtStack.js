@@ -142,7 +142,8 @@ var AtStack = (function () {
             _this.evtTerminate.post(null);
         });
         this.serialPort.once("close", function () {
-            debug("close, clear all timeout");
+            debug("close, stopWaiting, and clear all timeout");
+            _this.evtResponseAtMessage.stopWaiting();
             _this.timers.clearAll();
             _this.serialPortAtParser.flush();
         });

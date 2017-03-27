@@ -131,7 +131,8 @@ export class AtStack {
         });
 
         this.serialPort.once("close", () => { 
-            debug("close, clear all timeout"); 
+            debug("close, stopWaiting, and clear all timeout"); 
+            this.evtResponseAtMessage.stopWaiting();
             this.timers.clearAll(); 
             this.serialPortAtParser.flush(); 
         });

@@ -32,6 +32,7 @@ export declare class Modem {
     iccid: string;
     iccidAvailableBeforeUnlock: boolean;
     imsi: string;
+    serviceProviderName: string | undefined;
     private constructor(params, callback);
     private readIccid();
     readonly runCommand: {

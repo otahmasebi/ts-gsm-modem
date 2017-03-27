@@ -130,6 +130,7 @@ export class Modem {
     public iccid: string;
     public iccidAvailableBeforeUnlock: boolean;
     public imsi: string;
+    public serviceProviderName: string | undefined= undefined;
 
     private constructor(
         private readonly params: {
@@ -282,7 +283,15 @@ export class Modem {
         debug("SIM valid");
 
 
-        //this.atStack.runCommand("AT^SPN=0\r", { "recoverable": true }, (resp, final) => console.log("=====>",resp, final));
+        let [cx_SPN_SET] = await this.atStack.runCommand(
+            "AT^SPN=0\r",
+            { "recoverable": true }
+        );
+
+        if (cx_SPN_SET)
+            this.serviceProviderName = (cx_SPN_SET as AtMessage.CX_SPN_SET).serviceProviderName;
+        
+        debug(`Service Provider name: ${this.serviceProviderName}`);
 
 
         if (!this.iccidAvailableBeforeUnlock) {
@@ -332,8 +341,6 @@ export class Modem {
         });
 
     }
-
-    //TODO test !!!
 
     public sendMessage = execQueue((async (...inputs) => {
 

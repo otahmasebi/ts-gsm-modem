@@ -69,6 +69,7 @@ var SerialPortExt = (function (_super) {
                 }
                 return _this.evtData.post(data);
             });
+            _this.on("close", function () { return _this.evtOpen.stopWaiting(); });
         })();
         _this.writeAndDrain = ts_exec_queue_1.execQueue(function (buffer, callback) { return __awaiter(_this, void 0, void 0, function () {
             var hasTimeout, error, errorWrite, serialPortError, errorDrain, serialPortError;
