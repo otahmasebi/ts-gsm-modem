@@ -45,11 +45,6 @@ var ts_exec_queue_1 = require("ts-exec-queue");
 var _debug = require("debug");
 var debug = _debug("_Modem");
 require("colors");
-process.on("unhandledRejection", function (error) {
-    console.log("INTERNAL ERROR".red);
-    console.log(error);
-    throw error;
-});
 var Modem = (function () {
     function Modem(params, callback) {
         var _this = this;

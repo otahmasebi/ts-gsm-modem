@@ -13,16 +13,7 @@ import * as pr from "ts-promisify";
 import * as _debug from "debug";
 let debug= _debug("_Modem");
 
-
-
 require("colors");
-
-process.on("unhandledRejection", error=> { 
-    console.log("INTERNAL ERROR".red);
-    console.log(error);
-    throw error;
-});
-
 
 export interface UnlockCodeProviderCallback {
     (pin: string): void;
