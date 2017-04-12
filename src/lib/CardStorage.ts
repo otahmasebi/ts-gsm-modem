@@ -312,7 +312,13 @@ export class CardStorage {
 
         let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
 
+        resp = (await this.atStack.runCommand(`AT+CPBS?\r`))[0];
+
+        let contactLeft= (resp as AtMessage.P_CPBS_READ).used;
+
         for (let index = minIndex; index <= maxIndex; index++) {
+
+            if( !contactLeft ) break;
 
             this.atStack.runCommand(`AT+CSCS="IRA"\r`);
 
@@ -323,6 +329,8 @@ export class CardStorage {
 
             if (final.isError && (final as AtMessage.P_CME_ERROR).code === 22)
                 continue;
+            
+            contactLeft--;
 
             let name = "\uFFFD";
             let number = "";

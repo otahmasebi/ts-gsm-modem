@@ -56,45 +56,59 @@ export class SmsStack {
 
     constructor(private readonly atStack: AtStack) {
 
-        atStack.runCommand('AT+CPMS="SM","SM","SM"\r');
+        atStack.runCommand('AT+CPMS="SM","SM","SM"\r', (resp: AtMessage.P_CPMS_SET) => {
+
+            let { used, capacity }= resp.readingAndDeleting;
+
+            this.retrieveUnreadSms(used, capacity);
+
+        });
+
         atStack.runCommand('AT+CNMI=1,1,0,2,0\r');
 
         this.registerListeners();
-        this.retrieveUnreadSms();
 
     }
 
-    private async retrieveUnreadSms(): Promise<void> {
+    private async retrieveUnreadSms(used: number, capacity: number) {
 
-        let [resp] = await this.atStack.runCommand(`AT+CMGL=${AtMessage.MessageStat.ALL}\r`);
+        let messageLeft= used;
 
-        if (!resp) return;
+        for(let index=0; index< capacity; index++){
 
-        let atList = resp as AtMessage.LIST;
+            if( !messageLeft ) break;
 
-        for (let p_CMGL_SET of atList.atMessages as AtMessage.P_CMGL_SET[]) {
+            let [resp] = await this.atStack.runCommand(`AT+CMGR=${index}\r`);
+
+            if (!resp) continue;
+
+            messageLeft--;
+
+            let p_CMGR_SET= resp as AtMessage.P_CMGR_SET;
 
             if (
-                p_CMGL_SET.stat !== AtMessage.MessageStat.REC_READ &&
-                p_CMGL_SET.stat !== AtMessage.MessageStat.REC_UNREAD
+                p_CMGR_SET.stat !== AtMessage.MessageStat.REC_READ &&
+                p_CMGR_SET.stat !== AtMessage.MessageStat.REC_UNREAD
             ) {
-                this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
+                this.atStack.runCommand(`AT+CMGD=${index}\r`);
                 continue;
             }
 
-            let [error, sms] = await decodePdu(p_CMGL_SET.pdu);
+            let [error, sms] = await decodePdu(p_CMGR_SET.pdu);
 
             if (error || (sms instanceof SmsStatusReport)) {
                 if( error )
-                    debug("PDU not decrypted: ".red, p_CMGL_SET.pdu, error);
+                    debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
 
-                this.atStack.runCommand(`AT+CMGD=${p_CMGL_SET.index}\r`);
+                this.atStack.runCommand(`AT+CMGD=${index}\r`);
                 continue;
             }
 
-            this.evtSmsDeliver.post([p_CMGL_SET.index, sms as SmsDeliver | SmsDeliverPart]);
+            this.evtSmsDeliver.post([index, sms as SmsDeliver | SmsDeliverPart]);
+
 
         }
+
 
     }
 
@@ -137,8 +151,7 @@ export class SmsStack {
 
     private readonly maxTrySendPdu = 5;
 
-    //TODO: More test for when message fail
-
+    //TODO: More test for when message fail to send
     public sendMessage = execQueue(
         async (number: string,
             text: string,
@@ -159,7 +172,11 @@ export class SmsStack {
                 "completed": 0
             };
 
+            let i=1;
+
             for (let { length, pdu } of pdus) {
+
+                debug(`Sending Message part ${i++}/${pdus.length} of message id: ${messageId}`);
 
                 let mr = NaN;
                 let error: AtMessage.P_CMS_ERROR | null = null;
@@ -324,7 +341,7 @@ export class SmsStack {
 
                     this.evtMessage.post({ number, date, "text": concatenatedText });
 
-                }, 60000, "missing parts"));
+                }, 240000, "missing parts"));
 
 
                 this.uncompletedMultipartSms[messageRef] = { timer, parts };
@@ -339,7 +356,7 @@ export class SmsStack {
             if (Object.keys(parts).length === totalPartInMessage)
                 timer.runNow("message complete");
             else {
-                debug(`Message ${messageRef}: ${Object.keys(parts).length}/${totalPartInMessage}`);
+                debug(`Received part n°${partRef} of message ref: ${messageRef}, ${Object.keys(parts).length}/${totalPartInMessage} completed`);
                 timer.resetDelay();
             }
 
@@ -348,13 +365,13 @@ export class SmsStack {
 
     }
 
-    private async retrieveSms(index: number): Promise<void> {
+    private async retrieveSms(index: number) {
 
         let [resp] = await this.atStack.runCommand(`AT+CMGR=${index}\r`);
 
         if (!resp) return;
 
-        let p_CMGR_SET = resp as AtMessage.P_CMGR_SET;
+        let p_CMGR_SET= resp as AtMessage.P_CMGR_SET;
 
         if (p_CMGR_SET.stat !== AtMessage.MessageStat.REC_UNREAD) return;
 
@@ -376,6 +393,8 @@ export class SmsStack {
                 return;
         }
 
+
     }
+
 
 }

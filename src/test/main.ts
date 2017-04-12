@@ -44,11 +44,13 @@ Monitor.evtModemConnect.attach(async accessPoint => {
     modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
     modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
+
     let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/dist/, "src"), "utf8");
 
     console.log("Sending: \n".green, JSON.stringify(messageText));
 
     modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+
 
     let r = repl.start({
         "terminal": true,

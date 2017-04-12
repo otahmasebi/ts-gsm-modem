@@ -56,9 +56,9 @@ var SmsStack = (function () {
         this.statusReportMap = {};
         this.mrMessageIdMap = {};
         this.maxTrySendPdu = 5;
-        //TODO: More test for when message fail
+        //TODO: More test for when message fail to send
         this.sendMessage = ts_exec_queue_1.execQueue(function (number, text, callback) { return __awaiter(_this, void 0, void 0, function () {
-            var _a, error, pdus, messageId, _i, pdus_1, _b, length_1, pdu, mr, error_1, tryLeft, result, _c, _d, mr_1;
+            var _a, error, pdus, messageId, i, _i, pdus_1, _b, length_1, pdu, mr, error_1, tryLeft, result, _c, _d, mr_1;
             return __generator(this, function (_e) {
                 switch (_e.label) {
                     case 0: return [4 /*yield*/, node_python_messaging_1.buildSmsSubmitPdus({ number: number, text: text, "request_status": true })];
@@ -73,11 +73,13 @@ var SmsStack = (function () {
                             "cnt": pdus.length,
                             "completed": 0
                         };
+                        i = 1;
                         _i = 0, pdus_1 = pdus;
                         _e.label = 2;
                     case 2:
                         if (!(_i < pdus_1.length)) return [3 /*break*/, 7];
                         _b = pdus_1[_i], length_1 = _b.length, pdu = _b.pdu;
+                        debug("Sending Message part " + i++ + "/" + pdus.length + " of message id: " + messageId);
                         mr = NaN;
                         error_1 = null;
                         tryLeft = this.maxTrySendPdu;
@@ -114,46 +116,52 @@ var SmsStack = (function () {
                 }
             });
         }); });
-        atStack.runCommand('AT+CPMS="SM","SM","SM"\r');
+        atStack.runCommand('AT+CPMS="SM","SM","SM"\r', function (resp) {
+            var _a = resp.readingAndDeleting, used = _a.used, capacity = _a.capacity;
+            _this.retrieveUnreadSms(used, capacity);
+        });
         atStack.runCommand('AT+CNMI=1,1,0,2,0\r');
         this.registerListeners();
-        this.retrieveUnreadSms();
     }
-    SmsStack.prototype.retrieveUnreadSms = function () {
+    SmsStack.prototype.retrieveUnreadSms = function (used, capacity) {
         return __awaiter(this, void 0, void 0, function () {
-            var resp, atList, _i, _a, p_CMGL_SET, _b, error, sms;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0: return [4 /*yield*/, this.atStack.runCommand("AT+CMGL=" + at_messages_parser_1.AtMessage.MessageStat.ALL + "\r")];
+            var messageLeft, index, resp, p_CMGR_SET, _a, error, sms;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        messageLeft = used;
+                        index = 0;
+                        _b.label = 1;
                     case 1:
-                        resp = (_c.sent())[0];
-                        if (!resp)
-                            return [2 /*return*/];
-                        atList = resp;
-                        _i = 0, _a = atList.atMessages;
-                        _c.label = 2;
+                        if (!(index < capacity)) return [3 /*break*/, 5];
+                        if (!messageLeft)
+                            return [3 /*break*/, 5];
+                        return [4 /*yield*/, this.atStack.runCommand("AT+CMGR=" + index + "\r")];
                     case 2:
-                        if (!(_i < _a.length)) return [3 /*break*/, 5];
-                        p_CMGL_SET = _a[_i];
-                        if (p_CMGL_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_READ &&
-                            p_CMGL_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_UNREAD) {
-                            this.atStack.runCommand("AT+CMGD=" + p_CMGL_SET.index + "\r");
+                        resp = (_b.sent())[0];
+                        if (!resp)
+                            return [3 /*break*/, 4];
+                        messageLeft--;
+                        p_CMGR_SET = resp;
+                        if (p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_READ &&
+                            p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_UNREAD) {
+                            this.atStack.runCommand("AT+CMGD=" + index + "\r");
                             return [3 /*break*/, 4];
                         }
-                        return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGL_SET.pdu)];
+                        return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
                     case 3:
-                        _b = _c.sent(), error = _b[0], sms = _b[1];
+                        _a = _b.sent(), error = _a[0], sms = _a[1];
                         if (error || (sms instanceof node_python_messaging_1.SmsStatusReport)) {
                             if (error)
-                                debug("PDU not decrypted: ".red, p_CMGL_SET.pdu, error);
-                            this.atStack.runCommand("AT+CMGD=" + p_CMGL_SET.index + "\r");
+                                debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
+                            this.atStack.runCommand("AT+CMGD=" + index + "\r");
                             return [3 /*break*/, 4];
                         }
-                        this.evtSmsDeliver.post([p_CMGL_SET.index, sms]);
-                        _c.label = 4;
+                        this.evtSmsDeliver.post([index, sms]);
+                        _b.label = 4;
                     case 4:
-                        _i++;
-                        return [3 /*break*/, 2];
+                        index++;
+                        return [3 /*break*/, 1];
                     case 5: return [2 /*return*/];
                 }
             });
@@ -258,7 +266,7 @@ var SmsStack = (function () {
                     delete _this.uncompletedMultipartSms[messageRef];
                     var number = smsDeliver.number, date = smsDeliver.date;
                     _this.evtMessage.post({ number: number, date: date, "text": concatenatedText });
-                }, 60000, "missing parts"));
+                }, 240000, "missing parts"));
                 _this.uncompletedMultipartSms[messageRef] = { timer: timer, parts: parts };
             }
             else {
@@ -269,7 +277,7 @@ var SmsStack = (function () {
             if (Object.keys(parts).length === totalPartInMessage)
                 timer.runNow("message complete");
             else {
-                debug("Message " + messageRef + ": " + Object.keys(parts).length + "/" + totalPartInMessage);
+                debug("Received part n\u00B0" + partRef + " of message ref: " + messageRef + ", " + Object.keys(parts).length + "/" + totalPartInMessage + " completed");
                 timer.resetDelay();
             }
         });

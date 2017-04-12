@@ -20,7 +20,7 @@ export declare class SmsStack {
     private evtSmsStatusReport;
     private readonly uncompletedMultipartSms;
     constructor(atStack: AtStack);
-    private retrieveUnreadSms();
+    private retrieveUnreadSms(used, capacity);
     private readonly statusReportMap;
     private readonly mrMessageIdMap;
     private sendPdu(pduLength, pdu);

@@ -235,7 +235,7 @@ var CardStorage = (function () {
     };
     CardStorage.prototype.init = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var resp, atMessageList, p_CNUM_EXEC, _a, minIndex, maxIndex, index, _b, resp_1, final, name_1, number, p_CPBR_EXEC, _c, resp_2, final_1, p_CPBR_EXEC, nameAsUcs2;
+            var resp, atMessageList, p_CNUM_EXEC, _a, minIndex, maxIndex, contactLeft, index, _b, resp_1, final, name_1, number, p_CPBR_EXEC, _c, resp_2, final_1, p_CPBR_EXEC, nameAsUcs2;
             return __generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
@@ -256,16 +256,23 @@ var CardStorage = (function () {
                         resp = (_d.sent())[0];
                         this.p_CPBR_TEST = resp;
                         _a = this.p_CPBR_TEST.range, minIndex = _a[0], maxIndex = _a[1];
-                        index = minIndex;
-                        _d.label = 3;
+                        return [4 /*yield*/, this.atStack.runCommand("AT+CPBS?\r")];
                     case 3:
-                        if (!(index <= maxIndex)) return [3 /*break*/, 8];
+                        resp = (_d.sent())[0];
+                        contactLeft = resp.used;
+                        index = minIndex;
+                        _d.label = 4;
+                    case 4:
+                        if (!(index <= maxIndex)) return [3 /*break*/, 9];
+                        if (!contactLeft)
+                            return [3 /*break*/, 9];
                         this.atStack.runCommand("AT+CSCS=\"IRA\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=" + index + "\r", { "recoverable": true })];
-                    case 4:
+                    case 5:
                         _b = _d.sent(), resp_1 = _b[0], final = _b[1];
                         if (final.isError && final.code === 22)
-                            return [3 /*break*/, 7];
+                            return [3 /*break*/, 8];
+                        contactLeft--;
                         name_1 = "\uFFFD";
                         number = "";
                         if (resp_1) {
@@ -273,13 +280,13 @@ var CardStorage = (function () {
                             name_1 = p_CPBR_EXEC.text;
                             number = p_CPBR_EXEC.number;
                         }
-                        if (!(!resp_1 || CardStorage.countFFFD(name_1))) return [3 /*break*/, 6];
+                        if (!(!resp_1 || CardStorage.countFFFD(name_1))) return [3 /*break*/, 7];
                         this.atStack.runCommand("AT+CSCS=\"UCS2\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=" + index + "\r", { "recoverable": true })];
-                    case 5:
+                    case 6:
                         _c = _d.sent(), resp_2 = _c[0], final_1 = _c[1];
                         if (!resp_2 && !number)
-                            return [3 /*break*/, 7];
+                            return [3 /*break*/, 8];
                         if (resp_2) {
                             p_CPBR_EXEC = resp_2;
                             nameAsUcs2 = CardStorage.decodeUCS2(p_CPBR_EXEC.text);
@@ -288,14 +295,14 @@ var CardStorage = (function () {
                             if (CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name_1))
                                 name_1 = nameAsUcs2;
                         }
-                        _d.label = 6;
-                    case 6:
-                        this.contactByIndex[index] = { index: index, number: number, name: name_1 };
                         _d.label = 7;
                     case 7:
-                        index++;
-                        return [3 /*break*/, 3];
+                        this.contactByIndex[index] = { index: index, number: number, name: name_1 };
+                        _d.label = 8;
                     case 8:
+                        index++;
+                        return [3 /*break*/, 4];
+                    case 9:
                         debug("Contacts ready");
                         return [2 /*return*/];
                 }
