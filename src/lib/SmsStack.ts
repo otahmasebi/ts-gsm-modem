@@ -4,6 +4,8 @@ import {
     SmsDeliver, 
     SmsDeliverPart, 
     SmsStatusReport, 
+    Sms,
+    Pdu,
     TP_MTI,
     TP_ST, 
     ST_CLASS, 
@@ -94,14 +96,25 @@ export class SmsStack {
                 continue;
             }
 
-            let [error, sms] = await decodePdu(p_CMGR_SET.pdu);
+            let sms: Sms;
 
-            if (error || (sms instanceof SmsStatusReport)) {
-                if( error )
-                    debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
+            try{
+
+                sms= await decodePdu(p_CMGR_SET.pdu);
+
+            }catch(error){
+
+                debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
+                this.atStack.runCommand(`AT+CMGD=${index}\r`);
+                continue;
+
+            }
+
+            if( sms instanceof SmsStatusReport ){
 
                 this.atStack.runCommand(`AT+CMGD=${index}\r`);
                 continue;
+
             }
 
             this.evtSmsDeliver.post([index, sms as SmsDeliver | SmsDeliverPart]);
@@ -158,12 +171,32 @@ export class SmsStack {
             callback?: (messageId: number) => void
         ): Promise<number> => {
 
-            let [error, pdus] = await buildSmsSubmitPdus({ number, text, "request_status": true });
+            let pdus: Pdu[];
 
-            if (error) {
+            try{
+
+                pdus = await buildSmsSubmitPdus({ number, text, "request_status": true });
+
+            }catch(error){
+
+                /*
                 this.atStack.evtError.post(error);
                 return NaN;
+                */
+
+                debug([
+                    "Can't build SMS PDU for message: \n".red,
+                    `number: ${number}\n`,
+                    `text: ${JSON.stringify(text)}`,
+                    `error: ${error.message}`
+                ].join(""));
+
+                callback!(NaN);
+
+                return NaN;
+
             }
+
 
             let messageId = Date.now();
 
@@ -371,16 +404,22 @@ export class SmsStack {
 
         if (!resp) return;
 
-        let p_CMGR_SET= resp as AtMessage.P_CMGR_SET;
+        let p_CMGR_SET = resp as AtMessage.P_CMGR_SET;
 
         if (p_CMGR_SET.stat !== AtMessage.MessageStat.REC_UNREAD) return;
 
-        let [error, sms] = await decodePdu(p_CMGR_SET.pdu);
+        let sms: Sms;
 
-        if (error) {
-            console.log("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
+        try {
+
+            sms = await decodePdu(p_CMGR_SET.pdu);
+
+        } catch (error) {
+
+            debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
             this.atStack.runCommand(`AT+CMGD=${index}\r`);
             return;
+
         }
 
         switch (sms.type) {

@@ -58,16 +58,30 @@ var SmsStack = (function () {
         this.maxTrySendPdu = 5;
         //TODO: More test for when message fail to send
         this.sendMessage = ts_exec_queue_1.execQueue(function (number, text, callback) { return __awaiter(_this, void 0, void 0, function () {
-            var _a, error, pdus, messageId, i, _i, pdus_1, _b, length_1, pdu, mr, error_1, tryLeft, result, _c, _d, mr_1;
-            return __generator(this, function (_e) {
-                switch (_e.label) {
-                    case 0: return [4 /*yield*/, node_python_messaging_1.buildSmsSubmitPdus({ number: number, text: text, "request_status": true })];
+            var pdus, error_1, messageId, i, _i, pdus_1, _a, length_1, pdu, mr, error, tryLeft, result, _b, _c, mr_1;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        _d.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, node_python_messaging_1.buildSmsSubmitPdus({ number: number, text: text, "request_status": true })];
                     case 1:
-                        _a = _e.sent(), error = _a[0], pdus = _a[1];
-                        if (error) {
-                            this.atStack.evtError.post(error);
-                            return [2 /*return*/, NaN];
-                        }
+                        pdus = _d.sent();
+                        return [3 /*break*/, 3];
+                    case 2:
+                        error_1 = _d.sent();
+                        /*
+                        this.atStack.evtError.post(error);
+                        return NaN;
+                        */
+                        debug([
+                            "Can't build SMS PDU for message: \n".red,
+                            "number: " + number + "\n",
+                            "text: " + JSON.stringify(text),
+                            "error: " + error_1.message
+                        ].join(""));
+                        callback(NaN);
+                        return [2 /*return*/, NaN];
+                    case 3:
                         messageId = Date.now();
                         this.statusReportMap[messageId] = {
                             "cnt": pdus.length,
@@ -75,30 +89,30 @@ var SmsStack = (function () {
                         };
                         i = 1;
                         _i = 0, pdus_1 = pdus;
-                        _e.label = 2;
-                    case 2:
-                        if (!(_i < pdus_1.length)) return [3 /*break*/, 7];
-                        _b = pdus_1[_i], length_1 = _b.length, pdu = _b.pdu;
+                        _d.label = 4;
+                    case 4:
+                        if (!(_i < pdus_1.length)) return [3 /*break*/, 9];
+                        _a = pdus_1[_i], length_1 = _a.length, pdu = _a.pdu;
                         debug("Sending Message part " + i++ + "/" + pdus.length + " of message id: " + messageId);
                         mr = NaN;
-                        error_1 = null;
+                        error = null;
                         tryLeft = this.maxTrySendPdu;
-                        _e.label = 3;
-                    case 3:
-                        if (!(tryLeft-- && isNaN(mr))) return [3 /*break*/, 5];
+                        _d.label = 5;
+                    case 5:
+                        if (!(tryLeft-- && isNaN(mr))) return [3 /*break*/, 7];
                         if (tryLeft < this.maxTrySendPdu - 1)
                             console.log("Retry sending PDU".red);
                         return [4 /*yield*/, this.sendPdu(length_1, pdu)];
-                    case 4:
-                        result = _e.sent();
+                    case 6:
+                        result = _d.sent();
                         mr = result.mr;
-                        error_1 = result.error;
-                        return [3 /*break*/, 3];
-                    case 5:
-                        if (error_1) {
-                            console.log(("Send Message Error after " + this.maxTrySendPdu + ", attempt: " + error_1.verbose).red);
-                            for (_c = 0, _d = Object.keys(this.mrMessageIdMap); _c < _d.length; _c++) {
-                                mr_1 = _d[_c];
+                        error = result.error;
+                        return [3 /*break*/, 5];
+                    case 7:
+                        if (error) {
+                            console.log(("Send Message Error after " + this.maxTrySendPdu + ", attempt: " + error.verbose).red);
+                            for (_b = 0, _c = Object.keys(this.mrMessageIdMap); _b < _c.length; _b++) {
+                                mr_1 = _c[_b];
                                 if (this.mrMessageIdMap[mr_1] === messageId)
                                     delete this.mrMessageIdMap[mr_1];
                             }
@@ -106,11 +120,11 @@ var SmsStack = (function () {
                             return [2 /*return*/, NaN];
                         }
                         this.mrMessageIdMap[mr] = messageId;
-                        _e.label = 6;
-                    case 6:
+                        _d.label = 8;
+                    case 8:
                         _i++;
-                        return [3 /*break*/, 2];
-                    case 7:
+                        return [3 /*break*/, 4];
+                    case 9:
                         callback(messageId);
                         return [2 /*return*/, NaN];
                 }
@@ -125,44 +139,53 @@ var SmsStack = (function () {
     }
     SmsStack.prototype.retrieveUnreadSms = function (used, capacity) {
         return __awaiter(this, void 0, void 0, function () {
-            var messageLeft, index, resp, p_CMGR_SET, _a, error, sms;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var messageLeft, index, resp, p_CMGR_SET, sms, error_2;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0:
                         messageLeft = used;
                         index = 0;
-                        _b.label = 1;
+                        _a.label = 1;
                     case 1:
-                        if (!(index < capacity)) return [3 /*break*/, 5];
+                        if (!(index < capacity)) return [3 /*break*/, 8];
                         if (!messageLeft)
-                            return [3 /*break*/, 5];
+                            return [3 /*break*/, 8];
                         return [4 /*yield*/, this.atStack.runCommand("AT+CMGR=" + index + "\r")];
                     case 2:
-                        resp = (_b.sent())[0];
+                        resp = (_a.sent())[0];
                         if (!resp)
-                            return [3 /*break*/, 4];
+                            return [3 /*break*/, 7];
                         messageLeft--;
                         p_CMGR_SET = resp;
                         if (p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_READ &&
                             p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_UNREAD) {
                             this.atStack.runCommand("AT+CMGD=" + index + "\r");
-                            return [3 /*break*/, 4];
+                            return [3 /*break*/, 7];
                         }
-                        return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
+                        sms = void 0;
+                        _a.label = 3;
                     case 3:
-                        _a = _b.sent(), error = _a[0], sms = _a[1];
-                        if (error || (sms instanceof node_python_messaging_1.SmsStatusReport)) {
-                            if (error)
-                                debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
+                        _a.trys.push([3, 5, , 6]);
+                        return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
+                    case 4:
+                        sms = _a.sent();
+                        return [3 /*break*/, 6];
+                    case 5:
+                        error_2 = _a.sent();
+                        debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_2);
+                        this.atStack.runCommand("AT+CMGD=" + index + "\r");
+                        return [3 /*break*/, 7];
+                    case 6:
+                        if (sms instanceof node_python_messaging_1.SmsStatusReport) {
                             this.atStack.runCommand("AT+CMGD=" + index + "\r");
-                            return [3 /*break*/, 4];
+                            return [3 /*break*/, 7];
                         }
                         this.evtSmsDeliver.post([index, sms]);
-                        _b.label = 4;
-                    case 4:
+                        _a.label = 7;
+                    case 7:
                         index++;
                         return [3 /*break*/, 1];
-                    case 5: return [2 /*return*/];
+                    case 8: return [2 /*return*/];
                 }
             });
         });
@@ -284,25 +307,30 @@ var SmsStack = (function () {
     };
     SmsStack.prototype.retrieveSms = function (index) {
         return __awaiter(this, void 0, void 0, function () {
-            var resp, p_CMGR_SET, _a, error, sms;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var resp, p_CMGR_SET, sms, error_3;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.atStack.runCommand("AT+CMGR=" + index + "\r")];
                     case 1:
-                        resp = (_b.sent())[0];
+                        resp = (_a.sent())[0];
                         if (!resp)
                             return [2 /*return*/];
                         p_CMGR_SET = resp;
                         if (p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_UNREAD)
                             return [2 /*return*/];
-                        return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
+                        _a.label = 2;
                     case 2:
-                        _a = _b.sent(), error = _a[0], sms = _a[1];
-                        if (error) {
-                            console.log("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
-                            this.atStack.runCommand("AT+CMGD=" + index + "\r");
-                            return [2 /*return*/];
-                        }
+                        _a.trys.push([2, 4, , 5]);
+                        return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
+                    case 3:
+                        sms = _a.sent();
+                        return [3 /*break*/, 5];
+                    case 4:
+                        error_3 = _a.sent();
+                        debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_3);
+                        this.atStack.runCommand("AT+CMGD=" + index + "\r");
+                        return [2 /*return*/];
+                    case 5:
                         switch (sms.type) {
                             case node_python_messaging_1.TP_MTI.SMS_DELIVER:
                                 this.evtSmsDeliver.post([index, sms]);
