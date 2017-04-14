@@ -1,6 +1,6 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.14.1",
+  "version": "0.14.2",
   "description": "GSM Modem manager",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
@@ -33,7 +33,7 @@
     "timer-extended": "garronej/timer-extended",
     "trackable-map": "github:garronej/trackable-map",
     "ts-events-extended": "garronej/ts-events-extended",
-    "ts-exec-stack": "garronej/ts-exec-stack",
+    "ts-exec-queue": "garronej/ts-exec-queue",
     "ts-promisify": "garronej/ts-promisify"
   },
   "devDependencies": {
