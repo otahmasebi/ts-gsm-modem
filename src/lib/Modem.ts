@@ -209,7 +209,7 @@ export class Modem {
     }
 
 
-    public readonly runCommand = execQueue("AT",
+    public readonly runCommand = execQueue(
         ((...inputs) => this.atStack.runCommand.apply(this.atStack, inputs)
         ) as typeof AtStack.prototype.runCommand
     );
@@ -327,7 +327,7 @@ export class Modem {
 
     }
 
-    public sendMessage = execQueue("AT",
+    public sendMessage = execQueue(
         (async (...inputs) => {
 
             if (!this.systemState.isNetworkReady)
@@ -379,19 +379,19 @@ export class Modem {
     public getContact: typeof CardStorage.prototype.getContact =
     (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
-    public createContact = execQueue("AT", (
+    public createContact = execQueue("STORAGE", (
         (...inputs) => this.cardStorage.createContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.createContact);
 
-    public updateContact = execQueue("AT", (
+    public updateContact = execQueue("STORAGE", (
         (...inputs) => this.cardStorage.updateContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.updateContact);
 
-    public deleteContact = execQueue("AT", (
+    public deleteContact = execQueue("STORAGE", (
         (...inputs) => this.cardStorage.deleteContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.deleteContact);
 
-    public writeNumber = execQueue("AT", (
+    public writeNumber = execQueue("STORAGE", (
         (...inputs) => this.cardStorage.writeNumber.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.writeNumber);
 

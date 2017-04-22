@@ -135,7 +135,7 @@ export class CardStorage {
 
     }
 
-    public createContact = execQueue("WRITE",
+    public createContact = execQueue("STORAGE",
         (number: string, name: string, callback?: (contact: Contact) => void): Promise<Contact> => {
 
             let contact: Contact = {
@@ -175,7 +175,7 @@ export class CardStorage {
     );
 
 
-    public updateContact = execQueue("WRITE",
+    public updateContact = execQueue("STORAGE",
         (index: number, params: {
             number?: string,
             name?: string
@@ -241,7 +241,7 @@ export class CardStorage {
         }
     );
 
-    public deleteContact = execQueue("WRITE",
+    public deleteContact = execQueue("STORAGE",
         (index: number, callback?: () => void): Promise<void> => {
 
             if (!this.contactByIndex[index]) {
@@ -265,7 +265,7 @@ export class CardStorage {
 
     public number: string | undefined = undefined;
 
-    public writeNumber = execQueue("WRITE",
+    public writeNumber = execQueue("STORAGE",
         (number: string, callback?: () => void): Promise<void> => {
 
             this.number = number;

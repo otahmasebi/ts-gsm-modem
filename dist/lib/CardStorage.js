@@ -77,7 +77,7 @@ var CardStorage = (function () {
         var _this = this;
         this.atStack = atStack;
         this.evtReady = new ts_events_extended_1.VoidSyncEvent();
-        this.createContact = ts_exec_queue_1.execQueue("WRITE", function (number, name, callback) {
+        this.createContact = ts_exec_queue_1.execQueue("STORAGE", function (number, name, callback) {
             var contact = {
                 "index": _this.getFreeIndex(),
                 "name": _this.generateSafeContactName(name),
@@ -100,7 +100,7 @@ var CardStorage = (function () {
             });
             return null;
         });
-        this.updateContact = ts_exec_queue_1.execQueue("WRITE", function (index, params, callback) {
+        this.updateContact = ts_exec_queue_1.execQueue("STORAGE", function (index, params, callback) {
             if (!_this.contactByIndex[index]) {
                 _this.atStack.evtError.post(new Error("Contact does not exist"));
                 return null;
@@ -144,7 +144,7 @@ var CardStorage = (function () {
             });
             return null;
         });
-        this.deleteContact = ts_exec_queue_1.execQueue("WRITE", function (index, callback) {
+        this.deleteContact = ts_exec_queue_1.execQueue("STORAGE", function (index, callback) {
             if (!_this.contactByIndex[index]) {
                 _this.atStack.evtError.post(new Error("Contact does not exists"));
                 return null;
@@ -157,7 +157,7 @@ var CardStorage = (function () {
             return null;
         });
         this.number = undefined;
-        this.writeNumber = ts_exec_queue_1.execQueue("WRITE", function (number, callback) {
+        this.writeNumber = ts_exec_queue_1.execQueue("STORAGE", function (number, callback) {
             _this.number = number;
             _this.atStack.runCommand("AT+CPBS=\"ON\"\r");
             _this.atStack.runCommand("AT+CPBW=1,\"" + number + "\"\r");
