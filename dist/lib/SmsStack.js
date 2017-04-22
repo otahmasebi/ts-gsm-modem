@@ -80,7 +80,7 @@ var SmsStack = (function () {
                             "error: " + error_1.message
                         ].join(""));
                         callback(NaN);
-                        return [2 /*return*/, NaN];
+                        return [2 /*return*/, null];
                     case 3:
                         messageId = Date.now();
                         this.statusReportMap[messageId] = {
@@ -211,14 +211,10 @@ var SmsStack = (function () {
     SmsStack.prototype.registerListeners = function () {
         var _this = this;
         this.atStack.evtUnsolicitedMessage.attach(function (urc) {
-            switch (urc.id) {
-                case at_messages_parser_1.AtMessage.idDict.P_CMTI_URC:
-                    _this.retrieveSms(urc.index);
-                    break;
-                case at_messages_parser_1.AtMessage.idDict.P_CDSI_URC:
-                    _this.retrieveSms(urc.index);
-                    break;
-            }
+            return (urc instanceof at_messages_parser_1.AtMessage.P_CMTI_URC) || (urc instanceof at_messages_parser_1.AtMessage.P_CDSI_URC);
+        }, function (_a) {
+            var index = _a.index;
+            return _this.retrievePdu(index);
         });
         this.evtSmsStatusReport.attach(function (smsStatusReport) {
             //console.log(JSON.stringify(smsStatusReport, null,2).blue);
@@ -308,7 +304,7 @@ var SmsStack = (function () {
             }
         });
     };
-    SmsStack.prototype.retrieveSms = function (index) {
+    SmsStack.prototype.retrievePdu = function (index) {
         return __awaiter(this, void 0, void 0, function () {
             var resp, p_CMGR_SET, sms, error_3;
             return __generator(this, function (_a) {

@@ -28,5 +28,5 @@ export declare class SmsStack {
     private readonly maxTrySendPdu;
     sendMessage: ((number: string, text: string, callback?: ((messageId: number) => void) | undefined) => Promise<number>) & ExecQueue;
     private registerListeners();
-    private retrieveSms(index);
+    private retrievePdu(index);
 }
