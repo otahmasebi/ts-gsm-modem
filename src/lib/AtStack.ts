@@ -360,7 +360,7 @@ export class AtStack {
 
 
     private readonly maxRetryWrite = 3;
-    private readonly delayReWrite = 5000;
+    private readonly delayReWrite = 1000;
     private retryLeftWrite = this.maxRetryWrite;
 
     private async runCommandBase(
@@ -369,42 +369,45 @@ export class AtStack {
 
         //debug(JSON.stringify(command).blue);
 
-        let echo = "";
-        let resp: AtMessage | undefined = undefined;
-        let final: AtMessage;
+        let echo: string;
 
         let writeAndDrainPromise = this.serialPort.writeAndDrain(command);
 
-        while (true) {
+        try {
 
-            let atMessage: AtMessage;
+            let { raw } = await this.evtResponseAtMessage.waitFor(this.delayReWrite);
 
-            try {
+            echo= raw;
 
-                atMessage = await this.evtResponseAtMessage.waitFor(this.delayReWrite);
+        } catch (error) {
 
-            } catch (error) {
+            debug("Modem response timeout!".red);
 
-                debug("Modem response timeout!".red);
+            let unparsed = this.serialPortAtParser.flush();
 
-                let unparsed = this.serialPortAtParser.flush();
-
-                if (unparsed) {
-                    (this.serialPort as any).emit("data", null, unparsed);
-                    await new Promise(resolve => {});
-                }
-
-                if (!this.retryLeftWrite--) {
-                    this.evtError.post(new Error("Modem not responding"));
-                    await new Promise(resolve => {});
-                }
-
-                debug(`Retrying command ${JSON.stringify(command)}`);
-
-                return await this.runCommandBase(command);
-
-
+            if (unparsed) {
+                (this.serialPort as any).emit("data", null, unparsed);
+                await new Promise(resolve => { });
             }
+
+            if (!this.retryLeftWrite--) {
+                this.evtError.post(new Error("Modem not responding"));
+                await new Promise(resolve => { });
+            }
+
+            debug(`Retrying command ${JSON.stringify(command)}`);
+
+            return await this.runCommandBase(command);
+
+
+        }
+
+        let resp: AtMessage | undefined = undefined;
+        let final: AtMessage;
+
+        while( true ){
+
+            let atMessage = await this.evtResponseAtMessage.waitFor();
 
             if (atMessage.isFinal) {
                 final = atMessage;
@@ -413,23 +416,18 @@ export class AtStack {
                 echo += atMessage.raw;
             else resp = atMessage;
 
-
         }
 
         await writeAndDrainPromise;
 
-        let raw = [
-            (this.hideEcho) ? "" : echo,
-            (resp) ? resp.raw : "",
-            final.raw
-        ].join("");
+        let raw = `${this.hideEcho ? "" : echo}${resp ? resp.raw : ""}${final.raw}`
 
         if (this.retryLeftWrite !== this.maxRetryWrite)
             debug("Rewrite success!".green);
 
         this.retryLeftWrite = this.maxRetryWrite;
 
-        return [ resp, final, raw ];
+        return [resp, final, raw];
 
     }
 

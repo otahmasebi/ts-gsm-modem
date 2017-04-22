@@ -51,7 +51,7 @@ var Modem = (function () {
         this.params = params;
         this.callback = callback;
         this.serviceProviderName = undefined;
-        this.runCommand = ts_exec_queue_1.execQueue((function () {
+        this.runCommand = ts_exec_queue_1.execQueue("AT", (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
@@ -68,7 +68,7 @@ var Modem = (function () {
         this.pin = undefined;
         this.evtMessage = new ts_events_extended_1.SyncEvent();
         this.evtMessageStatusReport = new ts_events_extended_1.SyncEvent();
-        this.sendMessage = ts_exec_queue_1.execQueue((function () {
+        this.sendMessage = ts_exec_queue_1.execQueue("AT", (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
@@ -103,28 +103,28 @@ var Modem = (function () {
             }
             return _this.cardStorage.getContact.apply(_this.cardStorage, inputs);
         };
-        this.createContact = ts_exec_queue_1.execQueue(Modem, "WRITE", (function () {
+        this.createContact = ts_exec_queue_1.execQueue("AT", (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.createContact.apply(_this.cardStorage, inputs);
         }));
-        this.updateContact = ts_exec_queue_1.execQueue(Modem, "WRITE", (function () {
+        this.updateContact = ts_exec_queue_1.execQueue("AT", (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.updateContact.apply(_this.cardStorage, inputs);
         }));
-        this.deleteContact = ts_exec_queue_1.execQueue(Modem, "WRITE", (function () {
+        this.deleteContact = ts_exec_queue_1.execQueue("AT", (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.deleteContact.apply(_this.cardStorage, inputs);
         }));
-        this.writeNumber = ts_exec_queue_1.execQueue(Modem, "WRITE", (function () {
+        this.writeNumber = ts_exec_queue_1.execQueue("AT", (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];

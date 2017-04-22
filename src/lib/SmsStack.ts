@@ -240,7 +240,7 @@ export class SmsStack {
 
                     callback!(NaN);
 
-                    return NaN;
+                    return null as any;
                 }
 
                 this.mrMessageIdMap[mr] = messageId;
@@ -251,7 +251,7 @@ export class SmsStack {
             callback!(messageId);
 
 
-            return NaN;
+            return null as any;
 
         }
     );

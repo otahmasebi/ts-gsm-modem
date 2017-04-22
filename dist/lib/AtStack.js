@@ -94,7 +94,7 @@ var AtStack = (function () {
         this.delayBeforeRetry = 5000;
         this.retryLeft = this.maxRetry;
         this.maxRetryWrite = 3;
-        this.delayReWrite = 5000;
+        this.delayReWrite = 1000;
         this.retryLeftWrite = this.maxRetryWrite;
         this.serialPort = new SerialPortExt_1.SerialPortExt(path, {
             "parser": this.serialPortAtParser
@@ -331,63 +331,61 @@ var AtStack = (function () {
     };
     AtStack.prototype.runCommandBase = function (command) {
         return __awaiter(this, void 0, void 0, function () {
-            var echo, resp, final, writeAndDrainPromise, atMessage, error_1, unparsed, raw;
+            var echo, writeAndDrainPromise, raw_1, error_1, unparsed, resp, final, atMessage, raw;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        echo = "";
-                        resp = undefined;
                         writeAndDrainPromise = this.serialPort.writeAndDrain(command);
                         _a.label = 1;
                     case 1:
-                        if (!true) return [3 /*break*/, 11];
-                        atMessage = void 0;
-                        _a.label = 2;
-                    case 2:
-                        _a.trys.push([2, 4, , 10]);
+                        _a.trys.push([1, 3, , 9]);
                         return [4 /*yield*/, this.evtResponseAtMessage.waitFor(this.delayReWrite)];
+                    case 2:
+                        raw_1 = (_a.sent()).raw;
+                        echo = raw_1;
+                        return [3 /*break*/, 9];
                     case 3:
-                        atMessage = _a.sent();
-                        return [3 /*break*/, 10];
-                    case 4:
                         error_1 = _a.sent();
                         debug("Modem response timeout!".red);
                         unparsed = this.serialPortAtParser.flush();
-                        if (!unparsed) return [3 /*break*/, 6];
+                        if (!unparsed) return [3 /*break*/, 5];
                         this.serialPort.emit("data", null, unparsed);
                         return [4 /*yield*/, new Promise(function (resolve) { })];
-                    case 5:
+                    case 4:
                         _a.sent();
-                        _a.label = 6;
-                    case 6:
-                        if (!!this.retryLeftWrite--) return [3 /*break*/, 8];
+                        _a.label = 5;
+                    case 5:
+                        if (!!this.retryLeftWrite--) return [3 /*break*/, 7];
                         this.evtError.post(new Error("Modem not responding"));
                         return [4 /*yield*/, new Promise(function (resolve) { })];
-                    case 7:
+                    case 6:
                         _a.sent();
-                        _a.label = 8;
-                    case 8:
+                        _a.label = 7;
+                    case 7:
                         debug("Retrying command " + JSON.stringify(command));
                         return [4 /*yield*/, this.runCommandBase(command)];
-                    case 9: return [2 /*return*/, _a.sent()];
+                    case 8: return [2 /*return*/, _a.sent()];
+                    case 9:
+                        resp = undefined;
+                        _a.label = 10;
                     case 10:
+                        if (!true) return [3 /*break*/, 12];
+                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor()];
+                    case 11:
+                        atMessage = _a.sent();
                         if (atMessage.isFinal) {
                             final = atMessage;
-                            return [3 /*break*/, 11];
+                            return [3 /*break*/, 12];
                         }
                         else if (atMessage.id === at_messages_parser_1.AtMessage.idDict.ECHO)
                             echo += atMessage.raw;
                         else
                             resp = atMessage;
-                        return [3 /*break*/, 1];
-                    case 11: return [4 /*yield*/, writeAndDrainPromise];
-                    case 12:
+                        return [3 /*break*/, 10];
+                    case 12: return [4 /*yield*/, writeAndDrainPromise];
+                    case 13:
                         _a.sent();
-                        raw = [
-                            (this.hideEcho) ? "" : echo,
-                            (resp) ? resp.raw : "",
-                            final.raw
-                        ].join("");
+                        raw = "" + (this.hideEcho ? "" : echo) + (resp ? resp.raw : "") + final.raw;
                         if (this.retryLeftWrite !== this.maxRetryWrite)
                             debug("Rewrite success!".green);
                         this.retryLeftWrite = this.maxRetryWrite;

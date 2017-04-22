@@ -166,9 +166,7 @@ export class Modem {
 
         })();
 
-
     }
-
 
     private async readIccid(): Promise<string> {
 
@@ -211,7 +209,7 @@ export class Modem {
     }
 
 
-    public readonly runCommand = execQueue(
+    public readonly runCommand = execQueue("AT",
         ((...inputs) => this.atStack.runCommand.apply(this.atStack, inputs)
         ) as typeof AtStack.prototype.runCommand
     );
@@ -333,14 +331,16 @@ export class Modem {
 
     }
 
-    public sendMessage = execQueue((async (...inputs) => {
+    public sendMessage = execQueue("AT",
+        (async (...inputs) => {
 
-        if (!this.systemState.isNetworkReady)
-            await this.systemState.evtNetworkReady.waitFor();
+            if (!this.systemState.isNetworkReady)
+                await this.systemState.evtNetworkReady.waitFor();
 
-        this.smsStack.sendMessage.apply(this.smsStack, inputs);
+            this.smsStack.sendMessage.apply(this.smsStack, inputs);
 
-    }) as any as typeof SmsStack.prototype.sendMessage);
+        }) as any as typeof SmsStack.prototype.sendMessage
+    );
 
 
 
@@ -385,19 +385,19 @@ export class Modem {
     public getContact: typeof CardStorage.prototype.getContact =
     (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
-    public createContact = execQueue(Modem, "WRITE", (
+    public createContact = execQueue("AT", (
         (...inputs) => this.cardStorage.createContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.createContact);
 
-    public updateContact = execQueue(Modem, "WRITE", (
+    public updateContact = execQueue("AT", (
         (...inputs) => this.cardStorage.updateContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.updateContact);
 
-    public deleteContact = execQueue(Modem, "WRITE", (
+    public deleteContact = execQueue("AT", (
         (...inputs) => this.cardStorage.deleteContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.deleteContact);
 
-    public writeNumber = execQueue(Modem, "WRITE", (
+    public writeNumber = execQueue("AT", (
         (...inputs) => this.cardStorage.writeNumber.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.writeNumber);
 

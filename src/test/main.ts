@@ -50,16 +50,18 @@ Monitor.evtModemConnect.attach(async accessPoint => {
     console.log("Sending: \n".green, JSON.stringify(messageText));
 
     modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+    //modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
 
 
-    let r = repl.start({
+    let { context } = repl.start({
         "terminal": true,
         "prompt": "> "
-    });
+    }) as any;
 
-    Object.assign((r as any).context, {
+
+    Object.assign(context, {
         modem,
-        "run": (command: string): string => {
+        run(command: string): string  {
 
             modem.runCommand(command + "\r", { "recoverable": true, "retryOnErrors": false }, (resp, final) => {
 
@@ -76,6 +78,10 @@ Monitor.evtModemConnect.attach(async accessPoint => {
             return "COMMAND QUEUED";
 
         }
+    });
+
+    Object.defineProperty(context, "exit", {
+        "get": ()=> process.exit(0)
     });
 
 

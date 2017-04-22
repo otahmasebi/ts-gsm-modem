@@ -117,7 +117,7 @@ var SmsStack = (function () {
                                     delete this.mrMessageIdMap[mr_1];
                             }
                             callback(NaN);
-                            return [2 /*return*/, NaN];
+                            return [2 /*return*/, null];
                         }
                         this.mrMessageIdMap[mr] = messageId;
                         _d.label = 8;
@@ -126,7 +126,7 @@ var SmsStack = (function () {
                         return [3 /*break*/, 4];
                     case 9:
                         callback(messageId);
-                        return [2 /*return*/, NaN];
+                        return [2 /*return*/, null];
                 }
             });
         }); });
