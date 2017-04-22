@@ -37,6 +37,7 @@ export interface StatusReport {
     status: string;
 }
 
+
 export class SmsStack {
 
     public readonly evtMessage = new SyncEvent<Message>();
@@ -62,7 +63,7 @@ export class SmsStack {
 
         atStack.runCommand('AT+CPMS="SM","SM","SM"\r', (resp: AtMessage.P_CPMS_SET) => {
 
-            let { used, capacity }= resp.readingAndDeleting;
+            let { used, capacity } = resp.readingAndDeleting;
 
             this.retrieveUnreadSms(used, capacity);
 
@@ -78,11 +79,11 @@ export class SmsStack {
 
         debug(`${used} PDU in sim memory`);
 
-        let messageLeft= used;
+        let messageLeft = used;
 
-        for(let index=0; index< capacity; index++){
+        for (let index = 0; index < capacity; index++) {
 
-            if( !messageLeft ) break;
+            if (!messageLeft) break;
 
             let [resp] = await this.atStack.runCommand(`AT+CMGR=${index}\r`);
 
@@ -90,7 +91,7 @@ export class SmsStack {
 
             messageLeft--;
 
-            let p_CMGR_SET= resp as AtMessage.P_CMGR_SET;
+            let p_CMGR_SET = resp as AtMessage.P_CMGR_SET;
 
             if (
                 p_CMGR_SET.stat !== AtMessage.MessageStat.REC_READ &&
@@ -105,11 +106,11 @@ export class SmsStack {
 
             let sms: Sms;
 
-            try{
+            try {
 
-                sms= await decodePdu(p_CMGR_SET.pdu);
+                sms = await decodePdu(p_CMGR_SET.pdu);
 
-            }catch(error){
+            } catch (error) {
 
                 debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
                 this.atStack.runCommand(`AT+CMGD=${index}\r`);
@@ -117,7 +118,7 @@ export class SmsStack {
 
             }
 
-            if( sms instanceof SmsStatusReport ){
+            if (sms instanceof SmsStatusReport) {
 
                 this.atStack.runCommand(`AT+CMGD=${index}\r`);
                 continue;
@@ -131,6 +132,9 @@ export class SmsStack {
 
 
     }
+
+
+
 
     private readonly statusReportMap: {
         [messageId: number]: {
@@ -180,11 +184,11 @@ export class SmsStack {
 
             let pdus: Pdu[];
 
-            try{
+            try {
 
                 pdus = await buildSmsSubmitPdus({ number, text, "request_status": true });
 
-            }catch(error){
+            } catch (error) {
 
                 /*
                 this.atStack.evtError.post(error);
@@ -200,7 +204,7 @@ export class SmsStack {
 
                 callback!(NaN);
 
-                return NaN;
+                return null as any;
 
             }
 
@@ -212,7 +216,7 @@ export class SmsStack {
                 "completed": 0
             };
 
-            let i=1;
+            let i = 1;
 
             for (let { length, pdu } of pdus) {
 
@@ -265,18 +269,11 @@ export class SmsStack {
 
     private registerListeners(): void {
 
-        this.atStack.evtUnsolicitedMessage.attach(urc => {
-
-            switch (urc.id) {
-                case AtMessage.idDict.P_CMTI_URC:
-                    this.retrieveSms((urc as AtMessage.P_CMTI_URC).index);
-                    break;
-                case AtMessage.idDict.P_CDSI_URC:
-                    this.retrieveSms((urc as AtMessage.P_CDSI_URC).index);
-                    break;
-            }
-
-        });
+        this.atStack.evtUnsolicitedMessage.attach(
+            (urc): urc is (AtMessage.P_CMTI_URC | AtMessage.P_CDSI_URC) =>
+                (urc instanceof AtMessage.P_CMTI_URC) || (urc instanceof AtMessage.P_CDSI_URC),
+            ({ index }) => this.retrievePdu(index)
+        );
 
         this.evtSmsStatusReport.attach(smsStatusReport => {
 
@@ -405,7 +402,7 @@ export class SmsStack {
 
     }
 
-    private async retrieveSms(index: number) {
+    private async retrievePdu(index: number) {
 
         let [resp] = await this.atStack.runCommand(`AT+CMGR=${index}\r`);
 
