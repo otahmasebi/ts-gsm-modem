@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var at_messages_parser_1 = require("at-messages-parser");
 var ts_events_extended_1 = require("ts-events-extended");
+var _debug = require("debug");
+var debug = _debug("_SystemState");
+require("colors");
 var SystemState = (function () {
     function SystemState(atStack) {
         var _this = this;
@@ -10,6 +13,7 @@ var SystemState = (function () {
         this.isRoaming = undefined;
         this.evtNetworkReady = new ts_events_extended_1.VoidSyncEvent();
         this.evtValidSim = new ts_events_extended_1.VoidSyncEvent();
+        debug("Initialization");
         this.atStack.evtUnsolicitedMessage.attach(function (atMessage) { return _this.update(atMessage); });
         this.atStack.runCommand("AT^SYSINFO\r", function (resp) {
             _this.isRoaming = resp.isRoaming;
@@ -79,13 +83,12 @@ var SystemState = (function () {
             default: return;
         }
         /*
-        console.log(JSON.stringify({
-            "atMessage": atMessage,
+        debug(JSON.stringify({
             "isValidSim": this.isValidSim,
             "isNetworkReady": this.isNetworkReady,
-            "simState": SimState[this.simState],
-            "serviceStatus": ServiceStatus[this.serviceStatus],
-            "sysMode": SysMode[this.sysMode]
+            "simState": AtMessage.SimState[this.simState],
+            "serviceStatus": AtMessage.ServiceStatus[this.serviceStatus],
+            "sysMode": AtMessage.SysMode[this.sysMode]
         }, null, 2));
         */
     };

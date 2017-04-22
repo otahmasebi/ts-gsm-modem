@@ -13,7 +13,7 @@ import * as pr from "ts-promisify";
 import * as _debug from "debug";
 let debug= _debug("_Modem");
 
-require("colors");
+import "colors";
 
 export interface UnlockCodeProviderCallback {
     (pin: string): void;
@@ -133,14 +133,14 @@ export class Modem {
         private readonly callback: CreateCallback
     ) {
 
+        debug(`Initializing new GSM modem on ${params.path}`);
+
         this.atStack = new AtStack(params.path);
 
         this.atStack.runCommand("AT+CGSN\r", resp => {
             this.imei = resp!.raw.split("\r\n")[1];
             debug("IMEI: ", this.imei);
         });
-
-        debug("Init, systemState");
 
         this.systemState = new SystemState(this.atStack);
 
@@ -234,8 +234,6 @@ export class Modem {
 
     private async initCardLockFacility(): Promise<void> {
 
-        debug("Init cardLockFacility");
-
         let cardLockFacility = new CardLockFacility(this.atStack);
 
         cardLockFacility.evtUnlockCodeRequest.attach(({ pinState, times }) => {
@@ -311,8 +309,6 @@ export class Modem {
 
     private initSmsStack(): void {
 
-        debug("Init smsStack");
-
         this.smsStack = new SmsStack(this.atStack);
 
         this.smsStack.evtMessage.attach(async data => {
@@ -348,8 +344,6 @@ export class Modem {
     private cardStorage: CardStorage;
 
     private async initCardStorage(): Promise<void> {
-
-        debug("Init cardStorage");
 
         this.cardStorage = new CardStorage(this.atStack);
 

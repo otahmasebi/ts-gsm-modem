@@ -165,6 +165,7 @@ var CardStorage = (function () {
             return null;
         });
         this.contactByIndex = {};
+        debug("Initialization");
         this.init().then(function () { return _this.evtReady.post(); });
     }
     Object.defineProperty(CardStorage.prototype, "isReady", {
@@ -239,7 +240,6 @@ var CardStorage = (function () {
             return __generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
-                        debug("Init");
                         this.atStack.runCommand("AT+CSCS=\"UCS2\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CNUM\r")];
                     case 1:

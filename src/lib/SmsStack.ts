@@ -22,7 +22,7 @@ import * as pr from "ts-promisify";
 import * as _debug from "debug";
 let debug= _debug("_SmsStack");
 
-require("colors");
+import "colors";
 
 export interface Message {
     number: string;
@@ -58,6 +58,8 @@ export class SmsStack {
 
     constructor(private readonly atStack: AtStack) {
 
+        debug("Initialization");
+
         atStack.runCommand('AT+CPMS="SM","SM","SM"\r', (resp: AtMessage.P_CPMS_SET) => {
 
             let { used, capacity }= resp.readingAndDeleting;
@@ -73,6 +75,8 @@ export class SmsStack {
     }
 
     private async retrieveUnreadSms(used: number, capacity: number) {
+
+        debug(`${used} PDU in sim memory`);
 
         let messageLeft= used;
 
@@ -92,6 +96,9 @@ export class SmsStack {
                 p_CMGR_SET.stat !== AtMessage.MessageStat.REC_READ &&
                 p_CMGR_SET.stat !== AtMessage.MessageStat.REC_UNREAD
             ) {
+
+                debug(`PDU ${AtMessage.MessageStat[p_CMGR_SET.stat]}, deleting...`);
+
                 this.atStack.runCommand(`AT+CMGD=${index}\r`);
                 continue;
             }

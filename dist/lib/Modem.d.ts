@@ -4,6 +4,7 @@ import { CardStorage, Contact } from "./CardStorage";
 import { Message, StatusReport } from "./SmsStack";
 import { SyncEvent } from "ts-events-extended";
 import { ExecQueue } from "ts-exec-queue";
+import "colors";
 export interface UnlockCodeProviderCallback {
     (pin: string): void;
     (puk: string, newPin: string): void;

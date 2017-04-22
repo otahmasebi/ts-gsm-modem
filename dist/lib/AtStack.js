@@ -96,6 +96,7 @@ var AtStack = (function () {
         this.maxRetryWrite = 3;
         this.delayReWrite = 1000;
         this.retryLeftWrite = this.maxRetryWrite;
+        debug("Initialization");
         this.serialPort = new SerialPortExt_1.SerialPortExt(path, {
             "parser": this.serialPortAtParser
         });
@@ -331,7 +332,7 @@ var AtStack = (function () {
     };
     AtStack.prototype.runCommandBase = function (command) {
         return __awaiter(this, void 0, void 0, function () {
-            var echo, writeAndDrainPromise, raw_1, error_1, unparsed, resp, final, atMessage, raw;
+            var writeAndDrainPromise, atMessage, error_1, unparsed, echo, resp, final, raw;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -341,8 +342,7 @@ var AtStack = (function () {
                         _a.trys.push([1, 3, , 9]);
                         return [4 /*yield*/, this.evtResponseAtMessage.waitFor(this.delayReWrite)];
                     case 2:
-                        raw_1 = (_a.sent()).raw;
-                        echo = raw_1;
+                        atMessage = _a.sent();
                         return [3 /*break*/, 9];
                     case 3:
                         error_1 = _a.sent();
@@ -366,13 +366,11 @@ var AtStack = (function () {
                         return [4 /*yield*/, this.runCommandBase(command)];
                     case 8: return [2 /*return*/, _a.sent()];
                     case 9:
+                        echo = "";
                         resp = undefined;
                         _a.label = 10;
                     case 10:
                         if (!true) return [3 /*break*/, 12];
-                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor()];
-                    case 11:
-                        atMessage = _a.sent();
                         if (atMessage.isFinal) {
                             final = atMessage;
                             return [3 /*break*/, 12];
@@ -381,6 +379,9 @@ var AtStack = (function () {
                             echo += atMessage.raw;
                         else
                             resp = atMessage;
+                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor()];
+                    case 11:
+                        atMessage = _a.sent();
                         return [3 /*break*/, 10];
                     case 12: return [4 /*yield*/, writeAndDrainPromise];
                     case 13:

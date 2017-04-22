@@ -2,12 +2,19 @@ import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 
+import * as _debug from "debug";
+let debug= _debug("_SystemState");
+
+import "colors";
+
 export class SystemState {
 
     public readonly evtReportSimPresence = new SyncEvent<boolean>();
     public isRoaming: boolean | undefined = undefined;
 
     constructor(private readonly atStack: AtStack) {
+
+        debug("Initialization");
 
         this.atStack.evtUnsolicitedMessage.attach(atMessage => this.update(atMessage as any));
 
@@ -85,13 +92,12 @@ export class SystemState {
         }
 
         /*
-        console.log(JSON.stringify({
-            "atMessage": atMessage,
+        debug(JSON.stringify({
             "isValidSim": this.isValidSim,
             "isNetworkReady": this.isNetworkReady,
-            "simState": SimState[this.simState],
-            "serviceStatus": ServiceStatus[this.serviceStatus],
-            "sysMode": SysMode[this.sysMode]
+            "simState": AtMessage.SimState[this.simState],
+            "serviceStatus": AtMessage.ServiceStatus[this.serviceStatus],
+            "sysMode": AtMessage.SysMode[this.sysMode]
         }, null, 2));
         */
 

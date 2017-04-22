@@ -116,6 +116,8 @@ export class CardStorage {
 
     constructor(private readonly atStack: AtStack) {
 
+        debug("Initialization");
+
         this.init().then(() => this.evtReady.post());
 
     }
@@ -285,8 +287,6 @@ export class CardStorage {
 
 
     private async init(): Promise<void> {
-
-        debug("Init");
 
         this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
 

@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_events_extended_1 = require("ts-events-extended");
+var _debug = require("debug");
+var debug = _debug("_CardLockFacility");
 require("colors");
 var CardLockFacility = (function () {
     function CardLockFacility(atStack) {
@@ -9,6 +11,7 @@ var CardLockFacility = (function () {
         this.evtPinStateReady = new ts_events_extended_1.VoidSyncEvent();
         this.retrieving = true;
         this.unlocking = false;
+        debug("Initialization");
         this.retrieveCX_CPIN_READ();
     }
     CardLockFacility.prototype.enterPin = function (pin) {

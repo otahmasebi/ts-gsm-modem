@@ -1,6 +1,7 @@
 import { AtStack } from "./AtStack";
 import { ExecQueue } from "ts-exec-queue";
 import { SyncEvent } from "ts-events-extended";
+import "colors";
 export interface Message {
     number: string;
     date: Date;

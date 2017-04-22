@@ -7,7 +7,7 @@ import { Timer, setTimeout } from "timer-extended";
 import * as _debug from "debug";
 let debug= _debug("_AtStack");
 
-require("colors");
+import "colors";
 
 import { 
     getSerialPortParser, 
@@ -74,6 +74,8 @@ export class AtStack {
     private readonly serialPort: SerialPortExt;
     private readonly serialPortAtParser= getSerialPortParser(30000);
     constructor(path: string) {
+
+        debug("Initialization");
 
         this.serialPort = new SerialPortExt(path, {
             "parser": this.serialPortAtParser
@@ -369,15 +371,13 @@ export class AtStack {
 
         //debug(JSON.stringify(command).blue);
 
-        let echo: string;
-
         let writeAndDrainPromise = this.serialPort.writeAndDrain(command);
+
+        let atMessage: AtMessage;
 
         try {
 
-            let { raw } = await this.evtResponseAtMessage.waitFor(this.delayReWrite);
-
-            echo= raw;
+            atMessage = await this.evtResponseAtMessage.waitFor(this.delayReWrite);
 
         } catch (error) {
 
@@ -402,12 +402,11 @@ export class AtStack {
 
         }
 
+        let echo= "";
         let resp: AtMessage | undefined = undefined;
         let final: AtMessage;
 
         while( true ){
-
-            let atMessage = await this.evtResponseAtMessage.waitFor();
 
             if (atMessage.isFinal) {
                 final = atMessage;
@@ -415,6 +414,8 @@ export class AtStack {
             } else if (atMessage.id === AtMessage.idDict.ECHO)
                 echo += atMessage.raw;
             else resp = atMessage;
+
+            atMessage = await this.evtResponseAtMessage.waitFor();
 
         }
 

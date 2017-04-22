@@ -130,6 +130,7 @@ var SmsStack = (function () {
                 }
             });
         }); });
+        debug("Initialization");
         atStack.runCommand('AT+CPMS="SM","SM","SM"\r', function (resp) {
             var _a = resp.readingAndDeleting, used = _a.used, capacity = _a.capacity;
             _this.retrieveUnreadSms(used, capacity);
@@ -143,6 +144,7 @@ var SmsStack = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
+                        debug(used + " PDU in sim memory");
                         messageLeft = used;
                         index = 0;
                         _a.label = 1;
@@ -159,6 +161,7 @@ var SmsStack = (function () {
                         p_CMGR_SET = resp;
                         if (p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_READ &&
                             p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_UNREAD) {
+                            debug("PDU " + at_messages_parser_1.AtMessage.MessageStat[p_CMGR_SET.stat] + ", deleting...");
                             this.atStack.runCommand("AT+CMGD=" + index + "\r");
                             return [3 /*break*/, 7];
                         }

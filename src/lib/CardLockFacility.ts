@@ -2,12 +2,17 @@ import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 
+import * as _debug from "debug";
+let debug= _debug("_CardLockFacility");
+
+import "colors";
+
 export interface UnlockCodeRequest {
     pinState: AtMessage.LockedPinState;
     times: number;
 }
 
-require("colors");
+
 
 export class CardLockFacility {
 
@@ -16,6 +21,8 @@ export class CardLockFacility {
     public readonly evtPinStateReady= new VoidSyncEvent();
 
     constructor(private readonly atStack: AtStack) {
+
+        debug("Initialization");
 
         this.retrieveCX_CPIN_READ();
 

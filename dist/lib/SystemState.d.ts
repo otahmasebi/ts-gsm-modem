@@ -1,6 +1,7 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import "colors";
 export declare class SystemState {
     private readonly atStack;
     readonly evtReportSimPresence: SyncEvent<boolean>;

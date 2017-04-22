@@ -1,6 +1,7 @@
 import { SyncEvent } from "ts-events-extended";
 import { ExecQueue } from "ts-exec-queue";
 import { Timer } from "timer-extended";
+import "colors";
 import { AtMessage } from "at-messages-parser";
 export declare type RunOutputs = [AtMessage | undefined, AtMessage, string];
 export declare type RunCallback = (resp: RunOutputs[0], final: RunOutputs[1], raw: RunOutputs[2]) => void;

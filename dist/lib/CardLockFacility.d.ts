@@ -1,6 +1,7 @@
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
+import "colors";
 export interface UnlockCodeRequest {
     pinState: AtMessage.LockedPinState;
     times: number;

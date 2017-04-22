@@ -131,12 +131,12 @@ var Modem = (function () {
             }
             return _this.cardStorage.writeNumber.apply(_this.cardStorage, inputs);
         }));
+        debug("Initializing new GSM modem on " + params.path);
         this.atStack = new AtStack_1.AtStack(params.path);
         this.atStack.runCommand("AT+CGSN\r", function (resp) {
             _this.imei = resp.raw.split("\r\n")[1];
             debug("IMEI: ", _this.imei);
         });
-        debug("Init, systemState");
         this.systemState = new SystemState_1.SystemState(this.atStack);
         (function () { return __awaiter(_this, void 0, void 0, function () {
             var hasSim, _a;
@@ -269,7 +269,6 @@ var Modem = (function () {
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        debug("Init cardLockFacility");
                         cardLockFacility = new CardLockFacility_1.CardLockFacility(this.atStack);
                         cardLockFacility.evtUnlockCodeRequest.attach(function (_a) {
                             var pinState = _a.pinState, times = _a.times;
@@ -338,7 +337,6 @@ var Modem = (function () {
     };
     Modem.prototype.initSmsStack = function () {
         var _this = this;
-        debug("Init smsStack");
         this.smsStack = new SmsStack_1.SmsStack(this.atStack);
         this.smsStack.evtMessage.attach(function (data) { return __awaiter(_this, void 0, void 0, function () {
             return __generator(this, function (_a) {
@@ -376,7 +374,6 @@ var Modem = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        debug("Init cardStorage");
                         this.cardStorage = new CardStorage_1.CardStorage(this.atStack);
                         return [4 /*yield*/, this.cardStorage.evtReady.waitFor()];
                     case 1:
