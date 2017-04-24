@@ -34,6 +34,7 @@ export interface StatusReport {
     messageId: number;
     dischargeTime: Date;
     isDelivered: boolean;
+    recipient: string;
     status: string;
 }
 
@@ -138,8 +139,8 @@ export class SmsStack {
 
     private readonly statusReportMap: {
         [messageId: number]: {
-            cnt: number,
-            completed: number
+            cnt: number;
+            completed: number;
         }
     } = {};
 
@@ -311,7 +312,8 @@ export class SmsStack {
                 messageId,
                 "dischargeTime": smsStatusReport.sr.dt,
                 isDelivered,
-                "status": TP_ST[smsStatusReport.sr.status]
+                "status": TP_ST[smsStatusReport.sr.status],
+                "recipient": smsStatusReport.sr.recipient
             });
 
 

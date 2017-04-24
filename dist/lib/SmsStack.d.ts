@@ -11,6 +11,7 @@ export interface StatusReport {
     messageId: number;
     dischargeTime: Date;
     isDelivered: boolean;
+    recipient: string;
     status: string;
 }
 export declare class SmsStack {

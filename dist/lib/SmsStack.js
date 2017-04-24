@@ -247,7 +247,8 @@ var SmsStack = (function () {
                 messageId: messageId,
                 "dischargeTime": smsStatusReport.sr.dt,
                 isDelivered: isDelivered,
-                "status": node_python_messaging_1.TP_ST[smsStatusReport.sr.status]
+                "status": node_python_messaging_1.TP_ST[smsStatusReport.sr.status],
+                "recipient": smsStatusReport.sr.recipient
             });
         });
         this.evtSmsDeliver.attach(function (_a) {
