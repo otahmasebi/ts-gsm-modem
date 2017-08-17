@@ -1,5 +1,4 @@
 import { AtStack } from "./AtStack";
-import { ExecQueue } from "ts-exec-queue";
 import { SyncEvent } from "ts-events-extended";
 import "colors";
 export interface Message {
@@ -27,7 +26,7 @@ export declare class SmsStack {
     private readonly mrMessageIdMap;
     private sendPdu(pduLength, pdu);
     private readonly maxTrySendPdu;
-    sendMessage: ((number: string, text: string, callback?: ((messageId: number) => void) | undefined) => Promise<number>) & ExecQueue;
+    sendMessage: (number: string, text: string, callback?: ((messageId: number) => void) | undefined) => Promise<number>;
     private registerListeners();
     private retrievePdu(index);
 }

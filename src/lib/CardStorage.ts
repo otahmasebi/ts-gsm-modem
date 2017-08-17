@@ -1,8 +1,7 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import { execQueue, ExecQueue } from "ts-exec-queue";
-import * as pr from "ts-promisify";
+import * as runExclusive from "run-exclusive";
 
 import * as encoding from "legacy-encoding";
 
@@ -135,7 +134,9 @@ export class CardStorage {
 
     }
 
-    public createContact = execQueue("STORAGE",
+    private storageAccessGroupRef= runExclusive.createGroupRef();
+
+    public createContact = runExclusive.buildMethodCb(this.storageAccessGroupRef,
         (number: string, name: string, callback?: (contact: Contact) => void): Promise<Contact> => {
 
             let contact: Contact = {
@@ -175,7 +176,7 @@ export class CardStorage {
     );
 
 
-    public updateContact = execQueue("STORAGE",
+    public updateContact = runExclusive.buildMethodCb(this.storageAccessGroupRef,
         (index: number, params: {
             number?: string,
             name?: string
@@ -241,7 +242,7 @@ export class CardStorage {
         }
     );
 
-    public deleteContact = execQueue("STORAGE",
+    public deleteContact = runExclusive.buildMethodCb(this.storageAccessGroupRef,
         (index: number, callback?: () => void): Promise<void> => {
 
             if (!this.contactByIndex[index]) {
@@ -265,7 +266,7 @@ export class CardStorage {
 
     public number: string | undefined = undefined;
 
-    public writeNumber = execQueue("STORAGE",
+    public writeNumber = runExclusive.buildMethodCb(this.storageAccessGroupRef,
         (number: string, callback?: () => void): Promise<void> => {
 
             this.number = number;

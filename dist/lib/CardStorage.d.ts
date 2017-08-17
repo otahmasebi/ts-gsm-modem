@@ -1,6 +1,5 @@
 import { AtStack } from "./AtStack";
 import { VoidSyncEvent } from "ts-events-extended";
-import { ExecQueue } from "ts-exec-queue";
 export declare type Encoding = "IRA" | "GSM" | "UCS2";
 export interface Contact {
     index: number;
@@ -20,14 +19,15 @@ export declare class CardStorage {
     constructor(atStack: AtStack);
     private p_CPBR_TEST;
     private getFreeIndex();
-    createContact: ((number: string, name: string, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>) & ExecQueue;
-    updateContact: ((index: number, params: {
+    private storageAccessGroupRef;
+    createContact: (number: string, name: string, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>;
+    updateContact: (index: number, params: {
         number?: string | undefined;
         name?: string | undefined;
-    }, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>) & ExecQueue;
-    deleteContact: ((index: number, callback?: (() => void) | undefined) => Promise<void>) & ExecQueue;
+    }, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>;
+    deleteContact: (index: number, callback?: (() => void) | undefined) => Promise<void>;
     number: string | undefined;
-    writeNumber: ((number: string, callback?: (() => void) | undefined) => Promise<void>) & ExecQueue;
+    writeNumber: (number: string, callback?: (() => void) | undefined) => Promise<void>;
     private readonly contactByIndex;
     private init();
     private static encodeUCS2(text);

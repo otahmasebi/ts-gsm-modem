@@ -12,12 +12,11 @@ import {
     decodePdu, 
     buildSmsSubmitPdus 
 } from "node-python-messaging";
-import { execQueue, ExecQueue } from "ts-exec-queue";
+import * as runExclusive from "run-exclusive";
 import { SyncEvent } from "ts-events-extended";
 import { Timer, setTimeout } from "timer-extended";
 import { TrackableMap } from "trackable-map"
 
-import * as pr from "ts-promisify";
 
 import * as _debug from "debug";
 let debug= _debug("_SmsStack");
@@ -163,7 +162,7 @@ export class SmsStack {
             }, (resp: AtMessage.P_CMGS_SET | undefined, final) => {
 
                 if (!resp)
-                    resolve({ "error": final, "mr": NaN });
+                    resolve({ "error": final as AtMessage.P_CMS_ERROR, "mr": NaN });
                 else
                     resolve({ "error": null, "mr": resp.mr });
 
@@ -177,7 +176,7 @@ export class SmsStack {
     private readonly maxTrySendPdu = 5;
 
     //TODO: More test for when message fail to send
-    public sendMessage = execQueue(
+    public sendMessage = runExclusive.buildMethodCb(
         async (number: string,
             text: string,
             callback?: (messageId: number) => void
@@ -271,9 +270,9 @@ export class SmsStack {
     private registerListeners(): void {
 
         this.atStack.evtUnsolicitedMessage.attach(
-            (urc): urc is (AtMessage.P_CMTI_URC | AtMessage.P_CDSI_URC) =>
+            (urc: AtMessage): urc is (AtMessage.P_CMTI_URC | AtMessage.P_CDSI_URC) =>
                 (urc instanceof AtMessage.P_CMTI_URC) || (urc instanceof AtMessage.P_CDSI_URC),
-            ({ index }) => this.retrievePdu(index)
+            ({index}) => this.retrievePdu(index)
         );
 
         this.evtSmsStatusReport.attach(smsStatusReport => {

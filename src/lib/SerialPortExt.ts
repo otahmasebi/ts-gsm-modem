@@ -1,8 +1,7 @@
 /// <reference path="./ambient/serialport.d.ts"/>
 import * as SerialPort from "serialport";
-import { execQueue, ExecQueue } from "ts-exec-queue";
+import * as runExclusive from "run-exclusive";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import * as pr from "ts-promisify";
 
 const openTimeOut= 5000;
 
@@ -30,9 +29,7 @@ export class SerialPortExt extends SerialPort {
 
     })();
 
-
-
-    public writeAndDrain = execQueue(
+    public writeAndDrain = runExclusive.buildMethodCb(
         async (
             buffer: Buffer | string,
             callback?: () => void
@@ -49,7 +46,7 @@ export class SerialPortExt extends SerialPort {
                 }
             }
 
-            let [errorWrite] = await pr.typed(this, this.write)(buffer);
+            let errorWrite= await new Promise<string | Error | null>(resolve=> this.write(buffer, error=> resolve(error)));
 
             if (errorWrite) {
                 let serialPortError = new SerialPortError(errorWrite, "WRITE");
@@ -57,7 +54,7 @@ export class SerialPortExt extends SerialPort {
                 return;
             }
 
-            let [errorDrain] = await pr.typed(this, this.drain)();
+            let errorDrain= await new Promise<string | Error | null>(resolve=> this.drain(error=> resolve(error)));
 
             if (errorDrain) {
                 let serialPortError = new SerialPortError(errorDrain, "DRAIN");

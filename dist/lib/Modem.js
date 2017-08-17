@@ -8,8 +8,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 var __generator = (this && this.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t;
-    return { next: verb(0), "throw": verb(1), "return": verb(2) };
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
     function verb(n) { return function (v) { return step([n, v]); }; }
     function step(op) {
         if (f) throw new TypeError("Generator is already executing.");
@@ -41,7 +41,7 @@ var CardLockFacility_1 = require("./CardLockFacility");
 var CardStorage_1 = require("./CardStorage");
 var SmsStack_1 = require("./SmsStack");
 var ts_events_extended_1 = require("ts-events-extended");
-var ts_exec_queue_1 = require("ts-exec-queue");
+var runExclusive = require("run-exclusive");
 var _debug = require("debug");
 var debug = _debug("_Modem");
 require("colors");
@@ -51,7 +51,7 @@ var Modem = (function () {
         this.params = params;
         this.callback = callback;
         this.serviceProviderName = undefined;
-        this.runCommand = ts_exec_queue_1.execQueue((function () {
+        this.runCommand = runExclusive.buildMethodCb((function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
@@ -68,7 +68,7 @@ var Modem = (function () {
         this.pin = undefined;
         this.evtMessage = new ts_events_extended_1.SyncEvent();
         this.evtMessageStatusReport = new ts_events_extended_1.SyncEvent();
-        this.sendMessage = ts_exec_queue_1.execQueue((function () {
+        this.sendMessage = runExclusive.buildMethodCb((function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
@@ -103,28 +103,29 @@ var Modem = (function () {
             }
             return _this.cardStorage.getContact.apply(_this.cardStorage, inputs);
         };
-        this.createContact = ts_exec_queue_1.execQueue("STORAGE", (function () {
+        this.storageAccessGroupRef = runExclusive.createGroupRef();
+        this.createContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.createContact.apply(_this.cardStorage, inputs);
         }));
-        this.updateContact = ts_exec_queue_1.execQueue("STORAGE", (function () {
+        this.updateContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.updateContact.apply(_this.cardStorage, inputs);
         }));
-        this.deleteContact = ts_exec_queue_1.execQueue("STORAGE", (function () {
+        this.deleteContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.deleteContact.apply(_this.cardStorage, inputs);
         }));
-        this.writeNumber = ts_exec_queue_1.execQueue("STORAGE", (function () {
+        this.writeNumber = runExclusive.buildMethodCb(this.storageAccessGroupRef, (function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
@@ -240,6 +241,23 @@ var Modem = (function () {
                 }
             });
         });
+    };
+    Object.defineProperty(Modem.prototype, "runCommand_isRunning", {
+        get: function () {
+            return runExclusive.isRunning(this.runCommand);
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Modem.prototype, "runCommand_queuedCallCount", {
+        get: function () {
+            return runExclusive.getQueuedCallCount(this.runCommand);
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Modem.prototype.runCommand_cancelAllQueuedCalls = function () {
+        return runExclusive.cancelAllQueuedCalls(this.runCommand);
     };
     Object.defineProperty(Modem.prototype, "isTerminated", {
         get: function () {

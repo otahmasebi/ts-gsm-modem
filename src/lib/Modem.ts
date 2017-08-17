@@ -7,9 +7,8 @@ import { SerialPortExt } from "./SerialPortExt";
 
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import { execQueue, ExecQueue} from "ts-exec-queue";
+import * as runExclusive from "run-exclusive";
 
-import * as pr from "ts-promisify";
 import * as _debug from "debug";
 let debug= _debug("_Modem");
 
@@ -209,10 +208,22 @@ export class Modem {
     }
 
 
-    public readonly runCommand = execQueue(
+    public readonly runCommand = runExclusive.buildMethodCb(
         ((...inputs) => this.atStack.runCommand.apply(this.atStack, inputs)
         ) as typeof AtStack.prototype.runCommand
     );
+
+    public get runCommand_isRunning(): boolean {
+        return runExclusive.isRunning(this.runCommand);
+    }
+
+    public get runCommand_queuedCallCount(): number {
+        return runExclusive.getQueuedCallCount(this.runCommand);
+    }
+
+    public runCommand_cancelAllQueuedCalls(): number {
+        return runExclusive.cancelAllQueuedCalls(this.runCommand);
+    }
 
 
     public terminate: typeof AtStack.prototype.terminate =
@@ -327,7 +338,7 @@ export class Modem {
 
     }
 
-    public sendMessage = execQueue(
+    public sendMessage = runExclusive.buildMethodCb(
         (async (...inputs) => {
 
             if (!this.systemState.isNetworkReady)
@@ -337,8 +348,6 @@ export class Modem {
 
         }) as any as typeof SmsStack.prototype.sendMessage
     );
-
-
 
 
     private cardStorage: CardStorage;
@@ -379,19 +388,21 @@ export class Modem {
     public getContact: typeof CardStorage.prototype.getContact =
     (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
-    public createContact = execQueue("STORAGE", (
+    private storageAccessGroupRef= runExclusive.createGroupRef();
+
+    public createContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
         (...inputs) => this.cardStorage.createContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.createContact);
 
-    public updateContact = execQueue("STORAGE", (
+    public updateContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
         (...inputs) => this.cardStorage.updateContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.updateContact);
 
-    public deleteContact = execQueue("STORAGE", (
+    public deleteContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
         (...inputs) => this.cardStorage.deleteContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.deleteContact);
 
-    public writeNumber = execQueue("STORAGE", (
+    public writeNumber = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
         (...inputs) => this.cardStorage.writeNumber.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.writeNumber);
 

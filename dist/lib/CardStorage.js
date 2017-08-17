@@ -16,8 +16,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 var __generator = (this && this.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t;
-    return { next: verb(0), "throw": verb(1), "return": verb(2) };
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
     function verb(n) { return function (v) { return step([n, v]); }; }
     function step(op) {
         if (f) throw new TypeError("Generator is already executing.");
@@ -44,7 +44,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_events_extended_1 = require("ts-events-extended");
-var ts_exec_queue_1 = require("ts-exec-queue");
+var runExclusive = require("run-exclusive");
 var encoding = require("legacy-encoding");
 var _debug = require("debug");
 var debug = _debug("_CardStorage");
@@ -77,7 +77,8 @@ var CardStorage = (function () {
         var _this = this;
         this.atStack = atStack;
         this.evtReady = new ts_events_extended_1.VoidSyncEvent();
-        this.createContact = ts_exec_queue_1.execQueue("STORAGE", function (number, name, callback) {
+        this.storageAccessGroupRef = runExclusive.createGroupRef();
+        this.createContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, function (number, name, callback) {
             var contact = {
                 "index": _this.getFreeIndex(),
                 "name": _this.generateSafeContactName(name),
@@ -100,7 +101,7 @@ var CardStorage = (function () {
             });
             return null;
         });
-        this.updateContact = ts_exec_queue_1.execQueue("STORAGE", function (index, params, callback) {
+        this.updateContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, function (index, params, callback) {
             if (!_this.contactByIndex[index]) {
                 _this.atStack.evtError.post(new Error("Contact does not exist"));
                 return null;
@@ -144,7 +145,7 @@ var CardStorage = (function () {
             });
             return null;
         });
-        this.deleteContact = ts_exec_queue_1.execQueue("STORAGE", function (index, callback) {
+        this.deleteContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, function (index, callback) {
             if (!_this.contactByIndex[index]) {
                 _this.atStack.evtError.post(new Error("Contact does not exists"));
                 return null;
@@ -157,7 +158,7 @@ var CardStorage = (function () {
             return null;
         });
         this.number = undefined;
-        this.writeNumber = ts_exec_queue_1.execQueue("STORAGE", function (number, callback) {
+        this.writeNumber = runExclusive.buildMethodCb(this.storageAccessGroupRef, function (number, callback) {
             _this.number = number;
             _this.atStack.runCommand("AT+CPBS=\"ON\"\r");
             _this.atStack.runCommand("AT+CPBW=1,\"" + number + "\"\r");

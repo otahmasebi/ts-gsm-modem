@@ -1,7 +1,6 @@
 import { SerialPortExt } from "./SerialPortExt";
-import * as promisify from "ts-promisify";
 import { SyncEvent } from "ts-events-extended";
-import { execQueue, ExecQueue } from "ts-exec-queue";
+import * as runExclusive from "run-exclusive";
 import { Timer, setTimeout } from "timer-extended";
 
 import * as _debug from "debug";
@@ -204,12 +203,12 @@ export class AtStack {
     }
 
 
-    public runCommand = execQueue(this.runCommandManageParams);
+    //public runCommand = execQueue(this.runCommandManageParams);
+    public runCommand = runExclusive.buildMethodCb(this.runCommandManageParams);
 
     private async runCommandManageParams(command: string, callback?: RunCallback): Promise<RunOutputs>;
     private async runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): Promise<RunOutputs>;
     private async runCommandManageParams(...inputs: any[]): Promise<any> {
-
 
         let command: string | undefined = undefined;
         let params: RunParams['userProvided'] | undefined = undefined;

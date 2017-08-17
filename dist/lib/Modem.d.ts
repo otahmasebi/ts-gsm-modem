@@ -3,7 +3,6 @@ import { AtMessage } from "at-messages-parser";
 import { CardStorage, Contact } from "./CardStorage";
 import { Message, StatusReport } from "./SmsStack";
 import { SyncEvent } from "ts-events-extended";
-import { ExecQueue } from "ts-exec-queue";
 import "colors";
 export interface UnlockCodeProviderCallback {
     (pin: string): void;
@@ -34,7 +33,7 @@ export declare class Modem {
     iccidAvailableBeforeUnlock: boolean;
     imsi: string;
     serviceProviderName: string | undefined;
-    private constructor(params, callback);
+    private constructor();
     private readIccid();
     readonly runCommand: {
         (command: string, callback?: ((resp: AtMessage | undefined, final: AtMessage, raw: string) => void) | undefined): Promise<[AtMessage | undefined, AtMessage, string]>;
@@ -43,7 +42,10 @@ export declare class Modem {
             reportMode?: AtMessage.ReportMode | undefined;
             retryOnErrors?: boolean | number[] | undefined;
         }, callback?: ((resp: AtMessage | undefined, final: AtMessage, raw: string) => void) | undefined): Promise<[AtMessage | undefined, AtMessage, string]>;
-    } & ExecQueue;
+    };
+    readonly runCommand_isRunning: boolean;
+    readonly runCommand_queuedCallCount: number;
+    runCommand_cancelAllQueuedCalls(): number;
     terminate: typeof AtStack.prototype.terminate;
     readonly isTerminated: typeof AtStack.prototype.isTerminated;
     readonly evtTerminate: typeof AtStack.prototype.evtTerminate;
@@ -54,7 +56,7 @@ export declare class Modem {
     readonly evtMessage: SyncEvent<Message>;
     readonly evtMessageStatusReport: SyncEvent<StatusReport>;
     private initSmsStack();
-    sendMessage: ((number: string, text: string, callback?: ((messageId: number) => void) | undefined) => Promise<number>) & ExecQueue;
+    sendMessage: (number: string, text: string, callback?: ((messageId: number) => void) | undefined) => Promise<number>;
     private cardStorage;
     private initCardStorage();
     readonly number: typeof CardStorage.prototype.number;
@@ -64,11 +66,12 @@ export declare class Modem {
     readonly storageLeft: typeof CardStorage.prototype.storageLeft;
     generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName;
     getContact: typeof CardStorage.prototype.getContact;
-    createContact: ((number: string, name: string, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>) & ExecQueue;
-    updateContact: ((index: number, params: {
+    private storageAccessGroupRef;
+    createContact: (number: string, name: string, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>;
+    updateContact: (index: number, params: {
         number?: string | undefined;
         name?: string | undefined;
-    }, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>) & ExecQueue;
-    deleteContact: ((index: number, callback?: (() => void) | undefined) => Promise<void>) & ExecQueue;
-    writeNumber: ((number: string, callback?: (() => void) | undefined) => Promise<void>) & ExecQueue;
+    }, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>;
+    deleteContact: (index: number, callback?: (() => void) | undefined) => Promise<void>;
+    writeNumber: (number: string, callback?: (() => void) | undefined) => Promise<void>;
 }

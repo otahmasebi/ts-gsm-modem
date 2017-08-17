@@ -1,5 +1,4 @@
 import { SyncEvent } from "ts-events-extended";
-import { ExecQueue } from "ts-exec-queue";
 import { Timer } from "timer-extended";
 import "colors";
 import { AtMessage } from "at-messages-parser";
@@ -43,7 +42,7 @@ export declare class AtStack {
             reportMode?: AtMessage.ReportMode | undefined;
             retryOnErrors?: boolean | number[] | undefined;
         }, callback?: RunCallback | undefined): Promise<[AtMessage | undefined, AtMessage, string]>;
-    } & ExecQueue;
+    };
     private runCommandManageParams(command, callback?);
     private runCommandManageParams(command, params, callback?);
     private reportMode;

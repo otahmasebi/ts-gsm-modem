@@ -2,7 +2,6 @@ import { Monitor } from "gsm-modem-connection";
 import { Modem } from "../lib/index";
 import { AtMessage } from "at-messages-parser";
 import { CardStorage } from "../lib/CardStorage";
-import * as pr from "ts-promisify";
 import * as fs from "fs";
 import * as path from "path";
 import * as repl from "repl";
@@ -12,7 +11,7 @@ Monitor.evtModemConnect.attach(async accessPoint => {
 
     //Monitor.stop();
 
-    console.log("CONNECTION: ", accessPoint.toString());
+    console.log("CONNECTION!: ", accessPoint.toString());
 
     let [error, modem, hasSim] = await Modem.create({
         "path": accessPoint.dataIfPath,
@@ -41,6 +40,10 @@ Monitor.evtModemConnect.attach(async accessPoint => {
         return;
     }
 
+    let contacts= modem.contacts
+
+    console.log({ contacts });
+
     modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
     modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
@@ -51,6 +54,7 @@ Monitor.evtModemConnect.attach(async accessPoint => {
 
     modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
     //modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+
 
 
     let { context } = repl.start({
