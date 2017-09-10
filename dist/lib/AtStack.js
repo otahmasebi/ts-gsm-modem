@@ -422,4 +422,3 @@ var ParseError = (function (_super) {
     return ParseError;
 }(Error));
 exports.ParseError = ParseError;
-//# sourceMappingURL=AtStack.js.map

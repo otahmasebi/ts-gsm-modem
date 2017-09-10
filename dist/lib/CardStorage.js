@@ -237,7 +237,7 @@ var CardStorage = (function () {
     };
     CardStorage.prototype.init = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var resp, atMessageList, p_CNUM_EXEC, _a, minIndex, maxIndex, contactLeft, index, _b, resp_1, final, name_1, number, p_CPBR_EXEC, _c, resp_2, final_1, p_CPBR_EXEC, nameAsUcs2;
+            var resp, atMessageList, p_CNUM_EXEC, _a, minIndex, maxIndex, contactLeft, index, _b, resp_1, final, name, number, p_CPBR_EXEC, _c, resp_2, final_1, p_CPBR_EXEC, nameAsUcs2;
             return __generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
@@ -274,14 +274,14 @@ var CardStorage = (function () {
                         if (final.isError && final.code === 22)
                             return [3 /*break*/, 8];
                         contactLeft--;
-                        name_1 = "\uFFFD";
+                        name = "\uFFFD";
                         number = "";
                         if (resp_1) {
                             p_CPBR_EXEC = resp_1;
-                            name_1 = p_CPBR_EXEC.text;
+                            name = p_CPBR_EXEC.text;
                             number = p_CPBR_EXEC.number;
                         }
-                        if (!(!resp_1 || CardStorage.countFFFD(name_1))) return [3 /*break*/, 7];
+                        if (!(!resp_1 || CardStorage.countFFFD(name))) return [3 /*break*/, 7];
                         this.atStack.runCommand("AT+CSCS=\"UCS2\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=" + index + "\r", { "recoverable": true })];
                     case 6:
@@ -293,12 +293,12 @@ var CardStorage = (function () {
                             nameAsUcs2 = CardStorage.decodeUCS2(p_CPBR_EXEC.text);
                             if (!number)
                                 number = p_CPBR_EXEC.number;
-                            if (CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name_1))
-                                name_1 = nameAsUcs2;
+                            if (CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name))
+                                name = nameAsUcs2;
                         }
                         _d.label = 7;
                     case 7:
-                        this.contactByIndex[index] = { index: index, number: number, name: name_1 };
+                        this.contactByIndex[index] = { index: index, number: number, name: name };
                         _d.label = 8;
                     case 8:
                         index++;
@@ -351,4 +351,3 @@ var CardStorage = (function () {
     return CardStorage;
 }());
 exports.CardStorage = CardStorage;
-//# sourceMappingURL=CardStorage.js.map

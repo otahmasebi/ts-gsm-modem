@@ -8,4 +8,3 @@ __export(require("./Modem"));
 var at_messages_parser_1 = require("at-messages-parser");
 exports.AtMessage = at_messages_parser_1.AtMessage;
 __export(require("./SerialPortExt"));
-//# sourceMappingURL=index.js.map

@@ -127,4 +127,3 @@ var SerialPortError = (function (_super) {
     return SerialPortError;
 }(Error));
 exports.SerialPortError = SerialPortError;
-//# sourceMappingURL=SerialPortExt.js.map

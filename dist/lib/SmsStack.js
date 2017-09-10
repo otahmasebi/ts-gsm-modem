@@ -58,7 +58,7 @@ var SmsStack = (function () {
         this.maxTrySendPdu = 5;
         //TODO: More test for when message fail to send
         this.sendMessage = runExclusive.buildMethodCb(function (number, text, callback) { return __awaiter(_this, void 0, void 0, function () {
-            var pdus, error_1, messageId, i, _i, pdus_1, _a, length_1, pdu, mr, error, tryLeft, result, _b, _c, mr_1;
+            var pdus, error_1, messageId, i, _i, pdus_1, _a, length, pdu, mr, error, tryLeft, result, _b, _c, mr_1;
             return __generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
@@ -92,7 +92,7 @@ var SmsStack = (function () {
                         _d.label = 4;
                     case 4:
                         if (!(_i < pdus_1.length)) return [3 /*break*/, 9];
-                        _a = pdus_1[_i], length_1 = _a.length, pdu = _a.pdu;
+                        _a = pdus_1[_i], length = _a.length, pdu = _a.pdu;
                         debug("Sending Message part " + i++ + "/" + pdus.length + " of message id: " + messageId);
                         mr = NaN;
                         error = null;
@@ -102,7 +102,7 @@ var SmsStack = (function () {
                         if (!(tryLeft-- && isNaN(mr))) return [3 /*break*/, 7];
                         if (tryLeft < this.maxTrySendPdu - 1)
                             console.log("Retry sending PDU".red);
-                        return [4 /*yield*/, this.sendPdu(length_1, pdu)];
+                        return [4 /*yield*/, this.sendPdu(length, pdu)];
                     case 6:
                         result = _d.sent();
                         mr = result.mr;
@@ -217,10 +217,10 @@ var SmsStack = (function () {
             return _this.retrievePdu(index);
         });
         this.evtSmsStatusReport.attach(function (smsStatusReport) {
-            //console.log(JSON.stringify(smsStatusReport, null,2).blue);
             var messageId = _this.mrMessageIdMap[smsStatusReport.ref];
             if (!messageId)
                 return;
+            //console.log(JSON.stringify(smsStatusReport, null,2).blue);
             var isDelivered = true;
             switch (smsStatusReport._stClass) {
                 case "RESERVED":
@@ -247,7 +247,7 @@ var SmsStack = (function () {
                 messageId: messageId,
                 "dischargeTime": smsStatusReport.sr.dt,
                 isDelivered: isDelivered,
-                "status": node_python_messaging_1.TP_ST[smsStatusReport.sr.status],
+                "status": smsStatusReport._status,
                 "recipient": smsStatusReport.sr.recipient
             });
         });
@@ -348,4 +348,3 @@ var SmsStack = (function () {
     return SmsStack;
 }());
 exports.SmsStack = SmsStack;
-//# sourceMappingURL=SmsStack.js.map

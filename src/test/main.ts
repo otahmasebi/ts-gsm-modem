@@ -52,10 +52,11 @@ Monitor.evtModemConnect.attach(async accessPoint => {
 
     console.log("Sending: \n".green, JSON.stringify(messageText));
 
-    modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
-    //modem.sendMessage("0636786385", messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+    let joseph= "0636786385";
 
 
+    modem.sendMessage(joseph, messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+    //modem.sendMessage("0636786385", "foo bar", messageId => console.log("MESSAGE ID: ".red, messageId));
 
     let { context } = repl.start({
         "terminal": true,

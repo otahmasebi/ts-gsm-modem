@@ -277,13 +277,13 @@ export class SmsStack {
 
         this.evtSmsStatusReport.attach(smsStatusReport => {
 
-            //console.log(JSON.stringify(smsStatusReport, null,2).blue);
-
             let messageId = this.mrMessageIdMap[smsStatusReport.ref];
 
             if (!messageId) return;
 
-            let isDelivered: boolean = true;
+            //console.log(JSON.stringify(smsStatusReport, null,2).blue);
+
+            let isDelivered: boolean= true;
 
             switch (smsStatusReport._stClass) {
                 case "RESERVED":
@@ -311,7 +311,7 @@ export class SmsStack {
                 messageId,
                 "dischargeTime": smsStatusReport.sr.dt,
                 isDelivered,
-                "status": TP_ST[smsStatusReport.sr.status],
+                "status": smsStatusReport._status,
                 "recipient": smsStatusReport.sr.recipient
             });
 

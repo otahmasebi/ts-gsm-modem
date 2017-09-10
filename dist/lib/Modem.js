@@ -440,4 +440,3 @@ var Modem = (function () {
     return Modem;
 }());
 exports.Modem = Modem;
-//# sourceMappingURL=Modem.js.map

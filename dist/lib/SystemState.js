@@ -95,4 +95,3 @@ var SystemState = (function () {
     return SystemState;
 }());
 exports.SystemState = SystemState;
-//# sourceMappingURL=SystemState.js.map
