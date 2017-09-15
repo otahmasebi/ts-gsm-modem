@@ -17,7 +17,7 @@ export class SerialPortExt extends SerialPort {
 
 
 
-    private registerListener: void= (()=>{
+    private registerListener: void = (() => {
 
         this.on("error", error => this.evtError.post(new SerialPortError(error)));
 
@@ -25,7 +25,7 @@ export class SerialPortExt extends SerialPort {
 
         this.on("data", (...data) => this.evtData.post(data));
 
-        this.on("close", ()=> this.evtOpen.stopWaiting());
+        this.on("close", () => this.evtOpen.stopWaiting());
 
     })();
 
@@ -37,16 +37,21 @@ export class SerialPortExt extends SerialPort {
 
             if (!this.isOpen()) {
 
-                let hasTimeout = await this.evtOpen.waitFor(openTimeOut);
+                try {
 
-                if (hasTimeout) {
+                    await this.evtOpen.waitFor(openTimeOut);
+
+                } catch (_error) {
+
                     let error = new SerialPortError("Serial port took too much time to open", "OPEN_TIMEOUT");
                     this.evtError.post(error);
                     return;
+
                 }
+
             }
 
-            let errorWrite= await new Promise<string | Error | null>(resolve=> this.write(buffer, error=> resolve(error)));
+            let errorWrite = await new Promise<string | Error | null>(resolve => this.write(buffer, error => resolve(error)));
 
             if (errorWrite) {
                 let serialPortError = new SerialPortError(errorWrite, "WRITE");
@@ -54,7 +59,7 @@ export class SerialPortExt extends SerialPort {
                 return;
             }
 
-            let errorDrain= await new Promise<string | Error | null>(resolve=> this.drain(error=> resolve(error)));
+            let errorDrain = await new Promise<string | Error | null>(resolve => this.drain(error => resolve(error)));
 
             if (errorDrain) {
                 let serialPortError = new SerialPortError(errorDrain, "DRAIN");

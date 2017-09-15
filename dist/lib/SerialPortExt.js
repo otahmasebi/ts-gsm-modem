@@ -72,22 +72,25 @@ var SerialPortExt = (function (_super) {
         })();
         _this.writeAndDrain = runExclusive.buildMethodCb(function (buffer, callback) { return __awaiter(_this, void 0, void 0, function () {
             var _this = this;
-            var hasTimeout, error, errorWrite, serialPortError, errorDrain, serialPortError;
+            var _error_1, error, errorWrite, serialPortError, errorDrain, serialPortError;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!!this.isOpen()) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this.evtOpen.waitFor(openTimeOut)];
+                        if (!!this.isOpen()) return [3 /*break*/, 4];
+                        _a.label = 1;
                     case 1:
-                        hasTimeout = _a.sent();
-                        if (hasTimeout) {
-                            error = new SerialPortError("Serial port took too much time to open", "OPEN_TIMEOUT");
-                            this.evtError.post(error);
-                            return [2 /*return*/];
-                        }
-                        _a.label = 2;
-                    case 2: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
+                        _a.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, this.evtOpen.waitFor(openTimeOut)];
+                    case 2:
+                        _a.sent();
+                        return [3 /*break*/, 4];
                     case 3:
+                        _error_1 = _a.sent();
+                        error = new SerialPortError("Serial port took too much time to open", "OPEN_TIMEOUT");
+                        this.evtError.post(error);
+                        return [2 /*return*/];
+                    case 4: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
+                    case 5:
                         errorWrite = _a.sent();
                         if (errorWrite) {
                             serialPortError = new SerialPortError(errorWrite, "WRITE");
@@ -95,7 +98,7 @@ var SerialPortExt = (function (_super) {
                             return [2 /*return*/];
                         }
                         return [4 /*yield*/, new Promise(function (resolve) { return _this.drain(function (error) { return resolve(error); }); })];
-                    case 4:
+                    case 6:
                         errorDrain = _a.sent();
                         if (errorDrain) {
                             serialPortError = new SerialPortError(errorDrain, "DRAIN");
