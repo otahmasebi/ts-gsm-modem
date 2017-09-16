@@ -40,6 +40,8 @@ Monitor.evtModemConnect.attach(async accessPoint => {
         return;
     }
 
+    console.log(`isVoiceEnabled: ${modem.isVoiceEnabled}`);
+
     let contacts= modem.contacts
 
     console.log({ contacts });
@@ -54,9 +56,8 @@ Monitor.evtModemConnect.attach(async accessPoint => {
 
     let joseph= "0636786385";
 
-
-    modem.sendMessage(joseph, messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
-    //modem.sendMessage("0636786385", "foo bar", messageId => console.log("MESSAGE ID: ".red, messageId));
+    //modem.sendMessage(joseph, messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+    modem.sendMessage("0636786385", "foo bar", messageId => console.log("MESSAGE ID: ".red, messageId));
 
     let { context } = repl.start({
         "terminal": true,

@@ -51,6 +51,7 @@ var Modem = (function () {
         this.params = params;
         this.callback = callback;
         this.serviceProviderName = undefined;
+        this.isVoiceEnabled = undefined;
         this.runCommand = runExclusive.buildMethodCb((function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
@@ -283,7 +284,7 @@ var Modem = (function () {
     Modem.prototype.initCardLockFacility = function () {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var cardLockFacility, cx_SPN_SET, _a, resp;
+            var cardLockFacility, cx_SPN_SET, _a, resp, resp_CX_CVOICE_SET, cx_CVOICE_READ;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
@@ -342,6 +343,17 @@ var Modem = (function () {
                         resp = (_b.sent())[0];
                         this.imsi = resp.raw.split("\r\n")[1];
                         debug("IMSI: ", this.imsi);
+                        return [4 /*yield*/, this.atStack.runCommand("AT^CVOICE=0\r", { "recoverable": true })];
+                    case 8:
+                        resp_CX_CVOICE_SET = _b.sent();
+                        if (!!resp_CX_CVOICE_SET[1].isError) return [3 /*break*/, 10];
+                        return [4 /*yield*/, this.atStack.runCommand("AT^CVOICE?\r", { "recoverable": true })];
+                    case 9:
+                        cx_CVOICE_READ = (_b.sent())[0];
+                        if (cx_CVOICE_READ)
+                            this.isVoiceEnabled = cx_CVOICE_READ.isEnabled;
+                        _b.label = 10;
+                    case 10:
                         if (this.params.enableSmsStack)
                             this.initSmsStack();
                         if (this.params.enableCardStorage)

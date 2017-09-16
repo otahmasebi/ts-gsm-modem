@@ -121,6 +121,7 @@ export class Modem {
     public iccidAvailableBeforeUnlock: boolean;
     public imsi: string;
     public serviceProviderName: string | undefined= undefined;
+    public isVoiceEnabled: boolean | undefined= undefined;
 
     private constructor(
         private readonly params: {
@@ -305,6 +306,25 @@ export class Modem {
         this.imsi = resp!.raw.split("\r\n")[1];
 
         debug("IMSI: ", this.imsi);
+
+        //TODO: check voice
+
+        let resp_CX_CVOICE_SET = await this.atStack.runCommand(
+            "AT^CVOICE=0\r", 
+            { "recoverable": true }
+        );
+
+        if( !resp_CX_CVOICE_SET[1].isError ){
+
+            let [ cx_CVOICE_READ ] = await this.atStack.runCommand(
+                "AT^CVOICE?\r", 
+                { "recoverable": true }
+            );
+
+            if( cx_CVOICE_READ )
+                this.isVoiceEnabled= (cx_CVOICE_READ as AtMessage.CX_CVOICE_READ).isEnabled;
+
+        }
 
         if (this.params.enableSmsStack) this.initSmsStack();
         if (this.params.enableCardStorage) this.initCardStorage();

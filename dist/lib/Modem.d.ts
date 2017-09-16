@@ -33,6 +33,7 @@ export declare class Modem {
     iccidAvailableBeforeUnlock: boolean;
     imsi: string;
     serviceProviderName: string | undefined;
+    isVoiceEnabled: boolean | undefined;
     private constructor();
     private readIccid();
     readonly runCommand: {
