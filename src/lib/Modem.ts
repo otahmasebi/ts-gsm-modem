@@ -168,6 +168,15 @@ export class Modem {
 
     }
 
+    public async ping() {
+
+        await this.atStack.runCommand("AT\r");
+
+        return;
+
+    }
+
+
     private async readIccid(): Promise<string> {
 
         let switchedIccid: string | undefined;
@@ -329,7 +338,6 @@ export class Modem {
         if (this.params.enableSmsStack) this.initSmsStack();
         if (this.params.enableCardStorage) this.initCardStorage();
         else this.callback(null, this, true);
-
 
     }
 

@@ -40,6 +40,22 @@ Monitor.evtModemConnect.attach(async accessPoint => {
         return;
     }
 
+    ( async function keepAlive(){
+
+        while( true ){
+
+            if( modem.isTerminated ) return;
+
+            await new Promise(resolve=>setTimeout(resolve,1000));
+
+            await modem!.ping();
+
+            console.log("PING");
+
+        }
+
+    })();
+
     console.log(`isVoiceEnabled: ${modem.isVoiceEnabled}`);
 
     let contacts= modem.contacts
@@ -56,7 +72,7 @@ Monitor.evtModemConnect.attach(async accessPoint => {
 
     let joseph= "0636786385";
 
-    //modem.sendMessage(joseph, messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
+    modem.sendMessage(joseph, messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
     modem.sendMessage("0636786385", "foo bar", messageId => console.log("MESSAGE ID: ".red, messageId));
 
     let { context } = repl.start({

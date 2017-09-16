@@ -35,6 +35,7 @@ export declare class Modem {
     serviceProviderName: string | undefined;
     isVoiceEnabled: boolean | undefined;
     private constructor();
+    ping(): Promise<void>;
     private readIccid();
     readonly runCommand: {
         (command: string, callback?: ((resp: AtMessage | undefined, final: AtMessage, raw: string) => void) | undefined): Promise<[AtMessage | undefined, AtMessage, string]>;

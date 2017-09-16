@@ -209,6 +209,18 @@ var Modem = (function () {
         });
     };
     ;
+    Modem.prototype.ping = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.atStack.runCommand("AT\r")];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
     Modem.prototype.readIccid = function () {
         return __awaiter(this, void 0, void 0, function () {
             var switchedIccid, _a, resp, final, _b, resp_1, final_1;
