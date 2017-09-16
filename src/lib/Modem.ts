@@ -335,6 +335,8 @@ export class Modem {
 
         }
 
+        debug("VOICE ENABLED: ", this.isVoiceEnabled);
+
         if (this.params.enableSmsStack) this.initSmsStack();
         if (this.params.enableCardStorage) this.initCardStorage();
         else this.callback(null, this, true);

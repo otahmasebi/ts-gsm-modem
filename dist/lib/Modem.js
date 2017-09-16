@@ -366,6 +366,7 @@ var Modem = (function () {
                             this.isVoiceEnabled = cx_CVOICE_READ.isEnabled;
                         _b.label = 10;
                     case 10:
+                        debug("VOICE ENABLED: ", this.isVoiceEnabled);
                         if (this.params.enableSmsStack)
                             this.initSmsStack();
                         if (this.params.enableCardStorage)
