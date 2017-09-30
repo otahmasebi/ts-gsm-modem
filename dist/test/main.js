@@ -42,12 +42,12 @@ var fs = require("fs");
 var path = require("path");
 var repl = require("repl");
 require("colors");
-gsm_modem_connection_1.Monitor.evtModemConnect.attach(function (accessPoint) { return __awaiter(_this, void 0, void 0, function () {
+gsm_modem_connection_1.Monitor.getInstance().evtModemConnect.attach(function (accessPoint) { return __awaiter(_this, void 0, void 0, function () {
     var _a, error, modem, hasSim, contacts, messageText, joseph, context;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
-                //Monitor.stop();
+                gsm_modem_connection_1.Monitor.getInstance().stop();
                 console.log("CONNECTION!: ", accessPoint.toString());
                 return [4 /*yield*/, index_1.Modem.create({
                         "path": accessPoint.dataIfPath,

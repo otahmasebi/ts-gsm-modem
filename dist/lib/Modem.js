@@ -184,7 +184,7 @@ var Modem = (function () {
                 };
             case "function":
                 return unlockCodeProvider;
-            default: throw new Error("No action defined for unlock card");
+            default: throw new Error("No action defined for pin locked sim card");
         }
     };
     Modem.create = function (params, callback) {
@@ -303,7 +303,7 @@ var Modem = (function () {
                         cardLockFacility = new CardLockFacility_1.CardLockFacility(this.atStack);
                         cardLockFacility.evtUnlockCodeRequest.attach(function (_a) {
                             var pinState = _a.pinState, times = _a.times;
-                            _this.params.unlockCodeProvider(_this.imei, _this.iccid, pinState, times, function () {
+                            _this.params.unlockCodeProvider(_this.imei, (_this.iccidAvailableBeforeUnlock) ? _this.iccid : undefined, pinState, times, function () {
                                 var inputs = [];
                                 for (var _i = 0; _i < arguments.length; _i++) {
                                     inputs[_i] = arguments[_i];

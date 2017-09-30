@@ -7,9 +7,9 @@ import * as path from "path";
 import * as repl from "repl";
 require("colors");
 
-Monitor.evtModemConnect.attach(async accessPoint => {
+Monitor.getInstance().evtModemConnect.attach(async accessPoint => {
 
-    //Monitor.stop();
+    Monitor.getInstance().stop();
 
     console.log("CONNECTION!: ", accessPoint.toString());
 

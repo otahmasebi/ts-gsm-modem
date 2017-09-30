@@ -22,7 +22,7 @@ export interface UnlockCodeProviderCallback {
 export interface UnlockCodeProvider {
     handler(
         imei: string,
-        iccid: string,
+        iccid: string | undefined,
         pinState: AtMessage.LockedPinState,
         tryLeft: number,
         callback: UnlockCodeProviderCallback
@@ -65,7 +65,7 @@ export class Modem {
                     };
                 case "function":
                     return unlockCodeProvider as UnlockCodeProvider['handler'];
-                default: throw new Error("No action defined for unlock card");
+                default: throw new Error("No action defined for pin locked sim card");
             }
 
     }
@@ -259,7 +259,11 @@ export class Modem {
 
         cardLockFacility.evtUnlockCodeRequest.attach(({ pinState, times }) => {
 
-            this.params.unlockCodeProvider(this.imei, this.iccid, pinState, times, (...inputs) => {
+            this.params.unlockCodeProvider(
+                this.imei, 
+                (this.iccidAvailableBeforeUnlock)?this.iccid:undefined, 
+                pinState, 
+                times, (...inputs) => {
 
                 switch (pinState) {
                     case "SIM PIN":

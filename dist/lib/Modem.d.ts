@@ -9,7 +9,7 @@ export interface UnlockCodeProviderCallback {
     (puk: string, newPin: string): void;
 }
 export interface UnlockCodeProvider {
-    handler(imei: string, iccid: string, pinState: AtMessage.LockedPinState, tryLeft: number, callback: UnlockCodeProviderCallback): void;
+    handler(imei: string, iccid: string | undefined, pinState: AtMessage.LockedPinState, tryLeft: number, callback: UnlockCodeProviderCallback): void;
     explicit: {
         pinFirstTry: string;
         pinSecondTry?: string;
