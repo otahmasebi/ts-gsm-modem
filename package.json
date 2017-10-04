@@ -1,11 +1,12 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.16.5",
+  "version": "0.17.0",
   "description": "GSM Modem manager",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
   "scripts": {
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
+    "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
     "test": "DEBUG=_* node ./dist/test/main"
   },
   "repository": {
@@ -33,7 +34,8 @@
     "serialport": "EmergingTechnologyAdvisors/node-serialport#4.0.7",
     "timer-extended": "garronej/timer-extended",
     "trackable-map": "github:garronej/trackable-map",
-    "ts-events-extended": "garronej/ts-events-extended"
+    "ts-events-extended": "garronej/ts-events-extended",
+    "gsm-modem-connection": "git+https://a30f7432b117d8320cc21cc03513817c3f08d4b6:x-oauth-basic@github.com/garronej/gsm-modem-connection"
   },
   "devDependencies": {
     "gsm-modem-connection": "git+https://a30f7432b117d8320cc21cc03513817c3f08d4b6:x-oauth-basic@github.com/garronej/gsm-modem-connection.git",

@@ -36,94 +36,61 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
-var gsm_modem_connection_1 = require("gsm-modem-connection");
 var index_1 = require("../lib/index");
 var fs = require("fs");
 var path = require("path");
-var repl = require("repl");
 require("colors");
-gsm_modem_connection_1.Monitor.getInstance().evtModemConnect.attach(function (accessPoint) { return __awaiter(_this, void 0, void 0, function () {
-    var _a, error, modem, hasSim, contacts, messageText, joseph, context;
-    return __generator(this, function (_b) {
-        switch (_b.label) {
+var _debug = require("debug");
+var debug = _debug("_main");
+(function () { return __awaiter(_this, void 0, void 0, function () {
+    var accessPoint, modem, error_1, initializationError, contacts, messageText, joseph, sentMessageId;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
             case 0:
-                gsm_modem_connection_1.Monitor.getInstance().stop();
-                console.log("CONNECTION!: ", accessPoint.toString());
-                return [4 /*yield*/, index_1.Modem.create({
-                        "path": accessPoint.dataIfPath,
-                        "unlockCodeProvider": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
-                        "disableContactsFeatures": false
-                    })];
+                debug("Started, looking for connected modem...");
+                return [4 /*yield*/, index_1.ConnectionMonitor.getInstance().evtModemConnect.waitFor()];
             case 1:
-                _a = _b.sent(), error = _a[0], modem = _a[1], hasSim = _a[2];
-                if (error) {
-                    console.log("Initialization error: ".red, error);
-                    return [2 /*return*/];
-                }
+                accessPoint = _a.sent();
+                _a.label = 2;
+            case 2:
+                _a.trys.push([2, 4, , 5]);
+                return [4 /*yield*/, index_1.Modem.create({
+                        "dataIfPath": accessPoint.dataIfPath,
+                        "unlock": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
+                        "enableTrace": true
+                    })];
+            case 3:
+                modem = _a.sent();
+                return [3 /*break*/, 5];
+            case 4:
+                error_1 = _a.sent();
+                initializationError = error_1;
+                debug(initializationError);
+                return [2 /*return*/];
+            case 5:
                 modem.evtTerminate.attachOnce(function (error) {
-                    console.log("Terminate!");
-                    if (error)
-                        console.log(error);
-                    else
-                        console.log("Modem disconnect or manually terminate");
+                    debug("Modem terminate", { error: error });
+                    index_1.ConnectionMonitor.getInstance().stop();
                 });
-                if (!hasSim) {
-                    console.log("NO SIM".red);
-                    modem.terminate();
-                    return [2 /*return*/];
-                }
-                (function keepAlive() {
-                    return __awaiter(this, void 0, void 0, function () {
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (!true) return [3 /*break*/, 3];
-                                    if (modem.isTerminated)
-                                        return [2 /*return*/];
-                                    return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 1000); })];
-                                case 1:
-                                    _a.sent();
-                                    return [4 /*yield*/, modem.ping()];
-                                case 2:
-                                    _a.sent();
-                                    console.log("PING");
-                                    return [3 /*break*/, 0];
-                                case 3: return [2 /*return*/];
-                            }
-                        });
-                    });
-                })();
                 contacts = modem.contacts;
                 console.log({ contacts: contacts });
-                modem.evtMessage.attach(function (message) { return console.log("NEW MESSAGE: ".green, message); });
-                modem.evtMessageStatusReport.attach(function (statusReport) { return console.log("MESSAGE STATUS REPORT: ".yellow, statusReport); });
+                modem.evtMessage.attach(function (message) { return debug("NEW MESSAGE: ".green, message); });
+                modem.evtMessageStatusReport.attach(function (statusReport) { return debug("MESSAGE STATUS REPORT: ".yellow, statusReport); });
                 messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/dist/, "src"), "utf8");
-                console.log("Sending: \n".green, JSON.stringify(messageText));
+                //let messageText= "foo bar";
+                debug("Sending: \n".green, JSON.stringify(messageText));
                 joseph = "0636786385";
-                //modem.sendMessage(joseph, messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
-                modem.sendMessage(joseph, "foo bar", function (messageId) { return console.log("MESSAGE ID: ".red, messageId); });
-                context = repl.start({
-                    "terminal": true,
-                    "prompt": "> "
-                }).context;
-                Object.assign(context, {
-                    modem: modem,
-                    run: function (command) {
-                        modem.runCommand(command + "\r", { "recoverable": true, "retryOnErrors": false }, function (resp, final) {
-                            if (resp)
-                                console.log(JSON.stringify(resp, null, 2));
-                            if (final.isError)
-                                console.log(JSON.stringify(final, null, 2).red);
-                            else
-                                console.log(final.raw.green);
-                        });
-                        return "COMMAND QUEUED";
-                    }
-                });
-                Object.defineProperty(context, "exit", {
-                    "get": function () { return process.exit(0); }
-                });
+                return [4 /*yield*/, modem.sendMessage(joseph, messageText)];
+            case 6:
+                sentMessageId = _a.sent();
+                debug("SentMessageId: ", sentMessageId);
+                return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 60000); })];
+            case 7:
+                _a.sent();
+                debug("Manual termination of the modem");
+                modem.terminate();
+                console.assert(modem.isTerminated === true);
                 return [2 /*return*/];
         }
     });
-}); });
+}); })();

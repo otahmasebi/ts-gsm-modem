@@ -50,7 +50,7 @@ var SerialPort = require("serialport");
 var runExclusive = require("run-exclusive");
 var ts_events_extended_1 = require("ts-events-extended");
 var openTimeOut = 5000;
-var SerialPortExt = (function (_super) {
+var SerialPortExt = /** @class */ (function (_super) {
     __extends(SerialPortExt, _super);
     function SerialPortExt() {
         //Todo test if when terminate still running because of evtError
@@ -68,7 +68,7 @@ var SerialPortExt = (function (_super) {
                 }
                 return _this.evtData.post(data);
             });
-            _this.on("close", function () { return _this.evtOpen.stopWaiting(); });
+            _this.on("close", function () { return _this.evtOpen.detach(); });
         })();
         _this.writeAndDrain = runExclusive.buildMethodCb(function (buffer, callback) { return __awaiter(_this, void 0, void 0, function () {
             var _this = this;
@@ -76,21 +76,27 @@ var SerialPortExt = (function (_super) {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!!this.isOpen()) return [3 /*break*/, 4];
+                        if (!!this.isOpen()) return [3 /*break*/, 6];
                         _a.label = 1;
                     case 1:
-                        _a.trys.push([1, 3, , 4]);
+                        _a.trys.push([1, 3, , 6]);
                         return [4 /*yield*/, this.evtOpen.waitFor(openTimeOut)];
                     case 2:
                         _a.sent();
-                        return [3 /*break*/, 4];
+                        return [3 /*break*/, 6];
                     case 3:
                         _error_1 = _a.sent();
+                        if (!(_error_1 instanceof ts_events_extended_1.EvtError.Detached)) return [3 /*break*/, 5];
+                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                    case 4:
+                        _a.sent();
+                        _a.label = 5;
+                    case 5:
                         error = new SerialPortError("Serial port took too much time to open", "OPEN_TIMEOUT");
                         this.evtError.post(error);
                         return [2 /*return*/];
-                    case 4: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
-                    case 5:
+                    case 6: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
+                    case 7:
                         errorWrite = _a.sent();
                         if (errorWrite) {
                             serialPortError = new SerialPortError(errorWrite, "WRITE");
@@ -98,7 +104,7 @@ var SerialPortExt = (function (_super) {
                             return [2 /*return*/];
                         }
                         return [4 /*yield*/, new Promise(function (resolve) { return _this.drain(function (error) { return resolve(error); }); })];
-                    case 6:
+                    case 8:
                         errorDrain = _a.sent();
                         if (errorDrain) {
                             serialPortError = new SerialPortError(errorDrain, "DRAIN");
@@ -115,12 +121,13 @@ var SerialPortExt = (function (_super) {
     return SerialPortExt;
 }(SerialPort));
 exports.SerialPortExt = SerialPortExt;
-var SerialPortError = (function (_super) {
+var SerialPortError = /** @class */ (function (_super) {
     __extends(SerialPortError, _super);
     function SerialPortError(originalError, causedBy) {
+        var _newTarget = this.constructor;
         var _this = _super.call(this, SerialPortError.name) || this;
         _this.causedBy = causedBy;
-        Object.setPrototypeOf(_this, SerialPortError.prototype);
+        Object.setPrototypeOf(_this, _newTarget.prototype);
         if (typeof originalError === "string")
             _this.originalError = new Error(originalError);
         else

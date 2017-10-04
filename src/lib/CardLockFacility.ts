@@ -2,8 +2,7 @@ import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 
-import * as _debug from "debug";
-let debug= _debug("_CardLockFacility");
+import * as debug from "debug";
 
 import "colors";
 
@@ -16,13 +15,20 @@ export interface UnlockCodeRequest {
 
 export class CardLockFacility {
 
+    private debug: debug.IDebugger= debug("CardLockFacility");
+
     public readonly evtUnlockCodeRequest = new SyncEvent<UnlockCodeRequest>();
 
     public readonly evtPinStateReady= new VoidSyncEvent();
 
     constructor(private readonly atStack: AtStack) {
 
-        debug("Initialization");
+        if( atStack.debugPrefix !== undefined ){
+            this.debug.namespace= `${atStack.debugPrefix} ${this.debug.namespace}`;
+            this.debug.enabled= true;
+        }
+
+        this.debug("Initialization");
 
         this.retrieveCX_CPIN_READ();
 

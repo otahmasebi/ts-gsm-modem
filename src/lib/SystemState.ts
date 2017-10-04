@@ -2,19 +2,27 @@ import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 
-import * as _debug from "debug";
-let debug= _debug("_SystemState");
+import * as debug from "debug";
 
 import "colors";
 
 export class SystemState {
 
+    private debug: debug.IDebugger= debug("SystemState");
+
     public readonly evtReportSimPresence = new SyncEvent<boolean>();
     public isRoaming: boolean | undefined = undefined;
 
-    constructor(private readonly atStack: AtStack) {
+    constructor(
+        private readonly atStack: AtStack
+    ) {
 
-        debug("Initialization");
+        if( atStack.debugPrefix !== undefined ){
+            this.debug.namespace= `${atStack.debugPrefix} ${this.debug.namespace}`;
+            this.debug.enabled= true;
+        }
+
+        this.debug("Initialization");
 
         this.atStack.evtUnsolicitedMessage.attach(atMessage => this.update(atMessage as any));
 

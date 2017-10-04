@@ -39,15 +39,14 @@ var at_messages_parser_1 = require("at-messages-parser");
 var node_python_messaging_1 = require("node-python-messaging");
 var runExclusive = require("run-exclusive");
 var ts_events_extended_1 = require("ts-events-extended");
-var timer_extended_1 = require("timer-extended");
 var trackable_map_1 = require("trackable-map");
-var _debug = require("debug");
-var debug = _debug("_SmsStack");
+var debug = require("debug");
 require("colors");
-var SmsStack = (function () {
+var SmsStack = /** @class */ (function () {
     function SmsStack(atStack) {
         var _this = this;
         this.atStack = atStack;
+        this.debug = debug("SmsStack");
         this.evtMessage = new ts_events_extended_1.SyncEvent();
         this.evtMessageStatusReport = new ts_events_extended_1.SyncEvent();
         this.evtSmsDeliver = new ts_events_extended_1.SyncEvent();
@@ -73,7 +72,7 @@ var SmsStack = (function () {
                         this.atStack.evtError.post(error);
                         return NaN;
                         */
-                        debug([
+                        this.debug([
                             "Can't build SMS PDU for message: \n".red,
                             "number: " + number + "\n",
                             "text: " + JSON.stringify(text),
@@ -93,7 +92,7 @@ var SmsStack = (function () {
                     case 4:
                         if (!(_i < pdus_1.length)) return [3 /*break*/, 9];
                         _a = pdus_1[_i], length = _a.length, pdu = _a.pdu;
-                        debug("Sending Message part " + i++ + "/" + pdus.length + " of message id: " + messageId);
+                        this.debug("Sending Message part " + i++ + "/" + pdus.length + " of message id: " + messageId);
                         mr = NaN;
                         error = null;
                         tryLeft = this.maxTrySendPdu;
@@ -130,7 +129,11 @@ var SmsStack = (function () {
                 }
             });
         }); });
-        debug("Initialization");
+        if (atStack.debugPrefix !== undefined) {
+            this.debug.namespace = atStack.debugPrefix + " " + this.debug.namespace;
+            this.debug.enabled = true;
+        }
+        this.debug("Initialization");
         atStack.runCommand('AT+CPMS="SM","SM","SM"\r', function (resp) {
             var _a = resp.readingAndDeleting, used = _a.used, capacity = _a.capacity;
             _this.retrieveUnreadSms(used, capacity);
@@ -144,7 +147,7 @@ var SmsStack = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        debug(used + " PDU in sim memory");
+                        this.debug(used + " PDU in sim memory");
                         messageLeft = used;
                         index = 0;
                         _a.label = 1;
@@ -161,7 +164,7 @@ var SmsStack = (function () {
                         p_CMGR_SET = resp;
                         if (p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_READ &&
                             p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_UNREAD) {
-                            debug("PDU " + at_messages_parser_1.AtMessage.MessageStat[p_CMGR_SET.stat] + ", deleting...");
+                            this.debug("PDU " + at_messages_parser_1.AtMessage.MessageStat[p_CMGR_SET.stat] + ", deleting...");
                             this.atStack.runCommand("AT+CMGD=" + index + "\r");
                             return [3 /*break*/, 7];
                         }
@@ -175,7 +178,7 @@ var SmsStack = (function () {
                         return [3 /*break*/, 6];
                     case 5:
                         error_2 = _a.sent();
-                        debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_2);
+                        this.debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_2);
                         this.atStack.runCommand("AT+CMGD=" + index + "\r");
                         return [3 /*break*/, 7];
                     case 6:
@@ -266,8 +269,8 @@ var SmsStack = (function () {
             var parts;
             if (!_this.uncompletedMultipartSms[messageRef]) {
                 parts = {};
-                timer = _this.atStack.timers.add(timer_extended_1.setTimeout(function (logMessage) {
-                    debug(logMessage);
+                timer = _this.atStack.timers.add(function (logMessage) {
+                    _this.debug(logMessage);
                     var partRefs = trackable_map_1.TrackableMap.intKeyAsSortedArray(parts);
                     var partRefPrev = 0;
                     var concatenatedText = "";
@@ -289,7 +292,7 @@ var SmsStack = (function () {
                     delete _this.uncompletedMultipartSms[messageRef];
                     var number = smsDeliver.number, date = smsDeliver.date;
                     _this.evtMessage.post({ number: number, date: date, "text": concatenatedText });
-                }, 240000, "missing parts"));
+                }, 240000, "missing parts");
                 _this.uncompletedMultipartSms[messageRef] = { timer: timer, parts: parts };
             }
             else {
@@ -300,7 +303,7 @@ var SmsStack = (function () {
             if (Object.keys(parts).length === totalPartInMessage)
                 timer.runNow("message complete");
             else {
-                debug("Received part n\u00B0" + partRef + " of message ref: " + messageRef + ", " + Object.keys(parts).length + "/" + totalPartInMessage + " completed");
+                _this.debug("Received part n\u00B0" + partRef + " of message ref: " + messageRef + ", " + Object.keys(parts).length + "/" + totalPartInMessage + " completed");
                 timer.resetDelay();
             }
         });
@@ -327,7 +330,7 @@ var SmsStack = (function () {
                         return [3 /*break*/, 5];
                     case 4:
                         error_3 = _a.sent();
-                        debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_3);
+                        this.debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_3);
                         this.atStack.runCommand("AT+CMGD=" + index + "\r");
                         return [2 /*return*/];
                     case 5:

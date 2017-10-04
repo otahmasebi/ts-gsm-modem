@@ -4,6 +4,7 @@ import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import "colors";
 export declare class SystemState {
     private readonly atStack;
+    private debug;
     readonly evtReportSimPresence: SyncEvent<boolean>;
     isRoaming: boolean | undefined;
     constructor(atStack: AtStack);

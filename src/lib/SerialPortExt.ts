@@ -1,7 +1,7 @@
 /// <reference path="./ambient/serialport.d.ts"/>
 import * as SerialPort from "serialport";
 import * as runExclusive from "run-exclusive";
-import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import { SyncEvent, VoidSyncEvent, EvtError } from "ts-events-extended";
 
 const openTimeOut= 5000;
 
@@ -25,7 +25,7 @@ export class SerialPortExt extends SerialPort {
 
         this.on("data", (...data) => this.evtData.post(data));
 
-        this.on("close", () => this.evtOpen.stopWaiting());
+        this.on("close", () => this.evtOpen.detach());
 
     })();
 
@@ -42,6 +42,12 @@ export class SerialPortExt extends SerialPort {
                     await this.evtOpen.waitFor(openTimeOut);
 
                 } catch (_error) {
+
+                    if( _error instanceof EvtError.Detached ){
+
+                        await new Promise(resolve => {});
+
+                    }
 
                     let error = new SerialPortError("Serial port took too much time to open", "OPEN_TIMEOUT");
                     this.evtError.post(error);
@@ -82,7 +88,7 @@ export class SerialPortError extends Error {
 
     constructor(originalError: Error | string, public readonly causedBy?: "DRAIN" | "WRITE" | "OPEN_TIMEOUT") {
         super(SerialPortError.name);
-        Object.setPrototypeOf(this, SerialPortError.prototype)
+        Object.setPrototypeOf(this, new.target.prototype);
 
         if (typeof originalError === "string")
             this.originalError = new Error(originalError);

@@ -1,83 +1,81 @@
-import { Monitor } from "gsm-modem-connection";
-import { Modem } from "../lib/index";
-import { AtMessage } from "at-messages-parser";
-import { CardStorage } from "../lib/CardStorage";
+import { Modem, InitializationError, ConnectionMonitor } from "../lib/index";
 import * as fs from "fs";
 import * as path from "path";
 import * as repl from "repl";
 require("colors");
 
-Monitor.getInstance().evtModemConnect.attach(async accessPoint => {
+import * as _debug from "debug";
+let debug= _debug("_main");
 
-    Monitor.getInstance().stop();
+(async ()=>{
 
-    console.log("CONNECTION!: ", accessPoint.toString());
+    debug("Started, looking for connected modem...");
 
-    let [error, modem, hasSim] = await Modem.create({
-        "path": accessPoint.dataIfPath,
-        "unlockCodeProvider": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
-        "disableContactsFeatures": false
-    });
+    let accessPoint= await ConnectionMonitor.getInstance().evtModemConnect.waitFor();
 
-    if (error) {
-        console.log("Initialization error: ".red, error);
+    let modem: Modem;
+
+    try{
+
+        modem= await Modem.create({
+            "dataIfPath": accessPoint.dataIfPath,
+            "unlock": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
+            "enableTrace": true
+        });
+
+    }catch(error){
+
+        let initializationError= error as InitializationError;
+
+        debug(initializationError);
+
         return;
+
     }
 
+    modem.evtTerminate.attachOnce(error=>{
 
-    modem.evtTerminate.attachOnce(error => {
+        debug("Modem terminate", { error });
 
-        console.log("Terminate!");
-
-        if (error) console.log(error);
-        else console.log("Modem disconnect or manually terminate");
+        ConnectionMonitor.getInstance().stop();
 
     });
-
-    if (!hasSim) {
-        console.log("NO SIM".red);
-        modem.terminate();
-        return;
-    }
-
-    ( async function keepAlive(){
-
-        while( true ){
-
-            if( modem.isTerminated ) return;
-
-            await new Promise(resolve=>setTimeout(resolve,1000));
-
-            await modem!.ping();
-
-            console.log("PING");
-
-        }
-
-    })();
 
     let contacts= modem.contacts
 
     console.log({ contacts });
 
-    modem.evtMessage.attach(message => console.log("NEW MESSAGE: ".green, message));
-    modem.evtMessageStatusReport.attach(statusReport => console.log("MESSAGE STATUS REPORT: ".yellow, statusReport));
+    modem.evtMessage.attach(message => debug("NEW MESSAGE: ".green, message));
+    modem.evtMessageStatusReport.attach(statusReport => debug("MESSAGE STATUS REPORT: ".yellow, statusReport));
 
 
     let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/dist/, "src"), "utf8");
+    //let messageText= "foo bar";
 
-    console.log("Sending: \n".green, JSON.stringify(messageText));
+    debug("Sending: \n".green, JSON.stringify(messageText));
 
     let joseph= "0636786385";
 
-    //modem.sendMessage(joseph, messageText, messageId => console.log("MESSAGE ID: ".red, messageId));
-    modem.sendMessage(joseph, "foo bar", messageId => console.log("MESSAGE ID: ".red, messageId));
+    let sentMessageId= await modem.sendMessage(joseph, messageText);
+
+    debug("SentMessageId: ", sentMessageId);
+
+    await new Promise(resolve=> setTimeout(resolve, 60000));
+
+    debug("Manual termination of the modem");
+
+    modem.terminate();
+
+    console.assert(modem.isTerminated === true);
+
+
+
+    /*
 
     let { context } = repl.start({
         "terminal": true,
         "prompt": "> "
     }) as any;
-
 
     Object.assign(context, {
         modem,
@@ -105,5 +103,22 @@ Monitor.getInstance().evtModemConnect.attach(async accessPoint => {
     });
 
 
+    ( async function keepAlive(){
 
-});
+        while( true ){
+
+            if( modem.isTerminated ) return;
+
+            await new Promise(resolve=>setTimeout(resolve,1000));
+
+            await modem!.ping();
+
+            console.log("PING");
+
+        }
+
+    });
+    */
+
+
+})();

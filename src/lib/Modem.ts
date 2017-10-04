@@ -9,137 +9,165 @@ import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
 
-import * as _debug from "debug";
-let debug= _debug("_Modem");
+import * as debug from "debug";
 
 import "colors";
 
-export interface UnlockCodeProviderCallback {
+export interface PerformUnlock {
     (pin: string): void;
     (puk: string, newPin: string): void;
 }
 
 export interface UnlockCodeProvider {
-    handler(
+    (
         imei: string,
         iccid: string | undefined,
         pinState: AtMessage.LockedPinState,
         tryLeft: number,
-        callback: UnlockCodeProviderCallback
+        performUnlock: PerformUnlock
     ): void;
-    explicit: { pinFirstTry: string; pinSecondTry?: string };
 }
 
-export type CreateCallback= (error: null | Error, modem:Modem, hasSim:boolean)=> void;
+export interface UnlockCode {
+        pinFirstTry: string; 
+        pinSecondTry?: string;
+}
 
-
+export class InitializationError extends Error {
+    constructor(
+        message: string,
+        public readonly modemInfos: {
+            hasSim: boolean;
+            imei?: string;
+            iccid?: string;
+            iccidAvailableBeforeUnlock?: boolean;
+            validSimPin?: string;
+            lastPinTried?: string;
+            imsi?: string;
+            serviceProviderName?: string;
+            isVoiceEnabled?: boolean;
+        }
+    ) {
+        super(message);
+        Object.setPrototypeOf(this, new.target.prototype);
+    }
+}
 
 export class Modem {
 
-    private static getSafeUnlockCodeProvider(
-        unlockCodeProvider: UnlockCodeProvider['handler'] | UnlockCodeProvider['explicit'] | undefined 
-    ): UnlockCodeProvider['handler'] {
-
-            switch (typeof unlockCodeProvider) {
-                case "object":
-                    let explicit = unlockCodeProvider as UnlockCodeProvider['explicit'];
-                    let pins = [explicit.pinFirstTry, explicit.pinSecondTry];
-                    return (imei, imsi, pinState, tryLeft, callback) => {
-
-                        if (pinState === "SIM PIN") {
-
-                            if (tryLeft === 1)
-                                throw new Error("Prevent unlock sim, only one try left!");
-
-                            let pin = pins.shift();
-
-                            if (pin) {
-                                debug(`Unlock ${imei}, ${imsi}, ${pinState}, ${tryLeft}, ${pin}`);
-                                callback(pin);
-                                return;
-                            }
-                        }
-
-                        throw new Error(`No unlock action defined for ${pinState}, tryLeft: ${tryLeft}`);
-
-                    };
-                case "function":
-                    return unlockCodeProvider as UnlockCodeProvider['handler'];
-                default: throw new Error("No action defined for pin locked sim card");
-            }
-
-    }
-
     public static create(
         params: {
-            path: string;
-            unlockCodeProvider?: UnlockCodeProvider['handler'] | UnlockCodeProvider['explicit'];
+            dataIfPath: string;
+            unlock?: UnlockCode | UnlockCodeProvider,
             disableSmsFeatures?: boolean;
             disableContactsFeatures?: boolean;
-        },
-        callback?: CreateCallback
-    ): Promise<[null | Error, Modem, boolean]> {
+            enableTrace?: boolean;
+        }
+    ) {
+        return new Promise<Modem>(
+            (resolve, reject) => {
 
-        return new Promise<[null | Error, Modem, boolean]>(resolve => {
+                let enableSmsStack = !(params.disableSmsFeatures === true);
+                let enableCardStorage = !(params.disableContactsFeatures === true);
+                let enableTrace = params.enableTrace === true;
 
-            let modem = new Modem({
-                "path": params.path,
-                "unlockCodeProvider": Modem.getSafeUnlockCodeProvider(params.unlockCodeProvider),
-                "enableSmsStack": !(params.disableSmsFeatures === true),
-                "enableCardStorage": !(params.disableContactsFeatures === true)
-            }, (error, modem, hasSim) => {
+                new Modem(
+                    params.dataIfPath,
+                    params.unlock,
+                    enableSmsStack,
+                    enableCardStorage,
+                    enableTrace,
+                    result => (result instanceof Modem)?resolve(result):reject(result)
+                );
 
-                modem.evtTerminate.detach();
+            }
+        );
 
-                if (callback) callback(error, modem, hasSim);
-
-                resolve([error, modem, hasSim]);
-
-            });
-
-            modem.evtTerminate.attachOnce(error => {
-
-                error = error || new Error("Modem has disconnected");
-
-                if (callback) callback(error, modem, false);
-                resolve([error, modem, false]);
-            });
-
-
-        });
-
-
-    };
-
-
+    }
 
     private readonly atStack: AtStack;
     private readonly systemState: SystemState;
 
     public imei: string;
     public iccid: string;
-    public iccidAvailableBeforeUnlock: boolean;
+    public iccidAvailableBeforeUnlock: boolean | undefined = undefined;
     public imsi: string;
-    public serviceProviderName: string | undefined= undefined;
-    public isVoiceEnabled: boolean | undefined= undefined;
+    public serviceProviderName: string | undefined = undefined;
+    public isVoiceEnabled: boolean | undefined = undefined;
+
+    private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
+    private readonly onInitializationCompleted: (error?: Error) => void;
+
+    private hasSim: true | undefined = undefined;
+
+    private debug: debug.IDebugger= debug("Modem");
 
     private constructor(
-        private readonly params: {
-            path: string;
-            unlockCodeProvider: UnlockCodeProvider['handler'];
-            enableSmsStack: boolean;
-            enableCardStorage: boolean;
-        },
-        private readonly callback: CreateCallback
+        public readonly dataIfPath: string,
+        unlock: UnlockCodeProvider | UnlockCode | undefined,
+        private readonly enableSmsStack: boolean,
+        private readonly enableCardStorage: boolean,
+        enableTrace: boolean,
+        onInitializationCompleted: (result: Modem | InitializationError) => void
     ) {
 
-        debug(`Initializing new GSM modem on ${params.path}`);
+        if (enableTrace){
+            this.debug.namespace= `${this.debug.namespace} ${dataIfPath}`;
+            this.debug.enabled= true;
+        }
 
-        this.atStack = new AtStack(params.path);
+        this.debug(`Initializing GSM Modem`);
+
+        if (typeof unlock === "function") {
+            this.unlockCodeProvider = unlock;
+        } else if (unlock) {
+            this.unlockCodeProvider = this.buildUnlockCodeProvider(unlock);
+        }
+
+        this.atStack = new AtStack(
+            dataIfPath, 
+            enableSmsStack?`${this.debug.namespace} AtStack`:undefined
+        );
+
+        this.onInitializationCompleted = error => {
+
+            this.atStack.evtTerminate.detach(this);
+
+            if (error) {
+
+                this.atStack.terminate(error);
+
+                onInitializationCompleted(new InitializationError(
+                    error.message,
+                    {
+                        "hasSim": !!this.hasSim,
+                        "iccid": this.iccid,
+                        "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
+                        "imei": this.imei,
+                        "imsi": this.imsi,
+                        "isVoiceEnabled": this.isVoiceEnabled,
+                        "lastPinTried": this.lastPinTried,
+                        "validSimPin": this.validSimPin
+                    }
+                ));
+
+            } else {
+
+                this.debug("Modem initialization success");
+
+                onInitializationCompleted(this);
+            }
+
+        }
+
+        this.atStack.evtTerminate.attachOnce(this, atStackError => 
+            this.onInitializationCompleted(atStackError!)
+        );
+
 
         this.atStack.runCommand("AT+CGSN\r", resp => {
             this.imei = resp!.raw.split("\r\n")[1];
-            debug("IMEI: ", this.imei);
+            this.debug(`IMEI: ${this.imei}`);
         });
 
         this.systemState = new SystemState(this.atStack);
@@ -148,31 +176,54 @@ export class Modem {
 
             let hasSim = await this.systemState.evtReportSimPresence.waitFor();
 
+            this.debug(`SIM present: ${hasSim}`);
+
             if (!hasSim) {
-                callback(null, this, false);
+                this.onInitializationCompleted(new Error(`Modem has no SIM card`));
                 return;
             }
 
-            debug("HAS SIM: TRUE");
+            this.hasSim = true;
 
             this.iccid = await this.readIccid();
 
-            this.iccidAvailableBeforeUnlock = (this.iccid) ? true : false;
-
-            debug("ICCID before unlock: ", this.iccid);
+            if( this.iccid ){
+                this.debug(`ICCID: ${this.iccid}`);
+            }
 
             this.initCardLockFacility();
-
 
         })();
 
     }
 
-    public async ping() {
 
-        await this.atStack.runCommand("AT\r");
 
-        return;
+    private buildUnlockCodeProvider(unlockCode: UnlockCode): UnlockCodeProvider {
+
+        let pins = [unlockCode.pinFirstTry, unlockCode.pinSecondTry];
+
+        return (imei, imsi, pinState, tryLeft, performUnlock) => {
+
+            if (pinState === "SIM PIN") {
+
+                if (tryLeft === 1)
+                    throw new Error("Prevent unlock sim, only one try left!");
+
+                let pin = pins.shift();
+
+                if (pin) {
+                    this.debug(`Unlock SIM imsi${imsi}, ${pinState}, ${tryLeft}, ${pin}`);
+                    performUnlock(pin);
+                    return;
+                }
+            }
+
+            this.onInitializationCompleted(
+                new Error(`No unlock action defined for ${pinState}, tryLeft: ${tryLeft}`)
+            );
+
+        }
 
     }
 
@@ -199,7 +250,7 @@ export class Modem {
 
         } else switchedIccid = (resp as AtMessage.CX_ICCID_SET).iccid;
 
-        return (switched => {
+        return (function unswitch(switched): string {
 
             let out = "";
 
@@ -235,9 +286,8 @@ export class Modem {
         return runExclusive.cancelAllQueuedCalls(this.runCommand);
     }
 
+    public terminate(){ this.atStack.terminate(); }
 
-    public terminate: typeof AtStack.prototype.terminate =
-    (...inputs) => this.atStack.terminate.apply(this.atStack, inputs);
 
     public get isTerminated(): typeof AtStack.prototype.isTerminated {
         return this.atStack.isTerminated;
@@ -251,7 +301,8 @@ export class Modem {
         return this.atStack.evtUnsolicitedMessage;
     }
 
-    public pin: string | undefined = undefined;
+    public lastPinTried: string | undefined = undefined;
+    public validSimPin: string | undefined = undefined;
 
     private async initCardLockFacility(): Promise<void> {
 
@@ -259,40 +310,54 @@ export class Modem {
 
         cardLockFacility.evtUnlockCodeRequest.attach(({ pinState, times }) => {
 
-            this.params.unlockCodeProvider(
-                this.imei, 
-                (this.iccidAvailableBeforeUnlock)?this.iccid:undefined, 
-                pinState, 
+            let iccid = this.iccid || undefined;
+
+            this.iccidAvailableBeforeUnlock = !!iccid;
+
+            if (!this.unlockCodeProvider) {
+
+                this.onInitializationCompleted(new Error("SIM card is pin locked but no code was provided"));
+                return;
+
+            }
+
+            this.unlockCodeProvider(
+                this.imei,
+                iccid,
+                pinState,
                 times, (...inputs) => {
 
-                switch (pinState) {
-                    case "SIM PIN":
-                        this.pin = inputs[0];
-                        cardLockFacility.enterPin(inputs[0]);
-                        return;
-                    case "SIM PUK":
-                        this.pin = inputs[1];
-                        cardLockFacility.enterPuk(inputs[0], inputs[1]);
-                        return;
-                    case "SIM PIN2": cardLockFacility.enterPin2(inputs[0]); return;
-                    case "SIM PUK2": cardLockFacility.enterPuk2(inputs[0], inputs[1]); return;
-                }
+                    switch (pinState) {
+                        case "SIM PIN":
+                            this.lastPinTried = inputs[0];
+                            cardLockFacility.enterPin(inputs[0]);
+                            return;
+                        case "SIM PUK":
+                            this.lastPinTried = inputs[1];
+                            cardLockFacility.enterPuk(inputs[0], inputs[1]);
+                            return;
+                        case "SIM PIN2": cardLockFacility.enterPin2(inputs[0]); return;
+                        case "SIM PUK2": cardLockFacility.enterPuk2(inputs[0], inputs[1]); return;
+                    }
 
-            });
+                }
+            );
 
 
         });
 
-
-
         await cardLockFacility.evtPinStateReady.waitFor();
 
-        debug("SIM unlocked");
+        if (this.lastPinTried) {
+            this.validSimPin = this.lastPinTried;
+        }
+
+        this.debug("SIM unlocked");
 
         if (!this.systemState.isValidSim)
             await this.systemState.evtValidSim.waitFor();
 
-        debug("SIM valid");
+        this.debug("SIM valid");
 
 
         let [cx_SPN_SET] = await this.atStack.runCommand(
@@ -302,15 +367,14 @@ export class Modem {
 
         if (cx_SPN_SET)
             this.serviceProviderName = (cx_SPN_SET as AtMessage.CX_SPN_SET).serviceProviderName;
-        
-        debug(`Service Provider name: ${this.serviceProviderName}`);
 
+        debug(`Service Provider name: ${this.serviceProviderName}`);
 
         if (!this.iccidAvailableBeforeUnlock) {
 
             this.iccid = await this.readIccid();
 
-            debug("ICCID after unlock: ", this.iccid);
+            this.debug(`ICCID ( read after unlock ): ${this.iccid}`);
 
         }
 
@@ -318,32 +382,31 @@ export class Modem {
 
         this.imsi = resp!.raw.split("\r\n")[1];
 
-        debug("IMSI: ", this.imsi);
-
-        //TODO: check voice
+        this.debug(`IMSI: ${this.imsi}`);
 
         let resp_CX_CVOICE_SET = await this.atStack.runCommand(
-            "AT^CVOICE=0\r", 
+            "AT^CVOICE=0\r",
             { "recoverable": true }
         );
 
-        if( !resp_CX_CVOICE_SET[1].isError ){
+        if (!resp_CX_CVOICE_SET[1].isError) {
 
-            let [ cx_CVOICE_READ ] = await this.atStack.runCommand(
-                "AT^CVOICE?\r", 
+            let [cx_CVOICE_READ] = await this.atStack.runCommand(
+                "AT^CVOICE?\r",
                 { "recoverable": true }
             );
 
-            if( cx_CVOICE_READ )
-                this.isVoiceEnabled= (cx_CVOICE_READ as AtMessage.CX_CVOICE_READ).isEnabled;
+            if (cx_CVOICE_READ)
+                this.isVoiceEnabled = (cx_CVOICE_READ as AtMessage.CX_CVOICE_READ).isEnabled;
 
         }
 
-        debug("VOICE ENABLED: ", this.isVoiceEnabled);
+        this.debug("VOICE ENABLED: ", this.isVoiceEnabled);
 
-        if (this.params.enableSmsStack) this.initSmsStack();
-        if (this.params.enableCardStorage) this.initCardStorage();
-        else this.callback(null, this, true);
+        if (this.enableSmsStack) this.initSmsStack();
+
+        if (this.enableCardStorage) this.initCardStorage();
+        else this.onInitializationCompleted();
 
     }
 
@@ -392,7 +455,7 @@ export class Modem {
 
         await this.cardStorage.evtReady.waitFor();
 
-        this.callback(null, this, true);
+        this.onInitializationCompleted();
 
     }
 
@@ -422,7 +485,7 @@ export class Modem {
     public getContact: typeof CardStorage.prototype.getContact =
     (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
-    private storageAccessGroupRef= runExclusive.createGroupRef();
+    private storageAccessGroupRef = runExclusive.createGroupRef();
 
     public createContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
         (...inputs) => this.cardStorage.createContact.apply(this.cardStorage, inputs)
@@ -439,6 +502,14 @@ export class Modem {
     public writeNumber = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
         (...inputs) => this.cardStorage.writeNumber.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.writeNumber);
+
+    public async ping() {
+
+        await this.atStack.runCommand("AT\r");
+
+        return;
+
+    }
 
 
 }

@@ -6,6 +6,9 @@ export interface Contact {
     number: string;
     name: string;
 }
+export declare class CardStorageError extends Error {
+    constructor(message: string);
+}
 export declare class CardStorage {
     private readonly atStack;
     readonly evtReady: VoidSyncEvent;
@@ -16,6 +19,7 @@ export declare class CardStorage {
     readonly numberMaxLength: number;
     readonly storageLeft: number;
     generateSafeContactName(contactName: string): string;
+    private debug;
     constructor(atStack: AtStack);
     private p_CPBR_TEST;
     private getFreeIndex();

@@ -15,6 +15,7 @@ export interface StatusReport {
 }
 export declare class SmsStack {
     private readonly atStack;
+    private debug;
     readonly evtMessage: SyncEvent<Message>;
     readonly evtMessageStatusReport: SyncEvent<StatusReport>;
     private evtSmsDeliver;

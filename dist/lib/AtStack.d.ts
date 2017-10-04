@@ -1,7 +1,9 @@
+/// <reference types="debug" />
 import { SyncEvent } from "ts-events-extended";
-import { Timer } from "timer-extended";
-import "colors";
+import { Timers } from "timer-extended";
 import { AtMessage } from "at-messages-parser";
+import * as debug from "debug";
+import "colors";
 export declare type RunOutputs = [AtMessage | undefined, AtMessage, string];
 export declare type RunCallback = (resp: RunOutputs[0], final: RunOutputs[1], raw: RunOutputs[2]) => void;
 export declare type RunParams = {
@@ -16,21 +18,27 @@ export declare type RunParams = {
         retryOnErrors: number[];
     };
 };
-export declare class Timers extends Array<Timer<any>> {
-    constructor();
-    add<T>(timer: Timer<T>): Timer<T>;
-    clearAll(): void;
+export declare class RunCommandError extends Error {
+    readonly command: string;
+    readonly atMessageError: AtMessage;
+    constructor(command: string, atMessageError: AtMessage);
+}
+export declare class ParseError extends Error {
+    readonly unparsed: string;
+    constructor(unparsed: string);
 }
 export declare class AtStack {
+    readonly debugPrefix: string | undefined;
+    debug: debug.IDebugger;
     readonly timers: Timers;
     readonly evtUnsolicitedMessage: SyncEvent<AtMessage>;
     readonly evtTerminate: SyncEvent<Error | null>;
-    readonly isTerminated: boolean;
     private readonly serialPort;
     private readonly serialPortAtParser;
-    constructor(path: string);
+    constructor(dataIfPath: string, debugPrefix?: string | undefined);
+    readonly isTerminated: boolean;
     terminate(error?: Error): void;
-    readonly evtError: SyncEvent<Error>;
+    private readonly evtError;
     private readonly evtResponseAtMessage;
     private readonly parseErrorDelay;
     private registerListeners();
@@ -58,13 +66,4 @@ export declare class AtStack {
     private readonly delayReWrite;
     private retryLeftWrite;
     private runCommandBase(command);
-}
-export declare class RunCommandError extends Error {
-    readonly command: string;
-    readonly atMessageError: AtMessage;
-    constructor(command: string, atMessageError: AtMessage);
-}
-export declare class ParseError extends Error {
-    readonly unparsed: string;
-    constructor(unparsed: string);
 }

@@ -14,12 +14,11 @@ import {
 } from "node-python-messaging";
 import * as runExclusive from "run-exclusive";
 import { SyncEvent } from "ts-events-extended";
-import { Timer, setTimeout } from "timer-extended";
+import { Timer } from "timer-extended";
 import { TrackableMap } from "trackable-map"
 
 
-import * as _debug from "debug";
-let debug= _debug("_SmsStack");
+import * as debug from "debug";
 
 import "colors";
 
@@ -40,6 +39,8 @@ export interface StatusReport {
 
 export class SmsStack {
 
+    private debug: debug.IDebugger= debug("SmsStack");
+
     public readonly evtMessage = new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
 
@@ -59,7 +60,12 @@ export class SmsStack {
 
     constructor(private readonly atStack: AtStack) {
 
-        debug("Initialization");
+        if( atStack.debugPrefix !== undefined ){
+            this.debug.namespace= `${atStack.debugPrefix} ${this.debug.namespace}`;
+            this.debug.enabled= true;
+        }
+
+        this.debug("Initialization");
 
         atStack.runCommand('AT+CPMS="SM","SM","SM"\r', (resp: AtMessage.P_CPMS_SET) => {
 
@@ -77,7 +83,7 @@ export class SmsStack {
 
     private async retrieveUnreadSms(used: number, capacity: number) {
 
-        debug(`${used} PDU in sim memory`);
+        this.debug(`${used} PDU in sim memory`);
 
         let messageLeft = used;
 
@@ -98,7 +104,7 @@ export class SmsStack {
                 p_CMGR_SET.stat !== AtMessage.MessageStat.REC_UNREAD
             ) {
 
-                debug(`PDU ${AtMessage.MessageStat[p_CMGR_SET.stat]}, deleting...`);
+                this.debug(`PDU ${AtMessage.MessageStat[p_CMGR_SET.stat]}, deleting...`);
 
                 this.atStack.runCommand(`AT+CMGD=${index}\r`);
                 continue;
@@ -112,7 +118,7 @@ export class SmsStack {
 
             } catch (error) {
 
-                debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
+                this.debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
                 this.atStack.runCommand(`AT+CMGD=${index}\r`);
                 continue;
 
@@ -195,7 +201,7 @@ export class SmsStack {
                 return NaN;
                 */
 
-                debug([
+                this.debug([
                     "Can't build SMS PDU for message: \n".red,
                     `number: ${number}\n`,
                     `text: ${JSON.stringify(text)}`,
@@ -220,7 +226,7 @@ export class SmsStack {
 
             for (let { length, pdu } of pdus) {
 
-                debug(`Sending Message part ${i++}/${pdus.length} of message id: ${messageId}`);
+                this.debug(`Sending Message part ${i++}/${pdus.length} of message id: ${messageId}`);
 
                 let mr = NaN;
                 let error: AtMessage.P_CMS_ERROR | null = null;
@@ -344,43 +350,46 @@ export class SmsStack {
 
                 parts = {};
 
-                timer = this.atStack.timers.add(setTimeout((logMessage: string) => {
+                timer = this.atStack.timers.add(
+                    (logMessage: string) => {
 
-                    debug(logMessage);
+                        this.debug(logMessage);
 
-                    let partRefs = TrackableMap.intKeyAsSortedArray(parts);
-                    let partRefPrev = 0;
-                    let concatenatedText = "";
-                    let partLeft = totalPartInMessage;
+                        let partRefs = TrackableMap.intKeyAsSortedArray(parts);
+                        let partRefPrev = 0;
+                        let concatenatedText = "";
+                        let partLeft = totalPartInMessage;
 
-                    for (let partRef of partRefs) {
+                        for (let partRef of partRefs) {
 
-                        let { storageIndex, text } = parts[partRef];
+                            let { storageIndex, text } = parts[partRef];
 
-                        for (let ref = partRefPrev + 1; ref < partRef; ref++) {
+                            for (let ref = partRefPrev + 1; ref < partRef; ref++) {
+                                partLeft--;
+                                concatenatedText += " *** Missing part *** ";
+                            }
+
                             partLeft--;
-                            concatenatedText += " *** Missing part *** ";
+                            concatenatedText += text;
+
+                            this.atStack.runCommand(`AT+CMGD=${storageIndex}\r`);
+                            partRefPrev = partRef;
+
                         }
 
-                        partLeft--;
-                        concatenatedText += text;
+                        while (partLeft-- > 0)
+                            concatenatedText += " *** Missing part *** ";
 
-                        this.atStack.runCommand(`AT+CMGD=${storageIndex}\r`);
-                        partRefPrev = partRef;
+                        delete this.uncompletedMultipartSms[messageRef];
 
-                    }
+                        let { number, date } = smsDeliver;
 
-                    while (partLeft-- > 0)
-                        concatenatedText += " *** Missing part *** ";
+                        this.evtMessage.post({ number, date, "text": concatenatedText });
 
-                    delete this.uncompletedMultipartSms[messageRef];
-
-                    let { number, date } = smsDeliver;
-
-                    this.evtMessage.post({ number, date, "text": concatenatedText });
-
-                }, 240000, "missing parts"));
-
+                    },
+                    240000,
+                    "missing parts"
+                );
 
                 this.uncompletedMultipartSms[messageRef] = { timer, parts };
 
@@ -394,7 +403,7 @@ export class SmsStack {
             if (Object.keys(parts).length === totalPartInMessage)
                 timer.runNow("message complete");
             else {
-                debug(`Received part n°${partRef} of message ref: ${messageRef}, ${Object.keys(parts).length}/${totalPartInMessage} completed`);
+                this.debug(`Received part n°${partRef} of message ref: ${messageRef}, ${Object.keys(parts).length}/${totalPartInMessage} completed`);
                 timer.resetDelay();
             }
 
@@ -421,7 +430,7 @@ export class SmsStack {
 
         } catch (error) {
 
-            debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
+            this.debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error);
             this.atStack.runCommand(`AT+CMGD=${index}\r`);
             return;
 

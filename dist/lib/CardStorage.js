@@ -1,4 +1,14 @@
 "use strict";
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 var __assign = (this && this.__assign) || Object.assign || function(t) {
     for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
@@ -46,8 +56,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
 var encoding = require("legacy-encoding");
-var _debug = require("debug");
-var debug = _debug("_CardStorage");
+var debug = require("debug");
 // cSpell:disable
 var replaceArray = [
     [/[ÀÁÂÃÄ]/g, "A"],
@@ -72,11 +81,23 @@ var replaceArray = [
     [/[^a-zA-Z0-9\ <>!\&\*#%,;\.'\(\)\?-]/g, " "]
 ];
 // cSpell:enable
-var CardStorage = (function () {
+var CardStorageError = /** @class */ (function (_super) {
+    __extends(CardStorageError, _super);
+    function CardStorageError(message) {
+        var _newTarget = this.constructor;
+        var _this = _super.call(this, "CardStorage: " + message) || this;
+        Object.setPrototypeOf(_this, _newTarget.prototype);
+        return _this;
+    }
+    return CardStorageError;
+}(Error));
+exports.CardStorageError = CardStorageError;
+var CardStorage = /** @class */ (function () {
     function CardStorage(atStack) {
         var _this = this;
         this.atStack = atStack;
         this.evtReady = new ts_events_extended_1.VoidSyncEvent();
+        this.debug = debug("CardStorage");
         this.storageAccessGroupRef = runExclusive.createGroupRef();
         this.createContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, function (number, name, callback) {
             var contact = {
@@ -85,12 +106,12 @@ var CardStorage = (function () {
                 number: number
             };
             if (isNaN(contact.index)) {
-                _this.atStack.evtError.post(new Error("Memory full"));
+                _this.atStack.terminate(new CardStorageError("Memory full"));
                 return null;
             }
             //TODO check number valid
             if (contact.number.length > _this.numberMaxLength) {
-                _this.atStack.evtError.post(Error("Number too long"));
+                _this.atStack.terminate(new CardStorageError("Number too long"));
                 return null;
             }
             _this.atStack.runCommand("AT+CPBS=\"SM\"\r");
@@ -103,11 +124,11 @@ var CardStorage = (function () {
         });
         this.updateContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, function (index, params, callback) {
             if (!_this.contactByIndex[index]) {
-                _this.atStack.evtError.post(new Error("Contact does not exist"));
+                _this.atStack.terminate(new CardStorageError("Contact does not exist"));
                 return null;
             }
             if (typeof params.name === "undefined" && typeof params.number === "undefined") {
-                _this.atStack.evtError.post(new Error("name and contact can not be both null"));
+                _this.atStack.terminate(new CardStorageError("name and contact can not be both null"));
                 return null;
             }
             var contact = _this.contactByIndex[index];
@@ -115,7 +136,7 @@ var CardStorage = (function () {
             if (params.number !== undefined) {
                 number = params.number;
                 if (number.length > _this.numberMaxLength) {
-                    _this.atStack.evtError.post(new Error("Number too long"));
+                    _this.atStack.terminate(new CardStorageError("Number too long"));
                     return null;
                 }
             }
@@ -147,7 +168,7 @@ var CardStorage = (function () {
         });
         this.deleteContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, function (index, callback) {
             if (!_this.contactByIndex[index]) {
-                _this.atStack.evtError.post(new Error("Contact does not exists"));
+                _this.atStack.terminate(new CardStorageError("Contact does not exists"));
                 return null;
             }
             _this.atStack.runCommand("AT+CPBS=\"SM\"\r");
@@ -166,7 +187,11 @@ var CardStorage = (function () {
             return null;
         });
         this.contactByIndex = {};
-        debug("Initialization");
+        if (atStack.debugPrefix !== undefined) {
+            this.debug.namespace = atStack.debugPrefix + " " + this.debug.namespace;
+            this.debug.enabled = true;
+        }
+        this.debug("Initialization");
         this.init().then(function () { return _this.evtReady.post(); });
     }
     Object.defineProperty(CardStorage.prototype, "isReady", {
@@ -250,7 +275,7 @@ var CardStorage = (function () {
                             p_CNUM_EXEC = atMessageList.atMessages[0];
                             this.number = p_CNUM_EXEC.number;
                         }
-                        debug("number: " + this.number);
+                        this.debug("number: " + this.number);
                         this.atStack.runCommand("AT+CPBS=\"SM\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=?\r")];
                     case 2:
@@ -304,7 +329,7 @@ var CardStorage = (function () {
                         index++;
                         return [3 /*break*/, 4];
                     case 9:
-                        debug("Contacts ready");
+                        this.debug("Contacts ready");
                         return [2 /*return*/];
                 }
             });

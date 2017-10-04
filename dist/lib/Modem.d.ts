@@ -4,38 +4,66 @@ import { CardStorage, Contact } from "./CardStorage";
 import { Message, StatusReport } from "./SmsStack";
 import { SyncEvent } from "ts-events-extended";
 import "colors";
-export interface UnlockCodeProviderCallback {
+export interface PerformUnlock {
     (pin: string): void;
     (puk: string, newPin: string): void;
 }
 export interface UnlockCodeProvider {
-    handler(imei: string, iccid: string | undefined, pinState: AtMessage.LockedPinState, tryLeft: number, callback: UnlockCodeProviderCallback): void;
-    explicit: {
-        pinFirstTry: string;
-        pinSecondTry?: string;
-    };
+    (imei: string, iccid: string | undefined, pinState: AtMessage.LockedPinState, tryLeft: number, performUnlock: PerformUnlock): void;
 }
-export declare type CreateCallback = (error: null | Error, modem: Modem, hasSim: boolean) => void;
+export interface UnlockCode {
+    pinFirstTry: string;
+    pinSecondTry?: string;
+}
+export declare class InitializationError extends Error {
+    readonly modemInfos: {
+        hasSim: boolean;
+        imei?: string;
+        iccid?: string;
+        iccidAvailableBeforeUnlock?: boolean;
+        validSimPin?: string;
+        lastPinTried?: string;
+        imsi?: string;
+        serviceProviderName?: string;
+        isVoiceEnabled?: boolean;
+    };
+    constructor(message: string, modemInfos: {
+        hasSim: boolean;
+        imei?: string;
+        iccid?: string;
+        iccidAvailableBeforeUnlock?: boolean;
+        validSimPin?: string;
+        lastPinTried?: string;
+        imsi?: string;
+        serviceProviderName?: string;
+        isVoiceEnabled?: boolean;
+    });
+}
 export declare class Modem {
-    private readonly params;
-    private readonly callback;
-    private static getSafeUnlockCodeProvider(unlockCodeProvider);
+    readonly dataIfPath: string;
+    private readonly enableSmsStack;
+    private readonly enableCardStorage;
     static create(params: {
-        path: string;
-        unlockCodeProvider?: UnlockCodeProvider['handler'] | UnlockCodeProvider['explicit'];
+        dataIfPath: string;
+        unlock?: UnlockCode | UnlockCodeProvider;
         disableSmsFeatures?: boolean;
         disableContactsFeatures?: boolean;
-    }, callback?: CreateCallback): Promise<[null | Error, Modem, boolean]>;
+        enableTrace?: boolean;
+    }): Promise<Modem>;
     private readonly atStack;
     private readonly systemState;
     imei: string;
     iccid: string;
-    iccidAvailableBeforeUnlock: boolean;
+    iccidAvailableBeforeUnlock: boolean | undefined;
     imsi: string;
     serviceProviderName: string | undefined;
     isVoiceEnabled: boolean | undefined;
+    private readonly unlockCodeProvider;
+    private readonly onInitializationCompleted;
+    private hasSim;
+    private debug;
     private constructor();
-    ping(): Promise<void>;
+    private buildUnlockCodeProvider(unlockCode);
     private readIccid();
     readonly runCommand: {
         (command: string, callback?: ((resp: AtMessage | undefined, final: AtMessage, raw: string) => void) | undefined): Promise<[AtMessage | undefined, AtMessage, string]>;
@@ -48,11 +76,12 @@ export declare class Modem {
     readonly runCommand_isRunning: boolean;
     readonly runCommand_queuedCallCount: number;
     runCommand_cancelAllQueuedCalls(): number;
-    terminate: typeof AtStack.prototype.terminate;
+    terminate(): void;
     readonly isTerminated: typeof AtStack.prototype.isTerminated;
     readonly evtTerminate: typeof AtStack.prototype.evtTerminate;
     readonly evtUnsolicitedAtMessage: typeof AtStack.prototype.evtUnsolicitedMessage;
-    pin: string | undefined;
+    lastPinTried: string | undefined;
+    validSimPin: string | undefined;
     private initCardLockFacility();
     private smsStack;
     readonly evtMessage: SyncEvent<Message>;
@@ -76,4 +105,5 @@ export declare class Modem {
     }, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>;
     deleteContact: (index: number, callback?: (() => void) | undefined) => Promise<void>;
     writeNumber: (number: string, callback?: (() => void) | undefined) => Promise<void>;
+    ping(): Promise<void>;
 }

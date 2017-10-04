@@ -5,12 +5,9 @@ import * as runExclusive from "run-exclusive";
 
 import * as encoding from "legacy-encoding";
 
-import * as _debug from "debug";
-let debug = _debug("_CardStorage");
-
+import * as debug from "debug";
 
 export type Encoding = "IRA" | "GSM" | "UCS2";
-
 
 export interface Contact {
     index: number;
@@ -42,6 +39,13 @@ const replaceArray: [RegExp, string][] = [
     [/[^a-zA-Z0-9\ <>!\&\*#%,;\.'\(\)\?-]/g, " "]
 ];
 // cSpell:enable
+
+export class CardStorageError extends Error {
+    constructor(message: string) {
+        super(`CardStorage: ${message}`);
+        Object.setPrototypeOf(this, new.target.prototype);
+    }
+}
 
 export class CardStorage {
 
@@ -112,10 +116,16 @@ export class CardStorage {
 
     }
 
+    private debug: debug.IDebugger= debug("CardStorage");
 
     constructor(private readonly atStack: AtStack) {
 
-        debug("Initialization");
+        if( atStack.debugPrefix !== undefined ){
+            this.debug.namespace= `${atStack.debugPrefix} ${this.debug.namespace}`;
+            this.debug.enabled= true;
+        }
+
+        this.debug("Initialization");
 
         this.init().then(() => this.evtReady.post());
 
@@ -146,14 +156,14 @@ export class CardStorage {
             };
 
             if (isNaN(contact.index)) {
-                this.atStack.evtError.post(new Error("Memory full"));
+                this.atStack.terminate(new CardStorageError("Memory full"));
                 return null as any;
             }
 
             //TODO check number valid
 
             if (contact.number.length > this.numberMaxLength) {
-                this.atStack.evtError.post(Error("Number too long"));
+                this.atStack.terminate(new CardStorageError("Number too long"));
                 return null as any;
             }
 
@@ -183,12 +193,12 @@ export class CardStorage {
         }, callback?: (contact: Contact) => void): Promise<Contact> => {
 
             if (!this.contactByIndex[index]) {
-                this.atStack.evtError.post(new Error("Contact does not exist"));
+                this.atStack.terminate(new CardStorageError("Contact does not exist"));
                 return null as any;
             }
 
             if (typeof params.name === "undefined" && typeof params.number === "undefined") {
-                this.atStack.evtError.post(new Error("name and contact can not be both null"));
+                this.atStack.terminate(new CardStorageError("name and contact can not be both null"));
                 return null as any;
             }
 
@@ -199,7 +209,7 @@ export class CardStorage {
             if (params.number !== undefined) {
                 number = params.number;
                 if (number.length > this.numberMaxLength) {
-                    this.atStack.evtError.post(new Error("Number too long"));
+                    this.atStack.terminate(new CardStorageError("Number too long"));
                     return null as any;
                 }
             } else number = contact.number;
@@ -246,7 +256,7 @@ export class CardStorage {
         (index: number, callback?: () => void): Promise<void> => {
 
             if (!this.contactByIndex[index]) {
-                this.atStack.evtError.post(new Error("Contact does not exists"));
+                this.atStack.terminate(new CardStorageError("Contact does not exists"));
                 return null as any;
             }
 
@@ -303,7 +313,7 @@ export class CardStorage {
 
         }
 
-        debug(`number: ${this.number}`);
+        this.debug(`number: ${this.number}`);
 
         this.atStack.runCommand(`AT+CPBS="SM"\r`);
 
@@ -374,7 +384,7 @@ export class CardStorage {
 
         }
 
-        debug("Contacts ready");
+        this.debug("Contacts ready");
 
     }
 

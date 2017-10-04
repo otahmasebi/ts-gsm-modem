@@ -8,6 +8,7 @@ export interface UnlockCodeRequest {
 }
 export declare class CardLockFacility {
     private readonly atStack;
+    private debug;
     readonly evtUnlockCodeRequest: SyncEvent<UnlockCodeRequest>;
     readonly evtPinStateReady: VoidSyncEvent;
     constructor(atStack: AtStack);

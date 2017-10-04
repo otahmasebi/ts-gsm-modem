@@ -1,24 +1,18 @@
 import { SerialPortExt } from "./SerialPortExt";
-import { SyncEvent } from "ts-events-extended";
+import { SyncEvent, EvtError } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
-import { Timer, setTimeout } from "timer-extended";
+import { Timers } from "timer-extended";
 
-import * as _debug from "debug";
-let debug= _debug("_AtStack");
+import { getSerialPortParser, AtMessage } from "at-messages-parser";
 
+import * as debug from "debug";
 
 import "colors";
 
-import { 
-    getSerialPortParser, 
-    AtMessage 
-} from "at-messages-parser";
+export type RunOutputs = [AtMessage | undefined, AtMessage, string];
+export type RunCallback = (resp: RunOutputs[0], final: RunOutputs[1], raw: RunOutputs[2]) => void;
 
-
-export type RunOutputs= [ AtMessage | undefined, AtMessage, string ];
-export type RunCallback= (resp: RunOutputs[0], final: RunOutputs[1], raw: RunOutputs[2])=> void;
-
-export type RunParams= {
+export type RunParams = {
     userProvided: {
         recoverable?: boolean;
         reportMode?: AtMessage.ReportMode;
@@ -31,53 +25,46 @@ export type RunParams= {
     }
 };
 
-export class Timers extends Array<Timer<any>> {
-
-    constructor(){
-        super();
+export class RunCommandError extends Error {
+    constructor(public readonly command: string,
+        public readonly atMessageError: AtMessage) {
+        super(RunCommandError.name);
         Object.setPrototypeOf(this, new.target.prototype);
     }
-
-    public add<T>(timer: Timer<T>): Timer<T>{
-
-        for( let index=0; index<this.length; index++ )
-            if( this[index].hasExec || this[index].hasBeenCleared )
-                this.splice(index, 1);
-
-        super.push(timer);
-
-        return timer;
-
-    }
-
-    public clearAll(): void {
-        for( let timer of this)
-            timer.clear();
-    }
-
 }
 
+export class ParseError extends Error {
+    constructor(public readonly unparsed: string) {
+        super(ParseError.name);
+        Object.setPrototypeOf(this, new.target.prototype);
+    }
+}
 
 
 export class AtStack {
 
-    public readonly timers= new Timers();
+    public debug: debug.IDebugger = debug("AtStack");
+
+    public readonly timers = new Timers();
 
     public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
     public readonly evtTerminate = new SyncEvent<Error | null>();
 
-    public get isTerminated(): boolean {
-        return (this.evtTerminate.postCount !== 0);
-    }
-
-
     private readonly serialPort: SerialPortExt;
-    private readonly serialPortAtParser= getSerialPortParser(30000);
-    constructor(path: string) {
+    private readonly serialPortAtParser = getSerialPortParser(30000);
+    constructor(
+        dataIfPath: string,
+        public readonly debugPrefix?: string
+    ) {
 
-        debug("Initialization");
+        if (debugPrefix !== undefined) {
+            this.debug.namespace = `${debugPrefix} ${this.debug.namespace}`;
+            this.debug.enabled = true;
+        }
 
-        this.serialPort = new SerialPortExt(path, {
+        this.debug("Initialization");
+
+        this.serialPort = new SerialPortExt(dataIfPath, {
             "parser": this.serialPortAtParser
         });
 
@@ -88,39 +75,51 @@ export class AtStack {
 
     }
 
-    public terminate(error?: Error): void {
-
-        debug("terminate have been called externally".red);
-
-        if (this.serialPort.isOpen())
-            this.serialPort.close();
-
-        this.evtTerminate.post((error)?error:null);
+    public get isTerminated(): boolean {
+        return (this.evtTerminate.postCount !== 0);
     }
 
-    public readonly evtError = new SyncEvent<Error>();
-    private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
+    public terminate(error?: Error): void {
 
+        if (this.isTerminated) return
+
+        if (error) {
+
+            this.debug("Terminate have been called from outside of the class...");
+
+            this.evtError.post(error);
+
+        } else {
+
+            this.debug("User called terminate");
+
+            if (this.serialPort.isOpen()) { this.serialPort.close(); }
+
+            this.evtTerminate.post(null);
+
+        }
+
+
+    }
+
+    private readonly evtError = new SyncEvent<Error>();
+
+    private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
 
     private readonly parseErrorDelay = 30000;
 
-
     private registerListeners(): void {
 
-        this.evtError.attach(async error => {
+        this.evtError.attachOnce(async error => {
 
-            debug("unrecoverable error: ".red, error);
+            this.debug("unrecoverable error: ".red, error);
 
             await new Promise<void>(resolve => setImmediate(resolve));
 
-            if (this.serialPort.isOpen()) {
-                debug("we clause because it was open");
-                this.serialPort.close();
-            }
+            if (this.serialPort.isOpen()) { this.serialPort.close(); }
 
-            debug("post event terminate with error");
+            if (!this.isTerminated) this.evtTerminate.post(error);
 
-            this.evtTerminate.post(error);
 
         });
 
@@ -128,40 +127,40 @@ export class AtStack {
         //this.evtUnsolicitedMessage.attach(atMessage => debug(JSON.stringify(atMessage, null, 2).yellow));
 
         this.serialPort.once("disconnect", () => {
-            debug("disconnect");
-            this.evtTerminate.post(null);
+            this.debug("disconnect");
+            if (!this.isTerminated) this.evtTerminate.post(new Error("Modem disconnected"));
         });
 
-        this.serialPort.once("close", () => { 
-            debug("close, stopWaiting, and clear all timeout"); 
-            this.evtResponseAtMessage.stopWaiting();
-            this.timers.clearAll(); 
-            this.serialPortAtParser.flush(); 
+        this.serialPort.once("close", () => {
+            this.debug("serial port close");
+            this.evtResponseAtMessage.detach();
+            this.timers.clearAll();
+            this.serialPortAtParser.flush();
         });
 
         this.serialPort.evtError.attach(error => {
-
-            debug("Serial port error: ", error);
-
+            this.debug("Serial port error: ", error);
             this.evtError.post(error);
         });
 
-        this.serialPort.on("data", (atMessage: AtMessage | null, unparsed: string) => {
+        this.serialPort.on("data",
+            (atMessage: AtMessage | null, unparsed: string) => {
 
-            if (!atMessage) {
-                this.evtError.post(new ParseError(unparsed));
-                return;
+                if (!atMessage) {
+                    this.evtError.post(new ParseError(unparsed));
+                    return;
+                }
+
+                //debug(JSON.stringify(atMessage.id));
+
+                if (atMessage.isUnsolicited)
+                    this.evtUnsolicitedMessage.post(atMessage);
+                else {
+                    this.evtResponseAtMessage.post(atMessage);
+                }
+
             }
-
-            //debug(JSON.stringify(atMessage.id));
-
-            if (atMessage.isUnsolicited)
-                this.evtUnsolicitedMessage.post(atMessage);
-            else {
-                this.evtResponseAtMessage.post(atMessage);
-            }
-
-        });
+        );
 
     }
 
@@ -223,7 +222,7 @@ export class AtStack {
         }
 
 
-        let [ resp, final, raw ]= await this.runCommandSetReportMode(
+        let [resp, final, raw] = await this.runCommandSetReportMode(
             command!,
             AtStack.generateSafeRunParams(params),
         );
@@ -316,7 +315,7 @@ export class AtStack {
 
         let { retryOnErrors, recoverable } = params;
 
-        let [ resp, final, raw ]= await this.runCommandBase(command);
+        let [resp, final, raw] = await this.runCommandBase(command);
 
         if (final.isError) {
 
@@ -335,18 +334,14 @@ export class AtStack {
 
                 if (!recoverable) {
                     this.evtError.post(new RunCommandError(command, final));
-                    await new Promise<void>(resolve => {});
+                    await new Promise<void>(resolve => { });
                 }
 
             } else {
 
-                debug(`Retrying ${JSON.stringify(command)} because ${JSON.stringify(final, null, 2)}`.yellow);
+                this.debug(`Retrying ${JSON.stringify(command)} because ${JSON.stringify(final, null, 2)}`.yellow);
 
-                await new Promise<void>(
-                    resolve => this.timers.add(
-                        setTimeout(resolve, this.delayBeforeRetry)
-                    )
-                );
+                await new Promise(resolve => this.timers.add(resolve, this.delayBeforeRetry));
 
                 return await this.runCommandRetry(command, params);
             }
@@ -381,7 +376,13 @@ export class AtStack {
 
         } catch (error) {
 
-            debug("Modem response timeout!".red);
+            if (error instanceof EvtError.Detached) {
+
+                await new Promise(resolve => { });
+
+            }
+
+            this.debug("Modem response timeout!".red);
 
             let unparsed = this.serialPortAtParser.flush();
 
@@ -395,18 +396,18 @@ export class AtStack {
                 await new Promise(resolve => { });
             }
 
-            debug(`Retrying command ${JSON.stringify(command)}`);
+            this.debug(`Retrying command ${JSON.stringify(command)}`);
 
             return await this.runCommandBase(command);
 
 
         }
 
-        let echo= "";
+        let echo = "";
         let resp: AtMessage | undefined = undefined;
         let final: AtMessage;
 
-        while( true ){
+        while (true) {
 
             if (atMessage.isFinal) {
                 final = atMessage;
@@ -424,33 +425,12 @@ export class AtStack {
         let raw = `${this.hideEcho ? "" : echo}${resp ? resp.raw : ""}${final.raw}`
 
         if (this.retryLeftWrite !== this.maxRetryWrite)
-            debug("Rewrite success!".green);
+            this.debug("Rewrite success!".green);
 
         this.retryLeftWrite = this.maxRetryWrite;
 
         return [resp, final, raw];
 
-    }
-
-
-
-}
-
-export class RunCommandError extends Error {
-
-    constructor(public readonly command: string,
-        public readonly atMessageError: AtMessage) {
-        super(RunCommandError.name);
-        Object.setPrototypeOf(this, RunCommandError.prototype)
-
-    }
-}
-
-export class ParseError extends Error {
-
-    constructor(public readonly unparsed: string) {
-        super(ParseError.name);
-        Object.setPrototypeOf(this, ParseError.prototype)
     }
 
 }
