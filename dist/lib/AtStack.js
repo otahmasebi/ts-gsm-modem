@@ -139,14 +139,14 @@ var AtStack = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         this.debug("unrecoverable error: ".red, error);
+                        if (!this.isTerminated)
+                            this.evtTerminate.post(error);
                         return [4 /*yield*/, new Promise(function (resolve) { return setImmediate(resolve); })];
                     case 1:
                         _a.sent();
                         if (this.serialPort.isOpen()) {
                             this.serialPort.close();
                         }
-                        if (!this.isTerminated)
-                            this.evtTerminate.post(error);
                         return [2 /*return*/];
                 }
             });

@@ -368,6 +368,9 @@ var Modem = /** @class */ (function () {
                                     return __generator(this, function (_a) {
                                         switch (_a.label) {
                                             case 0:
+                                                if (this.atStack.isTerminated) {
+                                                    throw new Error("This modem is no longer available");
+                                                }
                                                 switch (pinState) {
                                                     case "SIM PIN":
                                                         this.lastPinTried = inputs[0];

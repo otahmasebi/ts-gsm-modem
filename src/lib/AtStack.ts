@@ -114,12 +114,11 @@ export class AtStack {
 
             this.debug("unrecoverable error: ".red, error);
 
+            if (!this.isTerminated) this.evtTerminate.post(error);
+
             await new Promise<void>(resolve => setImmediate(resolve));
 
             if (this.serialPort.isOpen()) { this.serialPort.close(); }
-
-            if (!this.isTerminated) this.evtTerminate.post(error);
-
 
         });
 

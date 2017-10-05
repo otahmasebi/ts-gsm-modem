@@ -352,6 +352,10 @@ export class Modem {
                     times,
                     async (...inputs) => {
 
+                        if( this.atStack.isTerminated ){
+                            throw new Error("This modem is no longer available");
+                        }
+
                         switch (pinState) {
                             case "SIM PIN":
                                 this.lastPinTried = inputs[0];
