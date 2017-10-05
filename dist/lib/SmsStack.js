@@ -68,17 +68,13 @@ var SmsStack = /** @class */ (function () {
                         return [3 /*break*/, 3];
                     case 2:
                         error_1 = _d.sent();
-                        /*
-                        this.atStack.evtError.post(error);
-                        return NaN;
-                        */
                         this.debug([
                             "Can't build SMS PDU for message: \n".red,
                             "number: " + number + "\n",
                             "text: " + JSON.stringify(text),
                             "error: " + error_1.message
                         ].join(""));
-                        callback(NaN);
+                        callback(undefined);
                         return [2 /*return*/, null];
                     case 3:
                         messageId = Date.now();
@@ -115,7 +111,7 @@ var SmsStack = /** @class */ (function () {
                                 if (this.mrMessageIdMap[mr_1] === messageId)
                                     delete this.mrMessageIdMap[mr_1];
                             }
-                            callback(NaN);
+                            callback(undefined);
                             return [2 /*return*/, null];
                         }
                         this.mrMessageIdMap[mr] = messageId;

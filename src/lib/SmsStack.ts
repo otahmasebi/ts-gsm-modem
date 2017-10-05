@@ -185,8 +185,8 @@ export class SmsStack {
     public sendMessage = runExclusive.buildMethodCb(
         async (number: string,
             text: string,
-            callback?: (messageId: number) => void
-        ): Promise<number> => {
+            callback?: (messageId: number | undefined) => void
+        ): Promise<number | undefined> => {
 
             let pdus: Pdu[];
 
@@ -196,10 +196,6 @@ export class SmsStack {
 
             } catch (error) {
 
-                /*
-                this.atStack.evtError.post(error);
-                return NaN;
-                */
 
                 this.debug([
                     "Can't build SMS PDU for message: \n".red,
@@ -208,7 +204,7 @@ export class SmsStack {
                     `error: ${error.message}`
                 ].join(""));
 
-                callback!(NaN);
+                callback!(undefined);
 
                 return null as any;
 
@@ -255,7 +251,7 @@ export class SmsStack {
                         if (this.mrMessageIdMap[mr] === messageId)
                             delete this.mrMessageIdMap[mr];
 
-                    callback!(NaN);
+                    callback!(undefined);
 
                     return null as any;
                 }
@@ -266,7 +262,6 @@ export class SmsStack {
 
 
             callback!(messageId);
-
 
             return null as any;
 
