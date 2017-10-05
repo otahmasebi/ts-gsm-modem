@@ -17,26 +17,28 @@ export interface UnlockCode {
 }
 export declare class InitializationError extends Error {
     readonly modemInfos: {
-        hasSim: boolean;
-        imei?: string;
-        iccid?: string;
-        iccidAvailableBeforeUnlock?: boolean;
-        validSimPin?: string;
-        lastPinTried?: string;
-        imsi?: string;
-        serviceProviderName?: string;
-        isVoiceEnabled?: boolean;
+        hasSim: boolean | undefined;
+        imei: string | undefined;
+        iccid: string | undefined;
+        pinState: AtMessage.PinState | undefined;
+        iccidAvailableBeforeUnlock: boolean | undefined;
+        validSimPin: string | undefined;
+        lastPinTried: string | undefined;
+        imsi: string | undefined;
+        serviceProviderName: string | undefined;
+        isVoiceEnabled: boolean | undefined;
     };
     constructor(message: string, modemInfos: {
-        hasSim: boolean;
-        imei?: string;
-        iccid?: string;
-        iccidAvailableBeforeUnlock?: boolean;
-        validSimPin?: string;
-        lastPinTried?: string;
-        imsi?: string;
-        serviceProviderName?: string;
-        isVoiceEnabled?: boolean;
+        hasSim: boolean | undefined;
+        imei: string | undefined;
+        iccid: string | undefined;
+        pinState: AtMessage.PinState | undefined;
+        iccidAvailableBeforeUnlock: boolean | undefined;
+        validSimPin: string | undefined;
+        lastPinTried: string | undefined;
+        imsi: string | undefined;
+        serviceProviderName: string | undefined;
+        isVoiceEnabled: boolean | undefined;
     });
 }
 export declare class Modem {
@@ -58,6 +60,7 @@ export declare class Modem {
     imsi: string;
     serviceProviderName: string | undefined;
     isVoiceEnabled: boolean | undefined;
+    pinState: AtMessage.PinState | undefined;
     private readonly unlockCodeProvider;
     private readonly onInitializationCompleted;
     private hasSim;

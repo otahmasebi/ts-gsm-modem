@@ -75,6 +75,7 @@ var Modem = /** @class */ (function () {
         this.iccidAvailableBeforeUnlock = undefined;
         this.serviceProviderName = undefined;
         this.isVoiceEnabled = undefined;
+        this.pinState = undefined;
         this.unlockCodeProvider = undefined;
         this.hasSim = undefined;
         this.debug = debug("Modem");
@@ -170,14 +171,16 @@ var Modem = /** @class */ (function () {
             if (error) {
                 _this.atStack.terminate(error);
                 onInitializationCompleted(new InitializationError(error.message, {
-                    "hasSim": !!_this.hasSim,
-                    "iccid": _this.iccid,
-                    "iccidAvailableBeforeUnlock": _this.iccidAvailableBeforeUnlock,
+                    "hasSim": _this.hasSim,
                     "imei": _this.imei,
-                    "imsi": _this.imsi,
-                    "isVoiceEnabled": _this.isVoiceEnabled,
+                    "iccid": _this.iccid,
+                    "pinState": _this.pinState,
+                    "iccidAvailableBeforeUnlock": _this.iccidAvailableBeforeUnlock,
+                    "validSimPin": _this.validSimPin,
                     "lastPinTried": _this.lastPinTried,
-                    "validSimPin": _this.validSimPin
+                    "imsi": _this.imsi,
+                    "serviceProviderName": _this.serviceProviderName,
+                    "isVoiceEnabled": _this.isVoiceEnabled
                 }));
             }
             else {
@@ -327,6 +330,7 @@ var Modem = /** @class */ (function () {
                         cardLockFacility = new CardLockFacility_1.CardLockFacility(this.atStack);
                         cardLockFacility.evtUnlockCodeRequest.attach(function (_a) {
                             var pinState = _a.pinState, times = _a.times;
+                            _this.pinState = pinState;
                             var iccid = _this.iccid || undefined;
                             _this.iccidAvailableBeforeUnlock = !!iccid;
                             if (!_this.unlockCodeProvider) {
@@ -359,6 +363,7 @@ var Modem = /** @class */ (function () {
                         return [4 /*yield*/, cardLockFacility.evtPinStateReady.waitFor()];
                     case 1:
                         _b.sent();
+                        this.pinState = "READY";
                         if (this.lastPinTried) {
                             this.validSimPin = this.lastPinTried;
                         }

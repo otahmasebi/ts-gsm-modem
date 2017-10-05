@@ -29,23 +29,24 @@ export interface UnlockCodeProvider {
 }
 
 export interface UnlockCode {
-        pinFirstTry: string; 
-        pinSecondTry?: string;
+    pinFirstTry: string;
+    pinSecondTry?: string;
 }
 
 export class InitializationError extends Error {
     constructor(
         message: string,
         public readonly modemInfos: {
-            hasSim: boolean;
-            imei?: string;
-            iccid?: string;
-            iccidAvailableBeforeUnlock?: boolean;
-            validSimPin?: string;
-            lastPinTried?: string;
-            imsi?: string;
-            serviceProviderName?: string;
-            isVoiceEnabled?: boolean;
+            hasSim: boolean | undefined;
+            imei: string | undefined;
+            iccid: string | undefined;
+            pinState: AtMessage.PinState | undefined;
+            iccidAvailableBeforeUnlock: boolean | undefined;
+            validSimPin: string | undefined;
+            lastPinTried: string | undefined;
+            imsi: string | undefined;
+            serviceProviderName: string | undefined;
+            isVoiceEnabled: boolean | undefined;
         }
     ) {
         super(message);
@@ -77,7 +78,7 @@ export class Modem {
                     enableSmsStack,
                     enableCardStorage,
                     enableTrace,
-                    result => (result instanceof Modem)?resolve(result):reject(result)
+                    result => (result instanceof Modem) ? resolve(result) : reject(result)
                 );
 
             }
@@ -94,13 +95,14 @@ export class Modem {
     public imsi: string;
     public serviceProviderName: string | undefined = undefined;
     public isVoiceEnabled: boolean | undefined = undefined;
+    public pinState: AtMessage.PinState | undefined = undefined;
 
     private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
     private readonly onInitializationCompleted: (error?: Error) => void;
 
     private hasSim: true | undefined = undefined;
 
-    private debug: debug.IDebugger= debug("Modem");
+    private debug: debug.IDebugger = debug("Modem");
 
     private constructor(
         public readonly dataIfPath: string,
@@ -111,9 +113,9 @@ export class Modem {
         onInitializationCompleted: (result: Modem | InitializationError) => void
     ) {
 
-        if (enableTrace){
-            this.debug.namespace= `${this.debug.namespace} ${dataIfPath}`;
-            this.debug.enabled= true;
+        if (enableTrace) {
+            this.debug.namespace = `${this.debug.namespace} ${dataIfPath}`;
+            this.debug.enabled = true;
         }
 
         this.debug(`Initializing GSM Modem`);
@@ -125,8 +127,8 @@ export class Modem {
         }
 
         this.atStack = new AtStack(
-            dataIfPath, 
-            enableSmsStack?`${this.debug.namespace} AtStack`:undefined
+            dataIfPath,
+            enableSmsStack ? `${this.debug.namespace} AtStack` : undefined
         );
 
         this.onInitializationCompleted = error => {
@@ -137,19 +139,23 @@ export class Modem {
 
                 this.atStack.terminate(error);
 
-                onInitializationCompleted(new InitializationError(
-                    error.message,
-                    {
-                        "hasSim": !!this.hasSim,
-                        "iccid": this.iccid,
-                        "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
-                        "imei": this.imei,
-                        "imsi": this.imsi,
-                        "isVoiceEnabled": this.isVoiceEnabled,
-                        "lastPinTried": this.lastPinTried,
-                        "validSimPin": this.validSimPin
-                    }
-                ));
+                onInitializationCompleted(
+                    new InitializationError(
+                        error.message,
+                        {
+                            "hasSim": this.hasSim,
+                            "imei": this.imei,
+                            "iccid": this.iccid,
+                            "pinState": this.pinState,
+                            "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
+                            "validSimPin": this.validSimPin,
+                            "lastPinTried": this.lastPinTried,
+                            "imsi": this.imsi,
+                            "serviceProviderName": this.serviceProviderName,
+                            "isVoiceEnabled": this.isVoiceEnabled
+                        }
+                    )
+                );
 
             } else {
 
@@ -160,7 +166,7 @@ export class Modem {
 
         }
 
-        this.atStack.evtTerminate.attachOnce(this, atStackError => 
+        this.atStack.evtTerminate.attachOnce(this, atStackError =>
             this.onInitializationCompleted(atStackError!)
         );
 
@@ -187,7 +193,7 @@ export class Modem {
 
             this.iccid = await this.readIccid();
 
-            if( this.iccid ){
+            if (this.iccid) {
                 this.debug(`ICCID: ${this.iccid}`);
             }
 
@@ -286,7 +292,7 @@ export class Modem {
         return runExclusive.cancelAllQueuedCalls(this.runCommand);
     }
 
-    public terminate(){ this.atStack.terminate(); }
+    public terminate() { this.atStack.terminate(); }
 
 
     public get isTerminated(): typeof AtStack.prototype.isTerminated {
@@ -309,6 +315,8 @@ export class Modem {
         let cardLockFacility = new CardLockFacility(this.atStack);
 
         cardLockFacility.evtUnlockCodeRequest.attach(({ pinState, times }) => {
+
+            this.pinState = pinState;
 
             let iccid = this.iccid || undefined;
 
@@ -347,6 +355,8 @@ export class Modem {
         });
 
         await cardLockFacility.evtPinStateReady.waitFor();
+
+        this.pinState = "READY";
 
         if (this.lastPinTried) {
             this.validSimPin = this.lastPinTried;
@@ -446,7 +456,6 @@ export class Modem {
         }) as any as typeof SmsStack.prototype.sendMessage
     );
 
-
     private cardStorage: CardStorage;
 
     private async initCardStorage(): Promise<void> {
@@ -510,6 +519,5 @@ export class Modem {
         return;
 
     }
-
 
 }
