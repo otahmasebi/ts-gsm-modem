@@ -13,9 +13,18 @@ import * as debug from "debug";
 
 import "colors";
 
+export type UnlockResult = UnlockResult.Success | UnlockResult.Failed;
+
+export namespace UnlockResult {
+
+    export type Success= { success: true; };
+    export type Failed= { success: false; pinState: AtMessage.LockedPinState; tryLeft: number; };
+
+}
+
 export interface PerformUnlock {
-    (pin: string): void;
-    (puk: string, newPin: string): void;
+    (pin: string): Promise<UnlockResult>;
+    (puk: string, newPin: string): Promise<UnlockResult>;
 }
 
 export interface UnlockCodeProvider {
@@ -40,7 +49,6 @@ export class InitializationError extends Error {
             hasSim: boolean | undefined;
             imei: string | undefined;
             iccid: string | undefined;
-            pinState: AtMessage.PinState | undefined;
             iccidAvailableBeforeUnlock: boolean | undefined;
             validSimPin: string | undefined;
             lastPinTried: string | undefined;
@@ -95,7 +103,6 @@ export class Modem {
     public imsi: string;
     public serviceProviderName: string | undefined = undefined;
     public isVoiceEnabled: boolean | undefined = undefined;
-    public pinState: AtMessage.PinState | undefined = undefined;
 
     private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
     private readonly onInitializationCompleted: (error?: Error) => void;
@@ -146,7 +153,6 @@ export class Modem {
                             "hasSim": this.hasSim,
                             "imei": this.imei,
                             "iccid": this.iccid,
-                            "pinState": this.pinState,
                             "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
                             "validSimPin": this.validSimPin,
                             "lastPinTried": this.lastPinTried,
@@ -203,36 +209,47 @@ export class Modem {
 
     }
 
-
-
     private buildUnlockCodeProvider(unlockCode: UnlockCode): UnlockCodeProvider {
 
-        let pins = [unlockCode.pinFirstTry, unlockCode.pinSecondTry];
+        return async (imei, imsi, pinState, tryLeft, performUnlock) => {
 
-        return (imei, imsi, pinState, tryLeft, performUnlock) => {
+            this.debug(`Sim locked...`);
 
-            if (pinState === "SIM PIN") {
+            for (let pin of [unlockCode.pinFirstTry, unlockCode.pinSecondTry, undefined]) {
 
-                if (tryLeft === 1)
-                    throw new Error("Prevent unlock sim, only one try left!");
-
-                let pin = pins.shift();
-
-                if (pin) {
-                    this.debug(`Unlock SIM imsi${imsi}, ${pinState}, ${tryLeft}, ${pin}`);
-                    performUnlock(pin);
+                if (!pin || pinState !== "SIM PIN") {
+                    this.onInitializationCompleted(
+                        new Error(`Unlock failed ${pinState}, ${tryLeft}`)
+                    );
                     return;
                 }
-            }
 
-            this.onInitializationCompleted(
-                new Error(`No unlock action defined for ${pinState}, tryLeft: ${tryLeft}`)
-            );
+                if (tryLeft === 1) {
+                    this.onInitializationCompleted(
+                        new Error(`Prevent unlock sim, only one try left`)
+                    );
+                    return;
+                }
+
+                this.debug(`Attempting unlock with ${pin}`);
+
+                let unlockResult = await performUnlock(pin);
+
+                if (unlockResult.success) {
+                    this.debug("Unlock success");
+                    return;
+                }
+
+                pinState = unlockResult.pinState;
+                tryLeft = unlockResult.tryLeft;
+
+                this.debug(`Unlock attempt failed ${pinState}, ${tryLeft}`);
+
+            }
 
         }
 
     }
-
 
     private async readIccid(): Promise<string> {
 
@@ -314,49 +331,77 @@ export class Modem {
 
         let cardLockFacility = new CardLockFacility(this.atStack);
 
-        cardLockFacility.evtUnlockCodeRequest.attach(({ pinState, times }) => {
+        cardLockFacility.evtUnlockCodeRequest.attachOnce(
+            ({ pinState, times }) => {
 
-            this.pinState = pinState;
+                let iccid = this.iccid || undefined;
 
-            let iccid = this.iccid || undefined;
+                this.iccidAvailableBeforeUnlock = !!iccid;
 
-            this.iccidAvailableBeforeUnlock = !!iccid;
+                if (!this.unlockCodeProvider) {
 
-            if (!this.unlockCodeProvider) {
-
-                this.onInitializationCompleted(new Error("SIM card is pin locked but no code was provided"));
-                return;
-
-            }
-
-            this.unlockCodeProvider(
-                this.imei,
-                iccid,
-                pinState,
-                times, (...inputs) => {
-
-                    switch (pinState) {
-                        case "SIM PIN":
-                            this.lastPinTried = inputs[0];
-                            cardLockFacility.enterPin(inputs[0]);
-                            return;
-                        case "SIM PUK":
-                            this.lastPinTried = inputs[1];
-                            cardLockFacility.enterPuk(inputs[0], inputs[1]);
-                            return;
-                        case "SIM PIN2": cardLockFacility.enterPin2(inputs[0]); return;
-                        case "SIM PUK2": cardLockFacility.enterPuk2(inputs[0], inputs[1]); return;
-                    }
+                    this.onInitializationCompleted(new Error("SIM card is pin locked but no code was provided"));
+                    return;
 
                 }
-            );
+
+                this.unlockCodeProvider(
+                    this.imei,
+                    iccid,
+                    pinState,
+                    times,
+                    async (...inputs) => {
+
+                        switch (pinState) {
+                            case "SIM PIN":
+                                this.lastPinTried = inputs[0];
+                                cardLockFacility.enterPin(inputs[0]);
+                                break;
+                            case "SIM PUK":
+                                this.lastPinTried = inputs[1];
+                                cardLockFacility.enterPuk(inputs[0], inputs[1]);
+                                break;
+                            case "SIM PIN2":
+                                cardLockFacility.enterPin2(inputs[0]);
+                                break;
+                            case "SIM PUK2":
+                                cardLockFacility.enterPuk2(inputs[0], inputs[1]);
+                                break;
+                        }
+
+                        let result = await Promise.race([
+                            cardLockFacility.evtUnlockCodeRequest.waitFor(),
+                            cardLockFacility.evtPinStateReady.waitFor()
+                        ]);
+
+                        if (!result) {
+
+                            let resultSuccess: UnlockResult.Success = {
+                                "success": true
+                            };
+
+                            return resultSuccess;
+
+                        } else {
+
+                            let resultFailed: UnlockResult.Failed = {
+                                "success": false,
+                                "pinState": result.pinState,
+                                "tryLeft": result.times
+                            };
+
+                            return resultFailed;
+
+                        }
+
+                    }
+                );
 
 
-        });
+            }
+        );
 
         await cardLockFacility.evtPinStateReady.waitFor();
-
-        this.pinState = "READY";
 
         if (this.lastPinTried) {
             this.validSimPin = this.lastPinTried;

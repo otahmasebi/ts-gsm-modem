@@ -75,7 +75,6 @@ var Modem = /** @class */ (function () {
         this.iccidAvailableBeforeUnlock = undefined;
         this.serviceProviderName = undefined;
         this.isVoiceEnabled = undefined;
-        this.pinState = undefined;
         this.unlockCodeProvider = undefined;
         this.hasSim = undefined;
         this.debug = debug("Modem");
@@ -174,7 +173,6 @@ var Modem = /** @class */ (function () {
                     "hasSim": _this.hasSim,
                     "imei": _this.imei,
                     "iccid": _this.iccid,
-                    "pinState": _this.pinState,
                     "iccidAvailableBeforeUnlock": _this.iccidAvailableBeforeUnlock,
                     "validSimPin": _this.validSimPin,
                     "lastPinTried": _this.lastPinTried,
@@ -232,20 +230,44 @@ var Modem = /** @class */ (function () {
     };
     Modem.prototype.buildUnlockCodeProvider = function (unlockCode) {
         var _this = this;
-        var pins = [unlockCode.pinFirstTry, unlockCode.pinSecondTry];
-        return function (imei, imsi, pinState, tryLeft, performUnlock) {
-            if (pinState === "SIM PIN") {
-                if (tryLeft === 1)
-                    throw new Error("Prevent unlock sim, only one try left!");
-                var pin = pins.shift();
-                if (pin) {
-                    _this.debug("Unlock SIM imsi" + imsi + ", " + pinState + ", " + tryLeft + ", " + pin);
-                    performUnlock(pin);
-                    return;
+        return function (imei, imsi, pinState, tryLeft, performUnlock) { return __awaiter(_this, void 0, void 0, function () {
+            var _i, _a, pin, unlockResult;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        this.debug("Sim locked...");
+                        _i = 0, _a = [unlockCode.pinFirstTry, unlockCode.pinSecondTry, undefined];
+                        _b.label = 1;
+                    case 1:
+                        if (!(_i < _a.length)) return [3 /*break*/, 4];
+                        pin = _a[_i];
+                        if (!pin || pinState !== "SIM PIN") {
+                            this.onInitializationCompleted(new Error("Unlock failed " + pinState + ", " + tryLeft));
+                            return [2 /*return*/];
+                        }
+                        if (tryLeft === 1) {
+                            this.onInitializationCompleted(new Error("Prevent unlock sim, only one try left"));
+                            return [2 /*return*/];
+                        }
+                        this.debug("Attempting unlock with " + pin);
+                        return [4 /*yield*/, performUnlock(pin)];
+                    case 2:
+                        unlockResult = _b.sent();
+                        if (unlockResult.success) {
+                            this.debug("Unlock success");
+                            return [2 /*return*/];
+                        }
+                        pinState = unlockResult.pinState;
+                        tryLeft = unlockResult.tryLeft;
+                        this.debug("Unlock attempt failed " + pinState + ", " + tryLeft);
+                        _b.label = 3;
+                    case 3:
+                        _i++;
+                        return [3 /*break*/, 1];
+                    case 4: return [2 /*return*/];
                 }
-            }
-            _this.onInitializationCompleted(new Error("No unlock action defined for " + pinState + ", tryLeft: " + tryLeft));
-        };
+            });
+        }); };
     };
     Modem.prototype.readIccid = function () {
         return __awaiter(this, void 0, void 0, function () {
@@ -328,9 +350,8 @@ var Modem = /** @class */ (function () {
                 switch (_b.label) {
                     case 0:
                         cardLockFacility = new CardLockFacility_1.CardLockFacility(this.atStack);
-                        cardLockFacility.evtUnlockCodeRequest.attach(function (_a) {
+                        cardLockFacility.evtUnlockCodeRequest.attachOnce(function (_a) {
                             var pinState = _a.pinState, times = _a.times;
-                            _this.pinState = pinState;
                             var iccid = _this.iccid || undefined;
                             _this.iccidAvailableBeforeUnlock = !!iccid;
                             if (!_this.unlockCodeProvider) {
@@ -342,28 +363,56 @@ var Modem = /** @class */ (function () {
                                 for (var _i = 0; _i < arguments.length; _i++) {
                                     inputs[_i] = arguments[_i];
                                 }
-                                switch (pinState) {
-                                    case "SIM PIN":
-                                        _this.lastPinTried = inputs[0];
-                                        cardLockFacility.enterPin(inputs[0]);
-                                        return;
-                                    case "SIM PUK":
-                                        _this.lastPinTried = inputs[1];
-                                        cardLockFacility.enterPuk(inputs[0], inputs[1]);
-                                        return;
-                                    case "SIM PIN2":
-                                        cardLockFacility.enterPin2(inputs[0]);
-                                        return;
-                                    case "SIM PUK2":
-                                        cardLockFacility.enterPuk2(inputs[0], inputs[1]);
-                                        return;
-                                }
+                                return __awaiter(_this, void 0, void 0, function () {
+                                    var result, resultSuccess, resultFailed;
+                                    return __generator(this, function (_a) {
+                                        switch (_a.label) {
+                                            case 0:
+                                                switch (pinState) {
+                                                    case "SIM PIN":
+                                                        this.lastPinTried = inputs[0];
+                                                        cardLockFacility.enterPin(inputs[0]);
+                                                        break;
+                                                    case "SIM PUK":
+                                                        this.lastPinTried = inputs[1];
+                                                        cardLockFacility.enterPuk(inputs[0], inputs[1]);
+                                                        break;
+                                                    case "SIM PIN2":
+                                                        cardLockFacility.enterPin2(inputs[0]);
+                                                        break;
+                                                    case "SIM PUK2":
+                                                        cardLockFacility.enterPuk2(inputs[0], inputs[1]);
+                                                        break;
+                                                }
+                                                return [4 /*yield*/, Promise.race([
+                                                        cardLockFacility.evtUnlockCodeRequest.waitFor(),
+                                                        cardLockFacility.evtPinStateReady.waitFor()
+                                                    ])];
+                                            case 1:
+                                                result = _a.sent();
+                                                if (!result) {
+                                                    resultSuccess = {
+                                                        "success": true
+                                                    };
+                                                    return [2 /*return*/, resultSuccess];
+                                                }
+                                                else {
+                                                    resultFailed = {
+                                                        "success": false,
+                                                        "pinState": result.pinState,
+                                                        "tryLeft": result.times
+                                                    };
+                                                    return [2 /*return*/, resultFailed];
+                                                }
+                                                return [2 /*return*/];
+                                        }
+                                    });
+                                });
                             });
                         });
                         return [4 /*yield*/, cardLockFacility.evtPinStateReady.waitFor()];
                     case 1:
                         _b.sent();
-                        this.pinState = "READY";
                         if (this.lastPinTried) {
                             this.validSimPin = this.lastPinTried;
                         }

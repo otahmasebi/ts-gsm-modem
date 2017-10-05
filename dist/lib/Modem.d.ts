@@ -4,9 +4,20 @@ import { CardStorage, Contact } from "./CardStorage";
 import { Message, StatusReport } from "./SmsStack";
 import { SyncEvent } from "ts-events-extended";
 import "colors";
+export declare type UnlockResult = UnlockResult.Success | UnlockResult.Failed;
+export declare namespace UnlockResult {
+    type Success = {
+        success: true;
+    };
+    type Failed = {
+        success: false;
+        pinState: AtMessage.LockedPinState;
+        tryLeft: number;
+    };
+}
 export interface PerformUnlock {
-    (pin: string): void;
-    (puk: string, newPin: string): void;
+    (pin: string): Promise<UnlockResult>;
+    (puk: string, newPin: string): Promise<UnlockResult>;
 }
 export interface UnlockCodeProvider {
     (imei: string, iccid: string | undefined, pinState: AtMessage.LockedPinState, tryLeft: number, performUnlock: PerformUnlock): void;
@@ -20,7 +31,6 @@ export declare class InitializationError extends Error {
         hasSim: boolean | undefined;
         imei: string | undefined;
         iccid: string | undefined;
-        pinState: AtMessage.PinState | undefined;
         iccidAvailableBeforeUnlock: boolean | undefined;
         validSimPin: string | undefined;
         lastPinTried: string | undefined;
@@ -32,7 +42,6 @@ export declare class InitializationError extends Error {
         hasSim: boolean | undefined;
         imei: string | undefined;
         iccid: string | undefined;
-        pinState: AtMessage.PinState | undefined;
         iccidAvailableBeforeUnlock: boolean | undefined;
         validSimPin: string | undefined;
         lastPinTried: string | undefined;
@@ -60,7 +69,6 @@ export declare class Modem {
     imsi: string;
     serviceProviderName: string | undefined;
     isVoiceEnabled: boolean | undefined;
-    pinState: AtMessage.PinState | undefined;
     private readonly unlockCodeProvider;
     private readonly onInitializationCompleted;
     private hasSim;
