@@ -364,7 +364,7 @@ var Modem = /** @class */ (function () {
                                     inputs[_i] = arguments[_i];
                                 }
                                 return __awaiter(_this, void 0, void 0, function () {
-                                    var result, resultSuccess, resultFailed;
+                                    var result, resultFailed, resultSuccess;
                                     return __generator(this, function (_a) {
                                         switch (_a.label) {
                                             case 0:
@@ -386,23 +386,27 @@ var Modem = /** @class */ (function () {
                                                 }
                                                 return [4 /*yield*/, Promise.race([
                                                         cardLockFacility.evtUnlockCodeRequest.waitFor(),
-                                                        cardLockFacility.evtPinStateReady.waitFor()
+                                                        cardLockFacility.evtPinStateReady.waitFor(),
+                                                        this.atStack.evtTerminate.waitFor()
                                                     ])];
                                             case 1:
                                                 result = _a.sent();
-                                                if (!result) {
-                                                    resultSuccess = {
-                                                        "success": true
-                                                    };
-                                                    return [2 /*return*/, resultSuccess];
+                                                if (result instanceof Error) {
+                                                    throw result;
                                                 }
-                                                else {
+                                                else if (result) {
                                                     resultFailed = {
                                                         "success": false,
                                                         "pinState": result.pinState,
                                                         "tryLeft": result.times
                                                     };
                                                     return [2 /*return*/, resultFailed];
+                                                }
+                                                else {
+                                                    resultSuccess = {
+                                                        "success": true
+                                                    };
+                                                    return [2 /*return*/, resultSuccess];
                                                 }
                                                 return [2 /*return*/];
                                         }

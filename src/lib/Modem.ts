@@ -371,18 +371,15 @@ export class Modem {
 
                         let result = await Promise.race([
                             cardLockFacility.evtUnlockCodeRequest.waitFor(),
-                            cardLockFacility.evtPinStateReady.waitFor()
+                            cardLockFacility.evtPinStateReady.waitFor(),
+                            this.atStack.evtTerminate.waitFor() as Promise<Error>
                         ]);
 
-                        if (!result) {
+                        if (result instanceof Error) {
 
-                            let resultSuccess: UnlockResult.Success = {
-                                "success": true
-                            };
+                            throw result;
 
-                            return resultSuccess;
-
-                        } else {
+                        } else if (result) {
 
                             let resultFailed: UnlockResult.Failed = {
                                 "success": false,
@@ -392,7 +389,17 @@ export class Modem {
 
                             return resultFailed;
 
+                        } else {
+
+                            let resultSuccess: UnlockResult.Success = {
+                                "success": true
+                            };
+
+                            return resultSuccess;
+
+
                         }
+
 
                     }
                 );
