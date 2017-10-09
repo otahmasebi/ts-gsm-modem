@@ -27,7 +27,7 @@ export declare class SmsStack {
     private readonly mrMessageIdMap;
     private sendPdu(pduLength, pdu);
     private readonly maxTrySendPdu;
-    sendMessage: (number: string, text: string, callback?: ((sendDate: Date | undefined) => void) | undefined) => Promise<number | undefined>;
+    sendMessage: (number: string, text: string, callback?: ((sendDate: Date | undefined) => void) | undefined) => Promise<Date | undefined>;
     private registerListeners();
     private retrievePdu(index);
 }

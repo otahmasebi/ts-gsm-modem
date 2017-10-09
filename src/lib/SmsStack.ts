@@ -194,7 +194,7 @@ export class SmsStack {
         async (number: string,
             text: string,
             callback?: (sendDate: Date | undefined) => void
-        ): Promise<number | undefined> => {
+        ): Promise<Date | undefined> => {
 
             let pdus: Pdu[];
 
