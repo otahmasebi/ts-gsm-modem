@@ -98,7 +98,7 @@ export declare class Modem {
     readonly evtMessage: SyncEvent<Message>;
     readonly evtMessageStatusReport: SyncEvent<StatusReport>;
     private initSmsStack();
-    sendMessage: (number: string, text: string, callback?: ((messageId: number | undefined) => void) | undefined) => Promise<number | undefined>;
+    sendMessage: (number: string, text: string, callback?: ((sendDate: Date | undefined) => void) | undefined) => Promise<number | undefined>;
     private cardStorage;
     private initCardStorage();
     readonly number: typeof CardStorage.prototype.number;

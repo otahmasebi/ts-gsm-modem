@@ -42,6 +42,13 @@ var ts_events_extended_1 = require("ts-events-extended");
 var trackable_map_1 = require("trackable-map");
 var debug = require("debug");
 require("colors");
+var uniqNow = (function () {
+    var last = 0;
+    return function () {
+        var now = Date.now();
+        return (now <= last) ? (++last) : (last = now);
+    };
+})();
 var SmsStack = /** @class */ (function () {
     function SmsStack(atStack) {
         var _this = this;
@@ -77,7 +84,7 @@ var SmsStack = /** @class */ (function () {
                         callback(undefined);
                         return [2 /*return*/, null];
                     case 3:
-                        messageId = Date.now();
+                        messageId = uniqNow();
                         this.statusReportMap[messageId] = {
                             "cnt": pdus.length,
                             "completed": 0
@@ -120,7 +127,7 @@ var SmsStack = /** @class */ (function () {
                         _i++;
                         return [3 /*break*/, 4];
                     case 9:
-                        callback(messageId);
+                        callback(new Date(messageId));
                         return [2 /*return*/, null];
                 }
             });
@@ -243,8 +250,8 @@ var SmsStack = /** @class */ (function () {
             }
             delete _this.statusReportMap[messageId];
             _this.evtMessageStatusReport.post({
-                messageId: messageId,
-                "dischargeTime": smsStatusReport.sr.dt,
+                "sendDate": new Date(messageId),
+                "dischargeDate": smsStatusReport.sr.dt,
                 isDelivered: isDelivered,
                 "status": smsStatusReport._status,
                 "recipient": smsStatusReport.sr.recipient

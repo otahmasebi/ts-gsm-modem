@@ -29,12 +29,20 @@ export interface Message {
 }
 
 export interface StatusReport {
-    messageId: number;
-    dischargeTime: Date;
+    sendDate: Date;
+    dischargeDate: Date;
     isDelivered: boolean;
     recipient: string;
     status: string;
 }
+
+const uniqNow= (()=>{
+    let last= 0;
+    return ()=> {
+        let now= Date.now();
+        return (now<=last)?(++last):(last=now);
+    };
+})();
 
 
 export class SmsStack {
@@ -185,7 +193,7 @@ export class SmsStack {
     public sendMessage = runExclusive.buildMethodCb(
         async (number: string,
             text: string,
-            callback?: (messageId: number | undefined) => void
+            callback?: (sendDate: Date | undefined) => void
         ): Promise<number | undefined> => {
 
             let pdus: Pdu[];
@@ -211,7 +219,7 @@ export class SmsStack {
             }
 
 
-            let messageId = Date.now();
+            let messageId = uniqNow();
 
             this.statusReportMap[messageId] = {
                 "cnt": pdus.length,
@@ -261,7 +269,7 @@ export class SmsStack {
             }
 
 
-            callback!(messageId);
+            callback!(new Date(messageId));
 
             return null as any;
 
@@ -309,8 +317,8 @@ export class SmsStack {
             delete this.statusReportMap[messageId];
 
             this.evtMessageStatusReport.post({
-                messageId,
-                "dischargeTime": smsStatusReport.sr.dt,
+                "sendDate": new Date(messageId),
+                "dischargeDate": smsStatusReport.sr.dt,
                 isDelivered,
                 "status": smsStatusReport._status,
                 "recipient": smsStatusReport.sr.recipient

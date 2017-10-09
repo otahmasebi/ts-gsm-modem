@@ -83,7 +83,7 @@ var debug = _debug("_main");
                 return [4 /*yield*/, modem.sendMessage(joseph, messageText)];
             case 6:
                 sentMessageId = _a.sent();
-                debug("SentMessageId: ", sentMessageId);
+                debug("SendDate( used as id): ", sentMessageId);
                 return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 60000); })];
             case 7:
                 _a.sent();

@@ -7,8 +7,8 @@ export interface Message {
     text: string;
 }
 export interface StatusReport {
-    messageId: number;
-    dischargeTime: Date;
+    sendDate: Date;
+    dischargeDate: Date;
     isDelivered: boolean;
     recipient: string;
     status: string;
@@ -27,7 +27,7 @@ export declare class SmsStack {
     private readonly mrMessageIdMap;
     private sendPdu(pduLength, pdu);
     private readonly maxTrySendPdu;
-    sendMessage: (number: string, text: string, callback?: ((messageId: number | undefined) => void) | undefined) => Promise<number | undefined>;
+    sendMessage: (number: string, text: string, callback?: ((sendDate: Date | undefined) => void) | undefined) => Promise<number | undefined>;
     private registerListeners();
     private retrievePdu(index);
 }

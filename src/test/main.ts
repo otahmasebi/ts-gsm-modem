@@ -58,7 +58,7 @@ let debug= _debug("_main");
 
     let sentMessageId= await modem.sendMessage(joseph, messageText);
 
-    debug("SentMessageId: ", sentMessageId);
+    debug("SendDate( used as id): ", sentMessageId);
 
     await new Promise(resolve=> setTimeout(resolve, 60000));
 
