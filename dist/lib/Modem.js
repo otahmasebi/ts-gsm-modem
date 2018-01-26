@@ -172,6 +172,9 @@ var Modem = /** @class */ (function () {
                 onInitializationCompleted(new InitializationError(error.message, {
                     "hasSim": _this.hasSim,
                     "imei": _this.imei,
+                    "manufacturer": _this.manufacturer,
+                    "model": _this.model,
+                    "firmwareVersion": _this.firmwareVersion,
                     "iccid": _this.iccid,
                     "iccidAvailableBeforeUnlock": _this.iccidAvailableBeforeUnlock,
                     "validSimPin": _this.validSimPin,
@@ -190,8 +193,20 @@ var Modem = /** @class */ (function () {
             return _this.onInitializationCompleted(atStackError);
         });
         this.atStack.runCommand("AT+CGSN\r", function (resp) {
-            _this.imei = resp.raw.split("\r\n")[1];
+            _this.imei = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
             _this.debug("IMEI: " + _this.imei);
+        });
+        this.atStack.runCommand("AT+CGMI\r", function (resp) {
+            _this.manufacturer = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
+            _this.debug("manufacturer: " + _this.manufacturer);
+        });
+        this.atStack.runCommand("AT+CGMM\r", function (resp) {
+            _this.model = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
+            _this.debug("model: " + _this.model);
+        });
+        this.atStack.runCommand("AT+CGMR\r", function (resp) {
+            _this.firmwareVersion = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
+            _this.debug("firmwareVersion: " + _this.firmwareVersion);
         });
         this.systemState = new SystemState_1.SystemState(this.atStack);
         (function () { return __awaiter(_this, void 0, void 0, function () {

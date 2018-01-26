@@ -48,6 +48,9 @@ export class InitializationError extends Error {
         public readonly modemInfos: {
             hasSim: boolean | undefined;
             imei: string | undefined;
+            manufacturer: string | undefined;
+            model: string | undefined;
+            firmwareVersion: string | undefined;
             iccid: string | undefined;
             iccidAvailableBeforeUnlock: boolean | undefined;
             validSimPin: string | undefined;
@@ -98,6 +101,10 @@ export class Modem {
     private readonly systemState: SystemState;
 
     public imei: string;
+    public manufacturer: string;
+    public model: string;
+    public firmwareVersion: string;
+
     public iccid: string;
     public iccidAvailableBeforeUnlock: boolean | undefined = undefined;
     public imsi: string;
@@ -152,6 +159,9 @@ export class Modem {
                         {
                             "hasSim": this.hasSim,
                             "imei": this.imei,
+                            "manufacturer": this.manufacturer,
+                            "model": this.model,
+                            "firmwareVersion": this.firmwareVersion,
                             "iccid": this.iccid,
                             "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
                             "validSimPin": this.validSimPin,
@@ -176,10 +186,24 @@ export class Modem {
             this.onInitializationCompleted(atStackError!)
         );
 
-
         this.atStack.runCommand("AT+CGSN\r", resp => {
-            this.imei = resp!.raw.split("\r\n")[1];
+            this.imei = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
             this.debug(`IMEI: ${this.imei}`);
+        });
+
+        this.atStack.runCommand("AT+CGMI\r", resp => {
+            this.manufacturer = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
+            this.debug(`manufacturer: ${this.manufacturer}`);
+        });
+
+        this.atStack.runCommand("AT+CGMM\r", resp=> {
+            this.model = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
+            this.debug(`model: ${this.model}`);
+        });
+
+        this.atStack.runCommand("AT+CGMR\r", resp => {
+            this.firmwareVersion = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
+            this.debug(`firmwareVersion: ${this.firmwareVersion}`);
         });
 
         this.systemState = new SystemState(this.atStack);

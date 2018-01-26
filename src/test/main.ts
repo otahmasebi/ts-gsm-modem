@@ -67,9 +67,7 @@ let debug= _debug("_main");
     modem.terminate();
 
     console.assert(modem.isTerminated === true);
-
-
-
+    
     /*
 
     let { context } = repl.start({
@@ -102,7 +100,9 @@ let debug= _debug("_main");
         "get": ()=> process.exit(0)
     });
 
+    */
 
+    /*
     ( async function keepAlive(){
 
         while( true ){
@@ -119,6 +119,5 @@ let debug= _debug("_main");
 
     });
     */
-
 
 })();

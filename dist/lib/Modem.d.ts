@@ -30,6 +30,9 @@ export declare class InitializationError extends Error {
     readonly modemInfos: {
         hasSim: boolean | undefined;
         imei: string | undefined;
+        manufacturer: string | undefined;
+        model: string | undefined;
+        firmwareVersion: string | undefined;
         iccid: string | undefined;
         iccidAvailableBeforeUnlock: boolean | undefined;
         validSimPin: string | undefined;
@@ -41,6 +44,9 @@ export declare class InitializationError extends Error {
     constructor(message: string, modemInfos: {
         hasSim: boolean | undefined;
         imei: string | undefined;
+        manufacturer: string | undefined;
+        model: string | undefined;
+        firmwareVersion: string | undefined;
         iccid: string | undefined;
         iccidAvailableBeforeUnlock: boolean | undefined;
         validSimPin: string | undefined;
@@ -64,6 +70,9 @@ export declare class Modem {
     private readonly atStack;
     private readonly systemState;
     imei: string;
+    manufacturer: string;
+    model: string;
+    firmwareVersion: string;
     iccid: string;
     iccidAvailableBeforeUnlock: boolean | undefined;
     imsi: string;
