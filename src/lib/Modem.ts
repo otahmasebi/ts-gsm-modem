@@ -17,8 +17,8 @@ export type UnlockResult = UnlockResult.Success | UnlockResult.Failed;
 
 export namespace UnlockResult {
 
-    export type Success= { success: true; };
-    export type Failed= { success: false; pinState: AtMessage.LockedPinState; tryLeft: number; };
+    export type Success = { success: true; };
+    export type Failed = { success: false; pinState: AtMessage.LockedPinState; tryLeft: number; };
 
 }
 
@@ -29,7 +29,12 @@ export interface PerformUnlock {
 
 export interface UnlockCodeProvider {
     (
-        imei: string,
+        modemInfos: {
+            imei: string,
+            manufacturer: string,
+            model: string,
+            firmwareVersion: string,
+        },
         iccid: string | undefined,
         pinState: AtMessage.LockedPinState,
         tryLeft: number,
@@ -45,20 +50,20 @@ export interface UnlockCode {
 export class InitializationError extends Error {
     constructor(
         message: string,
-        public readonly modemInfos: {
-            hasSim: boolean | undefined;
-            imei: string | undefined;
-            manufacturer: string | undefined;
-            model: string | undefined;
-            firmwareVersion: string | undefined;
-            iccid: string | undefined;
-            iccidAvailableBeforeUnlock: boolean | undefined;
-            validSimPin: string | undefined;
-            lastPinTried: string | undefined;
-            imsi: string | undefined;
-            serviceProviderName: string | undefined;
-            isVoiceEnabled: boolean | undefined;
-        }
+        public readonly modemInfos: Partial<{
+            hasSim: boolean;
+            imei: string;
+            manufacturer: string;
+            model: string;
+            firmwareVersion: string;
+            iccid: string;
+            iccidAvailableBeforeUnlock: boolean;
+            validSimPin: string;
+            lastPinTried: string;
+            imsi: string;
+            serviceProviderName: string;
+            isVoiceEnabled: boolean;
+        }>
     ) {
         super(message);
         Object.setPrototypeOf(this, new.target.prototype);
@@ -196,7 +201,7 @@ export class Modem {
             this.debug(`manufacturer: ${this.manufacturer}`);
         });
 
-        this.atStack.runCommand("AT+CGMM\r", resp=> {
+        this.atStack.runCommand("AT+CGMM\r", resp => {
             this.model = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
             this.debug(`model: ${this.model}`);
         });
@@ -235,7 +240,7 @@ export class Modem {
 
     private buildUnlockCodeProvider(unlockCode: UnlockCode): UnlockCodeProvider {
 
-        return async (imei, imsi, pinState, tryLeft, performUnlock) => {
+        return async (modemInfos, iccid, pinState, tryLeft, performUnlock) => {
 
             this.debug(`Sim locked...`);
 
@@ -370,13 +375,18 @@ export class Modem {
                 }
 
                 this.unlockCodeProvider(
-                    this.imei,
+                    {
+                        "imei": this.imei,
+                        "manufacturer": this.manufacturer,
+                        "model": this.model,
+                        "firmwareVersion": this.firmwareVersion
+                    },
                     iccid,
                     pinState,
                     times,
                     async (...inputs) => {
 
-                        if( this.atStack.isTerminated ){
+                        if (this.atStack.isTerminated) {
                             throw new Error("This modem is no longer available");
                         }
 
@@ -569,10 +579,10 @@ export class Modem {
     }
 
     public generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName =
-    (...inputs) => this.cardStorage.generateSafeContactName.apply(this.cardStorage, inputs);
+        (...inputs) => this.cardStorage.generateSafeContactName.apply(this.cardStorage, inputs);
 
     public getContact: typeof CardStorage.prototype.getContact =
-    (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
+        (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
     private storageAccessGroupRef = runExclusive.createGroupRef();
 

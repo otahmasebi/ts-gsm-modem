@@ -245,7 +245,7 @@ var Modem = /** @class */ (function () {
     };
     Modem.prototype.buildUnlockCodeProvider = function (unlockCode) {
         var _this = this;
-        return function (imei, imsi, pinState, tryLeft, performUnlock) { return __awaiter(_this, void 0, void 0, function () {
+        return function (modemInfos, iccid, pinState, tryLeft, performUnlock) { return __awaiter(_this, void 0, void 0, function () {
             var _i, _a, pin, unlockResult;
             return __generator(this, function (_b) {
                 switch (_b.label) {
@@ -373,7 +373,12 @@ var Modem = /** @class */ (function () {
                                 _this.onInitializationCompleted(new Error("SIM card is pin locked but no code was provided"));
                                 return;
                             }
-                            _this.unlockCodeProvider(_this.imei, iccid, pinState, times, function () {
+                            _this.unlockCodeProvider({
+                                "imei": _this.imei,
+                                "manufacturer": _this.manufacturer,
+                                "model": _this.model,
+                                "firmwareVersion": _this.firmwareVersion
+                            }, iccid, pinState, times, function () {
                                 var inputs = [];
                                 for (var _i = 0; _i < arguments.length; _i++) {
                                     inputs[_i] = arguments[_i];

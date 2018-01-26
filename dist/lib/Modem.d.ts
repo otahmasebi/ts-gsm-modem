@@ -20,41 +20,46 @@ export interface PerformUnlock {
     (puk: string, newPin: string): Promise<UnlockResult>;
 }
 export interface UnlockCodeProvider {
-    (imei: string, iccid: string | undefined, pinState: AtMessage.LockedPinState, tryLeft: number, performUnlock: PerformUnlock): void;
+    (modemInfos: {
+        imei: string;
+        manufacturer: string;
+        model: string;
+        firmwareVersion: string;
+    }, iccid: string | undefined, pinState: AtMessage.LockedPinState, tryLeft: number, performUnlock: PerformUnlock): void;
 }
 export interface UnlockCode {
     pinFirstTry: string;
     pinSecondTry?: string;
 }
 export declare class InitializationError extends Error {
-    readonly modemInfos: {
-        hasSim: boolean | undefined;
-        imei: string | undefined;
-        manufacturer: string | undefined;
-        model: string | undefined;
-        firmwareVersion: string | undefined;
-        iccid: string | undefined;
-        iccidAvailableBeforeUnlock: boolean | undefined;
-        validSimPin: string | undefined;
-        lastPinTried: string | undefined;
-        imsi: string | undefined;
-        serviceProviderName: string | undefined;
-        isVoiceEnabled: boolean | undefined;
-    };
-    constructor(message: string, modemInfos: {
-        hasSim: boolean | undefined;
-        imei: string | undefined;
-        manufacturer: string | undefined;
-        model: string | undefined;
-        firmwareVersion: string | undefined;
-        iccid: string | undefined;
-        iccidAvailableBeforeUnlock: boolean | undefined;
-        validSimPin: string | undefined;
-        lastPinTried: string | undefined;
-        imsi: string | undefined;
-        serviceProviderName: string | undefined;
-        isVoiceEnabled: boolean | undefined;
-    });
+    readonly modemInfos: Partial<{
+        hasSim: boolean;
+        imei: string;
+        manufacturer: string;
+        model: string;
+        firmwareVersion: string;
+        iccid: string;
+        iccidAvailableBeforeUnlock: boolean;
+        validSimPin: string;
+        lastPinTried: string;
+        imsi: string;
+        serviceProviderName: string;
+        isVoiceEnabled: boolean;
+    }>;
+    constructor(message: string, modemInfos: Partial<{
+        hasSim: boolean;
+        imei: string;
+        manufacturer: string;
+        model: string;
+        firmwareVersion: string;
+        iccid: string;
+        iccidAvailableBeforeUnlock: boolean;
+        validSimPin: string;
+        lastPinTried: string;
+        imsi: string;
+        serviceProviderName: string;
+        isVoiceEnabled: boolean;
+    }>);
 }
 export declare class Modem {
     readonly dataIfPath: string;
