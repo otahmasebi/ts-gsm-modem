@@ -6,7 +6,7 @@
   "types": "./dist/lib/index.d.ts",
   "scripts": {
     "postinstall": "npm run remove-bold-color",
-    "remove-bold-color": "sed -i '/bold: string;/d' ./node_modules/@types/colors/index.d.ts",
+    "remove-bold-color": "sed -i '/bold: string;/d' ./node_modules/@types/colors/index.d.ts || true",
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
     "test": "DEBUG=_* node ./dist/test/main"
