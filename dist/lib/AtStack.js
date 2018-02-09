@@ -44,6 +44,32 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var SerialPortExt_1 = require("./SerialPortExt");
 var ts_events_extended_1 = require("ts-events-extended");
@@ -87,7 +113,6 @@ var AtStack = /** @class */ (function () {
         this.serialPortAtParser = at_messages_parser_1.getSerialPortParser(30000);
         this.evtError = new ts_events_extended_1.SyncEvent();
         this.evtResponseAtMessage = new ts_events_extended_1.SyncEvent();
-        this.parseErrorDelay = 30000;
         //public runCommand = execQueue(this.runCommandManageParams);
         this.runCommand = runExclusive.buildMethodCb(this.runCommandManageParams);
         this.reportMode = undefined;
@@ -104,6 +129,7 @@ var AtStack = /** @class */ (function () {
             this.debug.enabled = true;
         }
         this.debug("Initialization");
+        //TODO: here any is sloppy
         this.serialPort = new SerialPortExt_1.SerialPortExt(dataIfPath, {
             "parser": this.serialPortAtParser
         });
@@ -220,30 +246,39 @@ var AtStack = /** @class */ (function () {
             inputs[_i] = arguments[_i];
         }
         return __awaiter(this, void 0, void 0, function () {
-            var command, params, callback, _i, inputs_1, input, _a, resp, final, raw;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var command, params, callback, inputs_1, inputs_1_1, input, _a, resp, final, raw, e_1, _b;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
                         command = undefined;
                         params = undefined;
                         callback = undefined;
-                        for (_i = 0, inputs_1 = inputs; _i < inputs_1.length; _i++) {
-                            input = inputs_1[_i];
-                            switch (typeof input) {
-                                case "string":
-                                    command = input;
-                                    break;
-                                case "object":
-                                    params = input;
-                                    break;
-                                case "function":
-                                    callback = input;
-                                    break;
+                        try {
+                            for (inputs_1 = __values(inputs), inputs_1_1 = inputs_1.next(); !inputs_1_1.done; inputs_1_1 = inputs_1.next()) {
+                                input = inputs_1_1.value;
+                                switch (typeof input) {
+                                    case "string":
+                                        command = input;
+                                        break;
+                                    case "object":
+                                        params = input;
+                                        break;
+                                    case "function":
+                                        callback = input;
+                                        break;
+                                }
                             }
+                        }
+                        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                        finally {
+                            try {
+                                if (inputs_1_1 && !inputs_1_1.done && (_b = inputs_1.return)) _b.call(inputs_1);
+                            }
+                            finally { if (e_1) throw e_1.error; }
                         }
                         return [4 /*yield*/, this.runCommandSetReportMode(command, AtStack.generateSafeRunParams(params))];
                     case 1:
-                        _a = _b.sent(), resp = _a[0], final = _a[1], raw = _a[2];
+                        _a = __read.apply(void 0, [_c.sent(), 3]), resp = _a[0], final = _a[1], raw = _a[2];
                         callback(resp, final, raw);
                         return [2 /*return*/, null];
                 }
@@ -315,7 +350,7 @@ var AtStack = /** @class */ (function () {
                         retryOnErrors = params.retryOnErrors, recoverable = params.recoverable;
                         return [4 /*yield*/, this.runCommandBase(command)];
                     case 1:
-                        _a = _b.sent(), resp = _a[0], final = _a[1], raw = _a[2];
+                        _a = __read.apply(void 0, [_b.sent(), 3]), resp = _a[0], final = _a[1], raw = _a[2];
                         if (!final.isError) return [3 /*break*/, 7];
                         code = NaN;
                         if (final.id === at_messages_parser_1.AtMessage.idDict.COMMAND_NOT_SUPPORT ||

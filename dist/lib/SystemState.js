@@ -20,19 +20,20 @@ var SystemState = /** @class */ (function () {
         this.debug("Initialization");
         this.atStack.evtUnsolicitedMessage.attach(function (atMessage) { return _this.update(atMessage); });
         this.atStack.runCommand("AT^SYSINFO\r", function (resp) {
-            _this.isRoaming = resp.isRoaming;
-            _this.evtReportSimPresence.post(resp.simState !== at_messages_parser_1.AtMessage.SimState.NO_SIM);
+            var resp_t = resp;
+            _this.isRoaming = resp_t.isRoaming;
+            _this.evtReportSimPresence.post(resp_t.simState !== at_messages_parser_1.AtMessage.SimState.NO_SIM);
             _this.update({
                 "id": at_messages_parser_1.AtMessage.idDict.CX_SIMST_URC,
-                "simState": resp.simState
+                "simState": resp_t.simState
             });
             _this.update({
                 "id": at_messages_parser_1.AtMessage.idDict.CX_SRVST_URC,
-                "serviceStatus": resp.serviceStatus
+                "serviceStatus": resp_t.serviceStatus
             });
             _this.update({
                 "id": at_messages_parser_1.AtMessage.idDict.CX_MODE_URC,
-                "sysMode": resp.sysMode
+                "sysMode": resp_t.sysMode
             });
         });
     }

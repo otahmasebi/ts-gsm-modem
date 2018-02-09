@@ -40,7 +40,6 @@ export declare class AtStack {
     terminate(error?: Error): void;
     private readonly evtError;
     private readonly evtResponseAtMessage;
-    private readonly parseErrorDelay;
     private registerListeners();
     private static generateSafeRunParams(params);
     runCommand: {

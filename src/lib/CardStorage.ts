@@ -1,6 +1,6 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
-import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import { VoidSyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
 
 import * as encoding from "legacy-encoding";
@@ -131,7 +131,7 @@ export class CardStorage {
 
     }
 
-    private p_CPBR_TEST: AtMessage.P_CPBR_TEST;
+    private p_CPBR_TEST!: AtMessage.P_CPBR_TEST;
 
     private getFreeIndex(): number {
 
@@ -359,7 +359,7 @@ export class CardStorage {
 
                 this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
 
-                let [resp, final] = await this.atStack.runCommand(
+                let [resp] = await this.atStack.runCommand(
                     `AT+CPBR=${index}\r`,
                     { "recoverable": true }
                 );
@@ -410,8 +410,14 @@ export class CardStorage {
 
         if (length >= 4)
             hexStr = hexStr.substring(2, length) + hexStr.substring(0, 2);
+        
+        let buffer: Buffer;
 
-        let buffer = new Buffer(hexStr, "hex");
+        try{
+            buffer= Buffer.from(hexStr, "hex");
+        }catch{
+            buffer= new Buffer(hexStr, "hex");
+        }
 
         return encoding.decode(buffer, "ucs2") || "";
 

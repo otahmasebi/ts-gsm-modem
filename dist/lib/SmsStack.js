@@ -34,6 +34,32 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var at_messages_parser_1 = require("at-messages-parser");
 var node_python_messaging_1 = require("node-python-messaging");
@@ -64,17 +90,17 @@ var SmsStack = /** @class */ (function () {
         this.maxTrySendPdu = 5;
         //TODO: More test for when message fail to send
         this.sendMessage = runExclusive.buildMethodCb(function (number, text, callback) { return __awaiter(_this, void 0, void 0, function () {
-            var pdus, error_1, messageId, i, _i, pdus_1, _a, length, pdu, mr, error, tryLeft, result, _b, _c, mr_1;
-            return __generator(this, function (_d) {
-                switch (_d.label) {
+            var pdus, error_1, messageId, i, pdus_1, pdus_1_1, _a, length, pdu, mr, error, tryLeft, result, _b, _c, mr_1, e_1_1, e_1, _d, e_2, _e;
+            return __generator(this, function (_f) {
+                switch (_f.label) {
                     case 0:
-                        _d.trys.push([0, 2, , 3]);
+                        _f.trys.push([0, 2, , 3]);
                         return [4 /*yield*/, node_python_messaging_1.buildSmsSubmitPdus({ number: number, text: text, "request_status": true })];
                     case 1:
-                        pdus = _d.sent();
+                        pdus = _f.sent();
                         return [3 /*break*/, 3];
                     case 2:
-                        error_1 = _d.sent();
+                        error_1 = _f.sent();
                         this.debug([
                             "Can't build SMS PDU for message: \n".red,
                             "number: " + number + "\n",
@@ -90,43 +116,66 @@ var SmsStack = /** @class */ (function () {
                             "completed": 0
                         };
                         i = 1;
-                        _i = 0, pdus_1 = pdus;
-                        _d.label = 4;
+                        _f.label = 4;
                     case 4:
-                        if (!(_i < pdus_1.length)) return [3 /*break*/, 9];
-                        _a = pdus_1[_i], length = _a.length, pdu = _a.pdu;
+                        _f.trys.push([4, 11, 12, 13]);
+                        pdus_1 = __values(pdus), pdus_1_1 = pdus_1.next();
+                        _f.label = 5;
+                    case 5:
+                        if (!!pdus_1_1.done) return [3 /*break*/, 10];
+                        _a = pdus_1_1.value, length = _a.length, pdu = _a.pdu;
                         this.debug("Sending Message part " + i++ + "/" + pdus.length + " of message id: " + messageId);
                         mr = NaN;
                         error = null;
                         tryLeft = this.maxTrySendPdu;
-                        _d.label = 5;
-                    case 5:
-                        if (!(tryLeft-- && isNaN(mr))) return [3 /*break*/, 7];
+                        _f.label = 6;
+                    case 6:
+                        if (!(tryLeft-- && isNaN(mr))) return [3 /*break*/, 8];
                         if (tryLeft < this.maxTrySendPdu - 1)
                             console.log("Retry sending PDU".red);
                         return [4 /*yield*/, this.sendPdu(length, pdu)];
-                    case 6:
-                        result = _d.sent();
+                    case 7:
+                        result = _f.sent();
                         mr = result.mr;
                         error = result.error;
-                        return [3 /*break*/, 5];
-                    case 7:
+                        return [3 /*break*/, 6];
+                    case 8:
                         if (error) {
                             console.log(("Send Message Error after " + this.maxTrySendPdu + ", attempt: " + error.verbose).red);
-                            for (_b = 0, _c = Object.keys(this.mrMessageIdMap); _b < _c.length; _b++) {
-                                mr_1 = _c[_b];
-                                if (this.mrMessageIdMap[mr_1] === messageId)
-                                    delete this.mrMessageIdMap[mr_1];
+                            try {
+                                for (_b = __values(Object.keys(this.mrMessageIdMap)), _c = _b.next(); !_c.done; _c = _b.next()) {
+                                    mr_1 = _c.value;
+                                    if (this.mrMessageIdMap[mr_1] === messageId)
+                                        delete this.mrMessageIdMap[mr_1];
+                                }
+                            }
+                            catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                            finally {
+                                try {
+                                    if (_c && !_c.done && (_e = _b.return)) _e.call(_b);
+                                }
+                                finally { if (e_2) throw e_2.error; }
                             }
                             callback(undefined);
                             return [2 /*return*/, null];
                         }
                         this.mrMessageIdMap[mr] = messageId;
-                        _d.label = 8;
-                    case 8:
-                        _i++;
-                        return [3 /*break*/, 4];
+                        _f.label = 9;
                     case 9:
+                        pdus_1_1 = pdus_1.next();
+                        return [3 /*break*/, 5];
+                    case 10: return [3 /*break*/, 13];
+                    case 11:
+                        e_1_1 = _f.sent();
+                        e_1 = { error: e_1_1 };
+                        return [3 /*break*/, 13];
+                    case 12:
+                        try {
+                            if (pdus_1_1 && !pdus_1_1.done && (_d = pdus_1.return)) _d.call(pdus_1);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                        return [7 /*endfinally*/];
+                    case 13:
                         callback(new Date(messageId));
                         return [2 /*return*/, null];
                 }
@@ -146,21 +195,21 @@ var SmsStack = /** @class */ (function () {
     }
     SmsStack.prototype.retrieveUnreadSms = function (used, capacity) {
         return __awaiter(this, void 0, void 0, function () {
-            var messageLeft, index, resp, p_CMGR_SET, sms, error_2;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var messageLeft, index, _a, resp, p_CMGR_SET, sms, error_2;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
                         this.debug(used + " PDU in sim memory");
                         messageLeft = used;
                         index = 0;
-                        _a.label = 1;
+                        _b.label = 1;
                     case 1:
                         if (!(index < capacity)) return [3 /*break*/, 8];
                         if (!messageLeft)
                             return [3 /*break*/, 8];
                         return [4 /*yield*/, this.atStack.runCommand("AT+CMGR=" + index + "\r")];
                     case 2:
-                        resp = (_a.sent())[0];
+                        _a = __read.apply(void 0, [_b.sent(), 1]), resp = _a[0];
                         if (!resp)
                             return [3 /*break*/, 7];
                         messageLeft--;
@@ -172,15 +221,15 @@ var SmsStack = /** @class */ (function () {
                             return [3 /*break*/, 7];
                         }
                         sms = void 0;
-                        _a.label = 3;
+                        _b.label = 3;
                     case 3:
-                        _a.trys.push([3, 5, , 6]);
+                        _b.trys.push([3, 5, , 6]);
                         return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
                     case 4:
-                        sms = _a.sent();
+                        sms = _b.sent();
                         return [3 /*break*/, 6];
                     case 5:
-                        error_2 = _a.sent();
+                        error_2 = _b.sent();
                         this.debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_2);
                         this.atStack.runCommand("AT+CMGD=" + index + "\r");
                         return [3 /*break*/, 7];
@@ -190,7 +239,7 @@ var SmsStack = /** @class */ (function () {
                             return [3 /*break*/, 7];
                         }
                         this.evtSmsDeliver.post([index, sms]);
-                        _a.label = 7;
+                        _b.label = 7;
                     case 7:
                         index++;
                         return [3 /*break*/, 1];
@@ -207,10 +256,11 @@ var SmsStack = /** @class */ (function () {
                 "recoverable": true,
                 "retryOnErrors": false
             }, function (resp, final) {
-                if (!resp)
+                var resp_t = resp;
+                if (!resp_t)
                     resolve({ "error": final, "mr": NaN });
                 else
-                    resolve({ "error": null, "mr": resp.mr });
+                    resolve({ "error": null, "mr": resp_t.mr });
             });
         });
     };
@@ -243,10 +293,19 @@ var SmsStack = /** @class */ (function () {
                     isDelivered = true;
                     break;
             }
-            for (var _i = 0, _a = Object.keys(_this.mrMessageIdMap); _i < _a.length; _i++) {
-                var mr = _a[_i];
-                if (_this.mrMessageIdMap[mr] === messageId)
-                    delete _this.mrMessageIdMap[mr];
+            try {
+                for (var _a = __values(Object.keys(_this.mrMessageIdMap)), _b = _a.next(); !_b.done; _b = _a.next()) {
+                    var mr = _b.value;
+                    if (_this.mrMessageIdMap[mr] === messageId)
+                        delete _this.mrMessageIdMap[mr];
+                }
+            }
+            catch (e_3_1) { e_3 = { error: e_3_1 }; }
+            finally {
+                try {
+                    if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                }
+                finally { if (e_3) throw e_3.error; }
             }
             delete _this.statusReportMap[messageId];
             _this.evtMessageStatusReport.post({
@@ -256,9 +315,10 @@ var SmsStack = /** @class */ (function () {
                 "status": smsStatusReport._status,
                 "recipient": smsStatusReport.sr.recipient
             });
+            var e_3, _c;
         });
         this.evtSmsDeliver.attach(function (_a) {
-            var index = _a[0], smsDeliver = _a[1];
+            var _b = __read(_a, 2), index = _b[0], smsDeliver = _b[1];
             if (!(smsDeliver instanceof node_python_messaging_1.SmsDeliverPart)) {
                 var number = smsDeliver.number, date = smsDeliver.date, text = smsDeliver.text;
                 _this.evtMessage.post({ number: number, date: date, text: text });
@@ -278,23 +338,33 @@ var SmsStack = /** @class */ (function () {
                     var partRefPrev = 0;
                     var concatenatedText = "";
                     var partLeft = totalPartInMessage;
-                    for (var _i = 0, partRefs_1 = partRefs; _i < partRefs_1.length; _i++) {
-                        var partRef_1 = partRefs_1[_i];
-                        var _a = parts[partRef_1], storageIndex = _a.storageIndex, text = _a.text;
-                        for (var ref = partRefPrev + 1; ref < partRef_1; ref++) {
+                    try {
+                        for (var partRefs_1 = __values(partRefs), partRefs_1_1 = partRefs_1.next(); !partRefs_1_1.done; partRefs_1_1 = partRefs_1.next()) {
+                            var partRef_1 = partRefs_1_1.value;
+                            var _a = parts[partRef_1], storageIndex = _a.storageIndex, text = _a.text;
+                            for (var ref = partRefPrev + 1; ref < partRef_1; ref++) {
+                                partLeft--;
+                                concatenatedText += " *** Missing part *** ";
+                            }
                             partLeft--;
-                            concatenatedText += " *** Missing part *** ";
+                            concatenatedText += text;
+                            _this.atStack.runCommand("AT+CMGD=" + storageIndex + "\r");
+                            partRefPrev = partRef_1;
                         }
-                        partLeft--;
-                        concatenatedText += text;
-                        _this.atStack.runCommand("AT+CMGD=" + storageIndex + "\r");
-                        partRefPrev = partRef_1;
+                    }
+                    catch (e_4_1) { e_4 = { error: e_4_1 }; }
+                    finally {
+                        try {
+                            if (partRefs_1_1 && !partRefs_1_1.done && (_b = partRefs_1.return)) _b.call(partRefs_1);
+                        }
+                        finally { if (e_4) throw e_4.error; }
                     }
                     while (partLeft-- > 0)
                         concatenatedText += " *** Missing part *** ";
                     delete _this.uncompletedMultipartSms[messageRef];
                     var number = smsDeliver.number, date = smsDeliver.date;
                     _this.evtMessage.post({ number: number, date: date, "text": concatenatedText });
+                    var e_4, _b;
                 }, 240000, "missing parts");
                 _this.uncompletedMultipartSms[messageRef] = { timer: timer, parts: parts };
             }
@@ -313,26 +383,26 @@ var SmsStack = /** @class */ (function () {
     };
     SmsStack.prototype.retrievePdu = function (index) {
         return __awaiter(this, void 0, void 0, function () {
-            var resp, p_CMGR_SET, sms, error_3;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var _a, resp, p_CMGR_SET, sms, error_3;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0: return [4 /*yield*/, this.atStack.runCommand("AT+CMGR=" + index + "\r")];
                     case 1:
-                        resp = (_a.sent())[0];
+                        _a = __read.apply(void 0, [_b.sent(), 1]), resp = _a[0];
                         if (!resp)
                             return [2 /*return*/];
                         p_CMGR_SET = resp;
                         if (p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_UNREAD)
                             return [2 /*return*/];
-                        _a.label = 2;
+                        _b.label = 2;
                     case 2:
-                        _a.trys.push([2, 4, , 5]);
+                        _b.trys.push([2, 4, , 5]);
                         return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
                     case 3:
-                        sms = _a.sent();
+                        sms = _b.sent();
                         return [3 /*break*/, 5];
                     case 4:
-                        error_3 = _a.sent();
+                        error_3 = _b.sent();
                         this.debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_3);
                         this.atStack.runCommand("AT+CMGD=" + index + "\r");
                         return [2 /*return*/];

@@ -7,8 +7,6 @@ import {
     Sms,
     Pdu,
     TP_MTI,
-    TP_ST, 
-    ST_CLASS, 
     decodePdu, 
     buildSmsSubmitPdus 
 } from "node-python-messaging";
@@ -75,9 +73,9 @@ export class SmsStack {
 
         this.debug("Initialization");
 
-        atStack.runCommand('AT+CPMS="SM","SM","SM"\r', (resp: AtMessage.P_CPMS_SET) => {
+        atStack.runCommand('AT+CPMS="SM","SM","SM"\r', resp => {
 
-            let { used, capacity } = resp.readingAndDeleting;
+            let { used, capacity } = (resp! as AtMessage.P_CPMS_SET).readingAndDeleting;
 
             this.retrieveUnreadSms(used, capacity);
 
@@ -173,12 +171,14 @@ export class SmsStack {
             this.atStack.runCommand(`${pdu}\u001a`, {
                 "recoverable": true,
                 "retryOnErrors": false
-            }, (resp: AtMessage.P_CMGS_SET | undefined, final) => {
+            }, (resp, final) => {
 
-                if (!resp)
+                let resp_t= resp as AtMessage.P_CMGS_SET | undefined;
+
+                if (!resp_t)
                     resolve({ "error": final as AtMessage.P_CMS_ERROR, "mr": NaN });
                 else
-                    resolve({ "error": null, "mr": resp.mr });
+                    resolve({ "error": null, "mr": resp_t.mr });
 
             });
 

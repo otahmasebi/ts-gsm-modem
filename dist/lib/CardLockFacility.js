@@ -54,8 +54,9 @@ var CardLockFacility = /** @class */ (function () {
         var _this = this;
         this.retrieving = true;
         this.atStack.runCommand("AT^CPIN?\r", function (resp) {
+            var resp_t = resp;
             _this.retrieving = false;
-            _this.cx_CPIN_READ = resp;
+            _this.cx_CPIN_READ = resp_t;
             if (_this.pinState === "READY")
                 return _this.evtPinStateReady.post();
             _this.evtUnlockCodeRequest.post({

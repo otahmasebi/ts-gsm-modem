@@ -15,8 +15,7 @@ export class SerialPortExt extends SerialPort {
 
     public readonly evtData= new SyncEvent<any[]>();
 
-
-
+    //@ts-ignore: We dont want to overload the constructor so we init here
     private registerListener: void = (() => {
 
         this.on("error", error => this.evtError.post(new SerialPortError(error)));
@@ -78,9 +77,7 @@ export class SerialPortExt extends SerialPort {
         }
     );
 
-
 }
-
 
 export class SerialPortError extends Error {
 

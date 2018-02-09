@@ -64,8 +64,9 @@ export class AtStack {
 
         this.debug("Initialization");
 
+        //TODO: here any is sloppy
         this.serialPort = new SerialPortExt(dataIfPath, {
-            "parser": this.serialPortAtParser
+            "parser": this.serialPortAtParser as any
         });
 
         this.registerListeners();
@@ -105,8 +106,6 @@ export class AtStack {
     private readonly evtError = new SyncEvent<Error>();
 
     private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
-
-    private readonly parseErrorDelay = 30000;
 
     private registerListeners(): void {
 

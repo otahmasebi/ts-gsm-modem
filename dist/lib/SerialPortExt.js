@@ -58,6 +58,7 @@ var SerialPortExt = /** @class */ (function (_super) {
         _this.evtError = new ts_events_extended_1.SyncEvent();
         _this.evtOpen = new ts_events_extended_1.VoidSyncEvent();
         _this.evtData = new ts_events_extended_1.SyncEvent();
+        //@ts-ignore: We dont want to overload the constructor so we init here
         _this.registerListener = (function () {
             _this.on("error", function (error) { return _this.evtError.post(new SerialPortError(error)); });
             _this.on("open", function () { return _this.evtOpen.post(); });

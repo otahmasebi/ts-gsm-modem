@@ -1,6 +1,7 @@
 import { Modem, InitializationError, ConnectionMonitor } from "../lib/index";
 import * as fs from "fs";
 import * as path from "path";
+//@ts-ignore: we may un comment
 import * as repl from "repl";
 require("colors");
 

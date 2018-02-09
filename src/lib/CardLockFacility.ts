@@ -66,7 +66,7 @@ export class CardLockFacility {
 
     }
 
-    private cx_CPIN_READ: AtMessage.CX_CPIN_READ;
+    private cx_CPIN_READ!: AtMessage.CX_CPIN_READ;
 
     private get pinState(): AtMessage.PinState { 
         return this.cx_CPIN_READ.pinState; 
@@ -82,11 +82,13 @@ export class CardLockFacility {
 
         this.atStack.runCommand(
             "AT^CPIN?\r",
-            (resp: AtMessage.CX_CPIN_READ) => {
+            resp => {
+
+                let resp_t = resp as AtMessage.CX_CPIN_READ;
 
                 this.retrieving = false;
 
-                this.cx_CPIN_READ = resp;
+                this.cx_CPIN_READ = resp_t;
 
                 if (this.pinState === "READY")
                     return this.evtPinStateReady.post();

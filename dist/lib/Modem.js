@@ -44,10 +44,37 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var AtStack_1 = require("./AtStack");
 var SystemState_1 = require("./SystemState");
 var CardLockFacility_1 = require("./CardLockFacility");
+//@ts-ignore: Contact need to be imported as it is used as return type.
 var CardStorage_1 = require("./CardStorage");
 var SmsStack_1 = require("./SmsStack");
 var ts_events_extended_1 = require("ts-events-extended");
@@ -246,16 +273,19 @@ var Modem = /** @class */ (function () {
     Modem.prototype.buildUnlockCodeProvider = function (unlockCode) {
         var _this = this;
         return function (modemInfos, iccid, pinState, tryLeft, performUnlock) { return __awaiter(_this, void 0, void 0, function () {
-            var _i, _a, pin, unlockResult;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var _a, _b, pin, unlockResult, e_1_1, e_1, _c;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
                     case 0:
                         this.debug("Sim locked...");
-                        _i = 0, _a = [unlockCode.pinFirstTry, unlockCode.pinSecondTry, undefined];
-                        _b.label = 1;
+                        _d.label = 1;
                     case 1:
-                        if (!(_i < _a.length)) return [3 /*break*/, 4];
-                        pin = _a[_i];
+                        _d.trys.push([1, 6, 7, 8]);
+                        _a = __values([unlockCode.pinFirstTry, unlockCode.pinSecondTry, undefined]), _b = _a.next();
+                        _d.label = 2;
+                    case 2:
+                        if (!!_b.done) return [3 /*break*/, 5];
+                        pin = _b.value;
                         if (!pin || pinState !== "SIM PIN") {
                             this.onInitializationCompleted(new Error("Unlock failed " + pinState + ", " + tryLeft));
                             return [2 /*return*/];
@@ -266,8 +296,8 @@ var Modem = /** @class */ (function () {
                         }
                         this.debug("Attempting unlock with " + pin);
                         return [4 /*yield*/, performUnlock(pin)];
-                    case 2:
-                        unlockResult = _b.sent();
+                    case 3:
+                        unlockResult = _d.sent();
                         if (unlockResult.success) {
                             this.debug("Unlock success");
                             return [2 /*return*/];
@@ -275,11 +305,22 @@ var Modem = /** @class */ (function () {
                         pinState = unlockResult.pinState;
                         tryLeft = unlockResult.tryLeft;
                         this.debug("Unlock attempt failed " + pinState + ", " + tryLeft);
-                        _b.label = 3;
-                    case 3:
-                        _i++;
-                        return [3 /*break*/, 1];
-                    case 4: return [2 /*return*/];
+                        _d.label = 4;
+                    case 4:
+                        _b = _a.next();
+                        return [3 /*break*/, 2];
+                    case 5: return [3 /*break*/, 8];
+                    case 6:
+                        e_1_1 = _d.sent();
+                        e_1 = { error: e_1_1 };
+                        return [3 /*break*/, 8];
+                    case 7:
+                        try {
+                            if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                        return [7 /*endfinally*/];
+                    case 8: return [2 /*return*/];
                 }
             });
         }); };
@@ -291,11 +332,11 @@ var Modem = /** @class */ (function () {
                 switch (_c.label) {
                     case 0: return [4 /*yield*/, this.atStack.runCommand("AT^ICCID?\r", { "recoverable": true })];
                     case 1:
-                        _a = _c.sent(), resp = _a[0], final = _a[1];
+                        _a = __read.apply(void 0, [_c.sent(), 2]), resp = _a[0], final = _a[1];
                         if (!final.isError) return [3 /*break*/, 3];
                         return [4 /*yield*/, this.atStack.runCommand("AT+CRSM=176,12258,0,0,10\r", { "recoverable": true })];
                     case 2:
-                        _b = _c.sent(), resp_1 = _b[0], final_1 = _b[1];
+                        _b = __read.apply(void 0, [_c.sent(), 2]), resp_1 = _b[0], final_1 = _b[1];
                         if (final_1.isError)
                             switchedIccid = undefined;
                         else
@@ -360,9 +401,9 @@ var Modem = /** @class */ (function () {
     Modem.prototype.initCardLockFacility = function () {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var cardLockFacility, cx_SPN_SET, _a, resp, resp_CX_CVOICE_SET, cx_CVOICE_READ;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var cardLockFacility, _a, cx_SPN_SET, _b, _c, resp, resp_CX_CVOICE_SET, _d, cx_CVOICE_READ;
+            return __generator(this, function (_e) {
+                switch (_e.label) {
                     case 0:
                         cardLockFacility = new CardLockFacility_1.CardLockFacility(this.atStack);
                         cardLockFacility.evtUnlockCodeRequest.attachOnce(function (_a) {
@@ -439,7 +480,7 @@ var Modem = /** @class */ (function () {
                         });
                         return [4 /*yield*/, cardLockFacility.evtPinStateReady.waitFor()];
                     case 1:
-                        _b.sent();
+                        _e.sent();
                         if (this.lastPinTried) {
                             this.validSimPin = this.lastPinTried;
                         }
@@ -447,38 +488,38 @@ var Modem = /** @class */ (function () {
                         if (!!this.systemState.isValidSim) return [3 /*break*/, 3];
                         return [4 /*yield*/, this.systemState.evtValidSim.waitFor()];
                     case 2:
-                        _b.sent();
-                        _b.label = 3;
+                        _e.sent();
+                        _e.label = 3;
                     case 3:
                         this.debug("SIM valid");
                         return [4 /*yield*/, this.atStack.runCommand("AT^SPN=0\r", { "recoverable": true })];
                     case 4:
-                        cx_SPN_SET = (_b.sent())[0];
+                        _a = __read.apply(void 0, [_e.sent(), 1]), cx_SPN_SET = _a[0];
                         if (cx_SPN_SET)
                             this.serviceProviderName = cx_SPN_SET.serviceProviderName;
                         debug("Service Provider name: " + this.serviceProviderName);
                         if (!!this.iccidAvailableBeforeUnlock) return [3 /*break*/, 6];
-                        _a = this;
+                        _b = this;
                         return [4 /*yield*/, this.readIccid()];
                     case 5:
-                        _a.iccid = _b.sent();
+                        _b.iccid = _e.sent();
                         this.debug("ICCID ( read after unlock ): " + this.iccid);
-                        _b.label = 6;
+                        _e.label = 6;
                     case 6: return [4 /*yield*/, this.atStack.runCommand("AT+CIMI\r")];
                     case 7:
-                        resp = (_b.sent())[0];
+                        _c = __read.apply(void 0, [_e.sent(), 1]), resp = _c[0];
                         this.imsi = resp.raw.split("\r\n")[1];
                         this.debug("IMSI: " + this.imsi);
                         return [4 /*yield*/, this.atStack.runCommand("AT^CVOICE=0\r", { "recoverable": true })];
                     case 8:
-                        resp_CX_CVOICE_SET = _b.sent();
+                        resp_CX_CVOICE_SET = _e.sent();
                         if (!!resp_CX_CVOICE_SET[1].isError) return [3 /*break*/, 10];
                         return [4 /*yield*/, this.atStack.runCommand("AT^CVOICE?\r", { "recoverable": true })];
                     case 9:
-                        cx_CVOICE_READ = (_b.sent())[0];
+                        _d = __read.apply(void 0, [_e.sent(), 1]), cx_CVOICE_READ = _d[0];
                         if (cx_CVOICE_READ)
                             this.isVoiceEnabled = cx_CVOICE_READ.isEnabled;
-                        _b.label = 10;
+                        _e.label = 10;
                     case 10:
                         this.debug("VOICE ENABLED: ", this.isVoiceEnabled);
                         if (this.enableSmsStack)

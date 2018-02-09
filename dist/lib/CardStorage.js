@@ -52,6 +52,32 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
@@ -204,13 +230,23 @@ var CardStorage = /** @class */ (function () {
     Object.defineProperty(CardStorage.prototype, "contacts", {
         get: function () {
             var out = [];
-            for (var _i = 0, _a = Object.keys(this.contactByIndex); _i < _a.length; _i++) {
-                var indexStr = _a[_i];
-                var index = parseInt(indexStr);
-                var contact = __assign({}, this.contactByIndex[index]);
-                out.push(contact);
+            try {
+                for (var _a = __values(Object.keys(this.contactByIndex)), _b = _a.next(); !_b.done; _b = _a.next()) {
+                    var indexStr = _b.value;
+                    var index = parseInt(indexStr);
+                    var contact = __assign({}, this.contactByIndex[index]);
+                    out.push(contact);
+                }
+            }
+            catch (e_1_1) { e_1 = { error: e_1_1 }; }
+            finally {
+                try {
+                    if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                }
+                finally { if (e_1) throw e_1.error; }
             }
             return out;
+            var e_1, _c;
         },
         enumerable: true,
         configurable: true
@@ -235,7 +271,7 @@ var CardStorage = /** @class */ (function () {
     });
     Object.defineProperty(CardStorage.prototype, "storageLeft", {
         get: function () {
-            var _a = this.p_CPBR_TEST.range, minIndex = _a[0], maxIndex = _a[1];
+            var _a = __read(this.p_CPBR_TEST.range, 2), minIndex = _a[0], maxIndex = _a[1];
             var total = maxIndex - minIndex;
             return total - Object.keys(this.contactByIndex).length;
         },
@@ -243,18 +279,28 @@ var CardStorage = /** @class */ (function () {
         configurable: true
     });
     CardStorage.prototype.generateSafeContactName = function (contactName) {
-        for (var _i = 0, replaceArray_1 = replaceArray; _i < replaceArray_1.length; _i++) {
-            var _a = replaceArray_1[_i], match = _a[0], replaceBy = _a[1];
-            contactName = contactName.replace(match, replaceBy);
+        try {
+            for (var replaceArray_1 = __values(replaceArray), replaceArray_1_1 = replaceArray_1.next(); !replaceArray_1_1.done; replaceArray_1_1 = replaceArray_1.next()) {
+                var _a = __read(replaceArray_1_1.value, 2), match = _a[0], replaceBy = _a[1];
+                contactName = contactName.replace(match, replaceBy);
+            }
+        }
+        catch (e_2_1) { e_2 = { error: e_2_1 }; }
+        finally {
+            try {
+                if (replaceArray_1_1 && !replaceArray_1_1.done && (_b = replaceArray_1.return)) _b.call(replaceArray_1);
+            }
+            finally { if (e_2) throw e_2.error; }
         }
         //TODO if tLength not even
         contactName = contactName.substring(0, this.contactNameMaxLength);
         if (contactName.length % 2 === 1)
             contactName += " ";
         return contactName;
+        var e_2, _b;
     };
     CardStorage.prototype.getFreeIndex = function () {
-        var _a = this.p_CPBR_TEST.range, minIndex = _a[0], maxIndex = _a[1];
+        var _a = __read(this.p_CPBR_TEST.range, 2), minIndex = _a[0], maxIndex = _a[1];
         for (var index = minIndex; index <= maxIndex; index++)
             if (!this.contactByIndex[index])
                 return index;
@@ -262,14 +308,14 @@ var CardStorage = /** @class */ (function () {
     };
     CardStorage.prototype.init = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var resp, atMessageList, p_CNUM_EXEC, _a, minIndex, maxIndex, contactLeft, index, _b, resp_1, final, name, number, p_CPBR_EXEC, _c, resp_2, final_1, p_CPBR_EXEC, nameAsUcs2;
-            return __generator(this, function (_d) {
-                switch (_d.label) {
+            var _a, resp, atMessageList, p_CNUM_EXEC, _b, minIndex, maxIndex, contactLeft, index, _c, resp_1, final, name, number, p_CPBR_EXEC, _d, resp_2, p_CPBR_EXEC, nameAsUcs2;
+            return __generator(this, function (_e) {
+                switch (_e.label) {
                     case 0:
                         this.atStack.runCommand("AT+CSCS=\"UCS2\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CNUM\r")];
                     case 1:
-                        resp = (_d.sent())[0];
+                        _a = __read.apply(void 0, [_e.sent(), 1]), resp = _a[0];
                         atMessageList = resp;
                         if (atMessageList.atMessages.length) {
                             p_CNUM_EXEC = atMessageList.atMessages[0];
@@ -279,15 +325,15 @@ var CardStorage = /** @class */ (function () {
                         this.atStack.runCommand("AT+CPBS=\"SM\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=?\r")];
                     case 2:
-                        resp = (_d.sent())[0];
+                        resp = (_e.sent())[0];
                         this.p_CPBR_TEST = resp;
-                        _a = this.p_CPBR_TEST.range, minIndex = _a[0], maxIndex = _a[1];
+                        _b = __read(this.p_CPBR_TEST.range, 2), minIndex = _b[0], maxIndex = _b[1];
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBS?\r")];
                     case 3:
-                        resp = (_d.sent())[0];
+                        resp = (_e.sent())[0];
                         contactLeft = resp.used;
                         index = minIndex;
-                        _d.label = 4;
+                        _e.label = 4;
                     case 4:
                         if (!(index <= maxIndex)) return [3 /*break*/, 9];
                         if (!contactLeft)
@@ -295,7 +341,7 @@ var CardStorage = /** @class */ (function () {
                         this.atStack.runCommand("AT+CSCS=\"IRA\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=" + index + "\r", { "recoverable": true })];
                     case 5:
-                        _b = _d.sent(), resp_1 = _b[0], final = _b[1];
+                        _c = __read.apply(void 0, [_e.sent(), 2]), resp_1 = _c[0], final = _c[1];
                         if (final.isError && final.code === 22)
                             return [3 /*break*/, 8];
                         contactLeft--;
@@ -310,7 +356,7 @@ var CardStorage = /** @class */ (function () {
                         this.atStack.runCommand("AT+CSCS=\"UCS2\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=" + index + "\r", { "recoverable": true })];
                     case 6:
-                        _c = _d.sent(), resp_2 = _c[0], final_1 = _c[1];
+                        _d = __read.apply(void 0, [_e.sent(), 1]), resp_2 = _d[0];
                         if (!resp_2 && !number)
                             return [3 /*break*/, 8];
                         if (resp_2) {
@@ -321,10 +367,10 @@ var CardStorage = /** @class */ (function () {
                             if (CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name))
                                 name = nameAsUcs2;
                         }
-                        _d.label = 7;
+                        _e.label = 7;
                     case 7:
                         this.contactByIndex[index] = { index: index, number: number, name: name };
-                        _d.label = 8;
+                        _e.label = 8;
                     case 8:
                         index++;
                         return [3 /*break*/, 4];
@@ -347,7 +393,13 @@ var CardStorage = /** @class */ (function () {
         var length = hexStr.length;
         if (length >= 4)
             hexStr = hexStr.substring(2, length) + hexStr.substring(0, 2);
-        var buffer = new Buffer(hexStr, "hex");
+        var buffer;
+        try {
+            buffer = Buffer.from(hexStr, "hex");
+        }
+        catch (_a) {
+            buffer = new Buffer(hexStr, "hex");
+        }
         return encoding.decode(buffer, "ucs2") || "";
     };
     CardStorage.printableLength = function (text) {

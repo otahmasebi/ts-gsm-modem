@@ -1,12 +1,11 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import { SystemState } from "./SystemState";
-import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
+import { CardLockFacility } from "./CardLockFacility";
+//@ts-ignore: Contact need to be imported as it is used as return type.
 import { CardStorage, Contact } from "./CardStorage";
-import { SerialPortExt } from "./SerialPortExt";
-
 import { SmsStack, Message, StatusReport } from "./SmsStack";
-import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import { SyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
 
 import * as debug from "debug";
@@ -103,21 +102,21 @@ export class Modem {
     }
 
     private readonly atStack: AtStack;
-    private readonly systemState: SystemState;
+    private readonly systemState!: SystemState;
 
-    public imei: string;
-    public manufacturer: string;
-    public model: string;
-    public firmwareVersion: string;
+    public imei!: string;
+    public manufacturer!: string;
+    public model!: string;
+    public firmwareVersion!: string;
 
-    public iccid: string;
+    public iccid!: string;
     public iccidAvailableBeforeUnlock: boolean | undefined = undefined;
-    public imsi: string;
+    public imsi!: string;
     public serviceProviderName: string | undefined = undefined;
     public isVoiceEnabled: boolean | undefined = undefined;
 
     private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
-    private readonly onInitializationCompleted: (error?: Error) => void;
+    private readonly onInitializationCompleted!: (error?: Error) => void;
 
     private hasSim: true | undefined = undefined;
 
@@ -510,7 +509,7 @@ export class Modem {
 
     }
 
-    private smsStack: SmsStack;
+    private smsStack!: SmsStack;
 
     public readonly evtMessage = new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
@@ -546,7 +545,7 @@ export class Modem {
         }) as any as typeof SmsStack.prototype.sendMessage
     );
 
-    private cardStorage: CardStorage;
+    private cardStorage!: CardStorage;
 
     private async initCardStorage(): Promise<void> {
 
