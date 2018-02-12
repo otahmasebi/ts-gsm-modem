@@ -1,6 +1,6 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.19.1",
+  "version": "0.19.2",
   "description": "GSM Modem manager",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "gsm-modem-connection": "git+https://206e4c24cb9a1e4a8d42b7ac86e4a026b02cee42:x-oauth-basic@github.com/garronej/gsm-modem-connection.git",
-    "typescript": "^2.7.1",
+    "typescript": "2.7.1",
     "@types/colors": "^1.1.3",
     "@types/chai": "^3.4.34",
     "@types/debug": "0.0.29",
