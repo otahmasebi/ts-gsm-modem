@@ -187,7 +187,7 @@ export class SmsStack {
 
     }
 
-    private readonly maxTrySendPdu = 5;
+    private readonly maxTrySendPdu = 3;
 
     //TODO: More test for when message fail to send
     public sendMessage = runExclusive.buildMethodCb(
@@ -239,8 +239,9 @@ export class SmsStack {
 
                 while (tryLeft-- && isNaN(mr)) {
 
-                    if (tryLeft < this.maxTrySendPdu - 1)
+                    if (tryLeft < this.maxTrySendPdu - 1){
                         console.log("Retry sending PDU".red);
+                    }
 
 
                     let result = await this.sendPdu(length, pdu);

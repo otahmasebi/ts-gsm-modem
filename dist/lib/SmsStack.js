@@ -87,7 +87,7 @@ var SmsStack = /** @class */ (function () {
         this.uncompletedMultipartSms = {};
         this.statusReportMap = {};
         this.mrMessageIdMap = {};
-        this.maxTrySendPdu = 5;
+        this.maxTrySendPdu = 3;
         //TODO: More test for when message fail to send
         this.sendMessage = runExclusive.buildMethodCb(function (number, text, callback) { return __awaiter(_this, void 0, void 0, function () {
             var pdus, error_1, messageId, i, pdus_1, pdus_1_1, _a, length, pdu, mr, error, tryLeft, result, _b, _c, mr_1, e_1_1, e_1, _d, e_2, _e;
@@ -131,8 +131,9 @@ var SmsStack = /** @class */ (function () {
                         _f.label = 6;
                     case 6:
                         if (!(tryLeft-- && isNaN(mr))) return [3 /*break*/, 8];
-                        if (tryLeft < this.maxTrySendPdu - 1)
+                        if (tryLeft < this.maxTrySendPdu - 1) {
                             console.log("Retry sending PDU".red);
+                        }
                         return [4 /*yield*/, this.sendPdu(length, pdu)];
                     case 7:
                         result = _f.sent();
