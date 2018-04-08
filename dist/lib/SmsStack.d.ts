@@ -1,5 +1,7 @@
+/// <reference types="debug" />
 import { AtStack } from "./AtStack";
 import { SyncEvent } from "ts-events-extended";
+import * as debug from "debug";
 import "colors";
 export interface Message {
     number: string;
@@ -15,13 +17,13 @@ export interface StatusReport {
 }
 export declare class SmsStack {
     private readonly atStack;
-    private debug;
+    private readonly debug;
     readonly evtMessage: SyncEvent<Message>;
     readonly evtMessageStatusReport: SyncEvent<StatusReport>;
     private evtSmsDeliver;
     private evtSmsStatusReport;
     private readonly uncompletedMultipartSms;
-    constructor(atStack: AtStack);
+    constructor(atStack: AtStack, debug: debug.IDebugger);
     private retrieveUnreadSms(used, capacity);
     private readonly statusReportMap;
     private readonly mrMessageIdMap;

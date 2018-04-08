@@ -3,10 +3,12 @@ import * as fs from "fs";
 import * as path from "path";
 //@ts-ignore: we may un comment
 import * as repl from "repl";
-require("colors");
+
+import "colors";
 
 import * as _debug from "debug";
-let debug= _debug("_main");
+let debug= _debug("main");
+debug.enabled= true;
 
 (async ()=>{
 
@@ -20,8 +22,7 @@ let debug= _debug("_main");
 
         modem= await Modem.create({
             "dataIfPath": accessPoint.dataIfPath,
-            "unlock": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
-            "enableTrace": true
+            "unlock": { "pinFirstTry": "0000", "pinSecondTry": "1234" }
         });
 
     }catch(error){
@@ -42,18 +43,8 @@ let debug= _debug("_main");
 
     });
 
-    let contacts= modem.contacts
-
-    console.log({ contacts });
-
-    modem.evtMessage.attach(message => debug("NEW MESSAGE: ".green, message));
-    modem.evtMessageStatusReport.attach(statusReport => debug("MESSAGE STATUS REPORT: ".yellow, statusReport));
-
-
     let messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/dist/, "src"), "utf8");
     //let messageText= "foo bar";
-
-    debug("Sending: \n".green, JSON.stringify(messageText));
 
     let joseph= "0636786385";
 

@@ -1,5 +1,7 @@
+/// <reference types="debug" />
 import { AtStack } from "./AtStack";
 import { VoidSyncEvent } from "ts-events-extended";
+import * as debug from "debug";
 export declare type Encoding = "IRA" | "GSM" | "UCS2";
 export interface Contact {
     index: number;
@@ -11,6 +13,7 @@ export declare class CardStorageError extends Error {
 }
 export declare class CardStorage {
     private readonly atStack;
+    private readonly debug;
     readonly evtReady: VoidSyncEvent;
     readonly isReady: boolean;
     readonly contacts: Contact[];
@@ -19,8 +22,7 @@ export declare class CardStorage {
     readonly numberMaxLength: number;
     readonly storageLeft: number;
     generateSafeContactName(contactName: string): string;
-    private debug;
-    constructor(atStack: AtStack);
+    constructor(atStack: AtStack, debug: debug.IDebugger);
     private p_CPBR_TEST;
     private getFreeIndex();
     private storageAccessGroupRef;

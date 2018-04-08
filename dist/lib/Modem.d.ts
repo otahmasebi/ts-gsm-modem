@@ -70,7 +70,7 @@ export declare class Modem {
         unlock?: UnlockCode | UnlockCodeProvider;
         disableSmsFeatures?: boolean;
         disableContactsFeatures?: boolean;
-        enableTrace?: boolean;
+        log?: typeof console.log | false;
     }): Promise<Modem>;
     private readonly atStack;
     private readonly systemState;
@@ -83,10 +83,11 @@ export declare class Modem {
     imsi: string;
     serviceProviderName: string | undefined;
     isVoiceEnabled: boolean | undefined;
+    readonly evtTerminate: SyncEvent<Error | null>;
     private readonly unlockCodeProvider;
     private readonly onInitializationCompleted;
     private hasSim;
-    private debug;
+    private readonly debug;
     private constructor();
     private buildUnlockCodeProvider(unlockCode);
     private readIccid();
@@ -103,7 +104,6 @@ export declare class Modem {
     runCommand_cancelAllQueuedCalls(): number;
     terminate(): void;
     readonly isTerminated: typeof AtStack.prototype.isTerminated;
-    readonly evtTerminate: typeof AtStack.prototype.evtTerminate;
     readonly evtUnsolicitedAtMessage: typeof AtStack.prototype.evtUnsolicitedMessage;
     lastPinTried: string | undefined;
     validSimPin: string | undefined;

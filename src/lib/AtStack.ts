@@ -43,7 +43,6 @@ export class ParseError extends Error {
 
 export class AtStack {
 
-    public debug: debug.IDebugger = debug("AtStack");
 
     public readonly timers = new Timers();
 
@@ -54,13 +53,8 @@ export class AtStack {
     private readonly serialPortAtParser = getSerialPortParser(30000);
     constructor(
         dataIfPath: string,
-        public readonly debugPrefix?: string
+        private readonly debug: debug.IDebugger
     ) {
-
-        if (debugPrefix !== undefined) {
-            this.debug.namespace = `${debugPrefix} ${this.debug.namespace}`;
-            this.debug.enabled = true;
-        }
 
         this.debug("Initialization");
 
@@ -121,12 +115,11 @@ export class AtStack {
 
         });
 
-        //this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
-        //this.evtUnsolicitedMessage.attach(atMessage => debug(JSON.stringify(atMessage, null, 2).yellow));
-
         this.serialPort.once("disconnect", () => {
             this.debug("disconnect");
-            if (!this.isTerminated) this.evtTerminate.post(new Error("Modem disconnected"));
+            if (!this.isTerminated){
+                 this.evtTerminate.post(new Error("Modem disconnected"));
+            }
         });
 
         this.serialPort.once("close", () => {
@@ -149,12 +142,14 @@ export class AtStack {
                     return;
                 }
 
-                //debug(JSON.stringify(atMessage.id));
+                if (atMessage.isUnsolicited){
 
-                if (atMessage.isUnsolicited)
                     this.evtUnsolicitedMessage.post(atMessage);
-                else {
+
+                }else {
+
                     this.evtResponseAtMessage.post(atMessage);
+
                 }
 
             }
@@ -420,7 +415,7 @@ export class AtStack {
 
         await writeAndDrainPromise;
 
-        let raw = `${this.hideEcho ? "" : echo}${resp ? resp.raw : ""}${final.raw}`
+        let raw = `${this.hideEcho ? "" : echo}${resp ? resp.raw : ""}${final.raw}`;
 
         if (this.retryLeftWrite !== this.maxRetryWrite)
             this.debug("Rewrite success!".green);

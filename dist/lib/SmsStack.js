@@ -66,7 +66,6 @@ var node_python_messaging_1 = require("node-python-messaging");
 var runExclusive = require("run-exclusive");
 var ts_events_extended_1 = require("ts-events-extended");
 var trackable_map_1 = require("trackable-map");
-var debug = require("debug");
 require("colors");
 var uniqNow = (function () {
     var last = 0;
@@ -76,10 +75,10 @@ var uniqNow = (function () {
     };
 })();
 var SmsStack = /** @class */ (function () {
-    function SmsStack(atStack) {
+    function SmsStack(atStack, debug) {
         var _this = this;
         this.atStack = atStack;
-        this.debug = debug("SmsStack");
+        this.debug = debug;
         this.evtMessage = new ts_events_extended_1.SyncEvent();
         this.evtMessageStatusReport = new ts_events_extended_1.SyncEvent();
         this.evtSmsDeliver = new ts_events_extended_1.SyncEvent();
@@ -111,6 +110,7 @@ var SmsStack = /** @class */ (function () {
                         return [2 /*return*/, null];
                     case 3:
                         messageId = uniqNow();
+                        this.debug("Sending text:\n'" + text + "'\nto: " + number + ", message id ( send date timestamp ): " + messageId);
                         this.statusReportMap[messageId] = {
                             "cnt": pdus.length,
                             "completed": 0
@@ -182,10 +182,6 @@ var SmsStack = /** @class */ (function () {
                 }
             });
         }); });
-        if (atStack.debugPrefix !== undefined) {
-            this.debug.namespace = atStack.debugPrefix + " " + this.debug.namespace;
-            this.debug.enabled = true;
-        }
         this.debug("Initialization");
         atStack.runCommand('AT+CPMS="SM","SM","SM"\r', function (resp) {
             var _a = resp.readingAndDeleting, used = _a.used, capacity = _a.capacity;
@@ -275,19 +271,24 @@ var SmsStack = /** @class */ (function () {
         });
         this.evtSmsStatusReport.attach(function (smsStatusReport) {
             var messageId = _this.mrMessageIdMap[smsStatusReport.ref];
-            if (!messageId)
+            if (!messageId) {
+                _this.debug("No message ref for status report: ", smsStatusReport);
                 return;
-            //console.log(JSON.stringify(smsStatusReport, null,2).blue);
+            }
             var isDelivered = true;
             switch (smsStatusReport._stClass) {
                 case "RESERVED":
-                case "STILL TRYING": return;
+                case "STILL TRYING":
+                    _this.debug("Status report RESERVED or STILL TRYING", smsStatusReport);
+                    return;
                 case "PERMANENT ERROR":
                 case "TEMPORARY ERROR":
                 case "SPECIFIC TO SC":
+                    _this.debug("Status report not delivered", smsStatusReport);
                     isDelivered = false;
                     break;
                 case "COMPLETED":
+                    _this.debug("Status report COMPLETED received (part)");
                     var elem = _this.statusReportMap[messageId];
                     if (++elem.completed !== elem.cnt)
                         return;

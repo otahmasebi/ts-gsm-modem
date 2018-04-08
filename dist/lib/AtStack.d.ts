@@ -28,14 +28,13 @@ export declare class ParseError extends Error {
     constructor(unparsed: string);
 }
 export declare class AtStack {
-    readonly debugPrefix: string | undefined;
-    debug: debug.IDebugger;
+    private readonly debug;
     readonly timers: Timers;
     readonly evtUnsolicitedMessage: SyncEvent<AtMessage>;
     readonly evtTerminate: SyncEvent<Error | null>;
     private readonly serialPort;
     private readonly serialPortAtParser;
-    constructor(dataIfPath: string, debugPrefix?: string | undefined);
+    constructor(dataIfPath: string, debug: debug.IDebugger);
     readonly isTerminated: boolean;
     terminate(error?: Error): void;
     private readonly evtError;

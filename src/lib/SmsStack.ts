@@ -45,7 +45,6 @@ const uniqNow= (()=>{
 
 export class SmsStack {
 
-    private debug: debug.IDebugger= debug("SmsStack");
 
     public readonly evtMessage = new SyncEvent<Message>();
     public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
@@ -64,12 +63,10 @@ export class SmsStack {
         };
     } = {};
 
-    constructor(private readonly atStack: AtStack) {
-
-        if( atStack.debugPrefix !== undefined ){
-            this.debug.namespace= `${atStack.debugPrefix} ${this.debug.namespace}`;
-            this.debug.enabled= true;
-        }
+    constructor(
+        private readonly atStack: AtStack,
+        private readonly debug: debug.IDebugger
+    ) {
 
         this.debug("Initialization");
 
@@ -204,7 +201,6 @@ export class SmsStack {
 
             } catch (error) {
 
-
                 this.debug([
                     "Can't build SMS PDU for message: \n".red,
                     `number: ${number}\n`,
@@ -220,6 +216,8 @@ export class SmsStack {
 
 
             let messageId = uniqNow();
+
+            this.debug(`Sending text:\n'${text}'\nto: ${number}, message id ( send date timestamp ): ${messageId}`);
 
             this.statusReportMap[messageId] = {
                 "cnt": pdus.length,
@@ -289,27 +287,34 @@ export class SmsStack {
 
             let messageId = this.mrMessageIdMap[smsStatusReport.ref];
 
-            if (!messageId) return;
+            if (!messageId){ 
 
-            //console.log(JSON.stringify(smsStatusReport, null,2).blue);
+                this.debug(`No message ref for status report: `,smsStatusReport);
+
+                return;
+
+            }
 
             let isDelivered: boolean= true;
 
             switch (smsStatusReport._stClass) {
                 case "RESERVED":
-                case "STILL TRYING": return;
+                case "STILL TRYING": 
+                    this.debug("Status report RESERVED or STILL TRYING", smsStatusReport);
+                    return;
                 case "PERMANENT ERROR":
                 case "TEMPORARY ERROR":
                 case "SPECIFIC TO SC":
+                    this.debug("Status report not delivered", smsStatusReport);
                     isDelivered = false;
                     break;
                 case "COMPLETED":
+                    this.debug("Status report COMPLETED received (part)");
                     let elem = this.statusReportMap[messageId];
                     if (++elem.completed !== elem.cnt) return;
                     isDelivered = true;
                     break;
             }
-
 
             for (let mr of Object.keys(this.mrMessageIdMap))
                 if (this.mrMessageIdMap[mr] === messageId)

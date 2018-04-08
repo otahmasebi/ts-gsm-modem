@@ -1,20 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_events_extended_1 = require("ts-events-extended");
-var debug = require("debug");
 require("colors");
 var CardLockFacility = /** @class */ (function () {
-    function CardLockFacility(atStack) {
+    function CardLockFacility(atStack, debug) {
         this.atStack = atStack;
-        this.debug = debug("CardLockFacility");
+        this.debug = debug;
         this.evtUnlockCodeRequest = new ts_events_extended_1.SyncEvent();
         this.evtPinStateReady = new ts_events_extended_1.VoidSyncEvent();
         this.retrieving = true;
         this.unlocking = false;
-        if (atStack.debugPrefix !== undefined) {
-            this.debug.namespace = atStack.debugPrefix + " " + this.debug.namespace;
-            this.debug.enabled = true;
-        }
         this.debug("Initialization");
         this.retrieveCX_CPIN_READ();
     }

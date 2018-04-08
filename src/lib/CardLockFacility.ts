@@ -15,18 +15,15 @@ export interface UnlockCodeRequest {
 
 export class CardLockFacility {
 
-    private debug: debug.IDebugger= debug("CardLockFacility");
 
     public readonly evtUnlockCodeRequest = new SyncEvent<UnlockCodeRequest>();
 
     public readonly evtPinStateReady= new VoidSyncEvent();
 
-    constructor(private readonly atStack: AtStack) {
-
-        if( atStack.debugPrefix !== undefined ){
-            this.debug.namespace= `${atStack.debugPrefix} ${this.debug.namespace}`;
-            this.debug.enabled= true;
-        }
+    constructor(
+        private readonly atStack: AtStack,
+        private readonly debug: debug.IDebugger
+    ) {
 
         this.debug("Initialization");
 

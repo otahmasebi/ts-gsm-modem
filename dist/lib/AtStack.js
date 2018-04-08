@@ -76,7 +76,6 @@ var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
 var timer_extended_1 = require("timer-extended");
 var at_messages_parser_1 = require("at-messages-parser");
-var debug = require("debug");
 require("colors");
 var RunCommandError = /** @class */ (function (_super) {
     __extends(RunCommandError, _super);
@@ -104,9 +103,8 @@ var ParseError = /** @class */ (function (_super) {
 }(Error));
 exports.ParseError = ParseError;
 var AtStack = /** @class */ (function () {
-    function AtStack(dataIfPath, debugPrefix) {
-        this.debugPrefix = debugPrefix;
-        this.debug = debug("AtStack");
+    function AtStack(dataIfPath, debug) {
+        this.debug = debug;
         this.timers = new timer_extended_1.Timers();
         this.evtUnsolicitedMessage = new ts_events_extended_1.SyncEvent();
         this.evtTerminate = new ts_events_extended_1.SyncEvent();
@@ -124,10 +122,6 @@ var AtStack = /** @class */ (function () {
         this.maxRetryWrite = 3;
         this.delayReWrite = 1000;
         this.retryLeftWrite = this.maxRetryWrite;
-        if (debugPrefix !== undefined) {
-            this.debug.namespace = debugPrefix + " " + this.debug.namespace;
-            this.debug.enabled = true;
-        }
         this.debug("Initialization");
         //TODO: here any is sloppy
         this.serialPort = new SerialPortExt_1.SerialPortExt(dataIfPath, {
@@ -177,12 +171,11 @@ var AtStack = /** @class */ (function () {
                 }
             });
         }); });
-        //this.serialPortAtParser.evtRawData.attach(rawAtMessages => debug(JSON.stringify(rawAtMessages).yellow));
-        //this.evtUnsolicitedMessage.attach(atMessage => debug(JSON.stringify(atMessage, null, 2).yellow));
         this.serialPort.once("disconnect", function () {
             _this.debug("disconnect");
-            if (!_this.isTerminated)
+            if (!_this.isTerminated) {
                 _this.evtTerminate.post(new Error("Modem disconnected"));
+            }
         });
         this.serialPort.once("close", function () {
             _this.debug("serial port close");
@@ -199,9 +192,9 @@ var AtStack = /** @class */ (function () {
                 _this.evtError.post(new ParseError(unparsed));
                 return;
             }
-            //debug(JSON.stringify(atMessage.id));
-            if (atMessage.isUnsolicited)
+            if (atMessage.isUnsolicited) {
                 _this.evtUnsolicitedMessage.post(atMessage);
+            }
             else {
                 _this.evtResponseAtMessage.post(atMessage);
             }

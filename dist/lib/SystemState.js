@@ -2,21 +2,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var at_messages_parser_1 = require("at-messages-parser");
 var ts_events_extended_1 = require("ts-events-extended");
-var debug = require("debug");
 require("colors");
 var SystemState = /** @class */ (function () {
-    function SystemState(atStack) {
+    function SystemState(atStack, debug) {
         var _this = this;
         this.atStack = atStack;
-        this.debug = debug("SystemState");
+        this.debug = debug;
         this.evtReportSimPresence = new ts_events_extended_1.SyncEvent();
         this.isRoaming = undefined;
         this.evtNetworkReady = new ts_events_extended_1.VoidSyncEvent();
         this.evtValidSim = new ts_events_extended_1.VoidSyncEvent();
-        if (atStack.debugPrefix !== undefined) {
-            this.debug.namespace = atStack.debugPrefix + " " + this.debug.namespace;
-            this.debug.enabled = true;
-        }
         this.debug("Initialization");
         this.atStack.evtUnsolicitedMessage.attach(function (atMessage) { return _this.update(atMessage); });
         this.atStack.runCommand("AT^SYSINFO\r", function (resp) {

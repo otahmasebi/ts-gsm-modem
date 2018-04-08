@@ -82,7 +82,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
 var encoding = require("legacy-encoding");
-var debug = require("debug");
 // cSpell:disable
 var replaceArray = [
     [/[ÀÁÂÃÄ]/g, "A"],
@@ -119,11 +118,11 @@ var CardStorageError = /** @class */ (function (_super) {
 }(Error));
 exports.CardStorageError = CardStorageError;
 var CardStorage = /** @class */ (function () {
-    function CardStorage(atStack) {
+    function CardStorage(atStack, debug) {
         var _this = this;
         this.atStack = atStack;
+        this.debug = debug;
         this.evtReady = new ts_events_extended_1.VoidSyncEvent();
-        this.debug = debug("CardStorage");
         this.storageAccessGroupRef = runExclusive.createGroupRef();
         this.createContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, function (number, name, callback) {
             var contact = {
@@ -213,10 +212,6 @@ var CardStorage = /** @class */ (function () {
             return null;
         });
         this.contactByIndex = {};
-        if (atStack.debugPrefix !== undefined) {
-            this.debug.namespace = atStack.debugPrefix + " " + this.debug.namespace;
-            this.debug.enabled = true;
-        }
         this.debug("Initialization");
         this.init().then(function () { return _this.evtReady.post(); });
     }
@@ -357,9 +352,10 @@ var CardStorage = /** @class */ (function () {
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=" + index + "\r", { "recoverable": true })];
                     case 6:
                         _d = __read.apply(void 0, [_e.sent(), 1]), resp_2 = _d[0];
-                        if (!resp_2 && !number)
+                        if (!resp_2 && !number) {
                             return [3 /*break*/, 8];
-                        if (resp_2) {
+                        }
+                        if (!!resp_2) {
                             p_CPBR_EXEC = resp_2;
                             nameAsUcs2 = CardStorage.decodeUCS2(p_CPBR_EXEC.text);
                             if (!number)
@@ -369,13 +365,14 @@ var CardStorage = /** @class */ (function () {
                         }
                         _e.label = 7;
                     case 7:
+                        this.debug("phonebook entry: " + index + " " + name + " " + number);
                         this.contactByIndex[index] = { index: index, number: number, name: name };
                         _e.label = 8;
                     case 8:
                         index++;
                         return [3 /*break*/, 4];
                     case 9:
-                        this.debug("Contacts ready");
+                        this.debug("Phonebook successfully retrieved");
                         return [2 /*return*/];
                 }
             });

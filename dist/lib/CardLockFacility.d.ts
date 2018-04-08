@@ -1,6 +1,8 @@
+/// <reference types="debug" />
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
+import * as debug from "debug";
 import "colors";
 export interface UnlockCodeRequest {
     pinState: AtMessage.LockedPinState;
@@ -8,10 +10,10 @@ export interface UnlockCodeRequest {
 }
 export declare class CardLockFacility {
     private readonly atStack;
-    private debug;
+    private readonly debug;
     readonly evtUnlockCodeRequest: SyncEvent<UnlockCodeRequest>;
     readonly evtPinStateReady: VoidSyncEvent;
-    constructor(atStack: AtStack);
+    constructor(atStack: AtStack, debug: debug.IDebugger);
     enterPin(pin: string): void;
     enterPin2(pin2: string): void;
     enterPuk(puk: string, newPin: string): void;

@@ -41,9 +41,10 @@ var fs = require("fs");
 var path = require("path");
 require("colors");
 var _debug = require("debug");
-var debug = _debug("_main");
+var debug = _debug("main");
+debug.enabled = true;
 (function () { return __awaiter(_this, void 0, void 0, function () {
-    var accessPoint, modem, error_1, initializationError, contacts, messageText, joseph, sentMessageId;
+    var accessPoint, modem, error_1, initializationError, messageText, joseph, sentMessageId;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -56,8 +57,7 @@ var debug = _debug("_main");
                 _a.trys.push([2, 4, , 5]);
                 return [4 /*yield*/, index_1.Modem.create({
                         "dataIfPath": accessPoint.dataIfPath,
-                        "unlock": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
-                        "enableTrace": true
+                        "unlock": { "pinFirstTry": "0000", "pinSecondTry": "1234" }
                     })];
             case 3:
                 modem = _a.sent();
@@ -72,13 +72,7 @@ var debug = _debug("_main");
                     debug("Modem terminate", { error: error });
                     index_1.ConnectionMonitor.getInstance().stop();
                 });
-                contacts = modem.contacts;
-                console.log({ contacts: contacts });
-                modem.evtMessage.attach(function (message) { return debug("NEW MESSAGE: ".green, message); });
-                modem.evtMessageStatusReport.attach(function (statusReport) { return debug("MESSAGE STATUS REPORT: ".yellow, statusReport); });
                 messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/dist/, "src"), "utf8");
-                //let messageText= "foo bar";
-                debug("Sending: \n".green, JSON.stringify(messageText));
                 joseph = "0636786385";
                 return [4 /*yield*/, modem.sendMessage(joseph, messageText)];
             case 6:

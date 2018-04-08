@@ -8,19 +8,14 @@ import "colors";
 
 export class SystemState {
 
-    private debug: debug.IDebugger= debug("SystemState");
 
     public readonly evtReportSimPresence = new SyncEvent<boolean>();
     public isRoaming: boolean | undefined = undefined;
 
     constructor(
-        private readonly atStack: AtStack
+        private readonly atStack: AtStack,
+        private readonly debug: debug.IDebugger
     ) {
-
-        if( atStack.debugPrefix !== undefined ){
-            this.debug.namespace= `${atStack.debugPrefix} ${this.debug.namespace}`;
-            this.debug.enabled= true;
-        }
 
         this.debug("Initialization");
 

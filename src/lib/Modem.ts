@@ -7,6 +7,7 @@ import { CardStorage, Contact } from "./CardStorage";
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
+import * as util from "util";
 
 import * as debug from "debug";
 
@@ -77,7 +78,7 @@ export class Modem {
             unlock?: UnlockCode | UnlockCodeProvider,
             disableSmsFeatures?: boolean;
             disableContactsFeatures?: boolean;
-            enableTrace?: boolean;
+            log?: typeof console.log | false;
         }
     ) {
         return new Promise<Modem>(
@@ -85,14 +86,23 @@ export class Modem {
 
                 let enableSmsStack = !(params.disableSmsFeatures === true);
                 let enableCardStorage = !(params.disableContactsFeatures === true);
-                let enableTrace = params.enableTrace === true;
+                let log: typeof console.log = (()=>{
+
+                    switch(params.log){
+                        case undefined: return console.log.bind(console);
+                        case false: return ()=>{};
+                        default: return params.log;
+                    }
+
+                })();
+
 
                 new Modem(
                     params.dataIfPath,
                     params.unlock,
                     enableSmsStack,
                     enableCardStorage,
-                    enableTrace,
+                    log,
                     result => (result instanceof Modem) ? resolve(result) : reject(result)
                 );
 
@@ -115,26 +125,27 @@ export class Modem {
     public serviceProviderName: string | undefined = undefined;
     public isVoiceEnabled: boolean | undefined = undefined;
 
+    public readonly evtTerminate= new SyncEvent<Error | null>();
+
     private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
     private readonly onInitializationCompleted!: (error?: Error) => void;
 
     private hasSim: true | undefined = undefined;
 
-    private debug: debug.IDebugger = debug("Modem");
+    private readonly debug!: debug.IDebugger;
 
     private constructor(
         public readonly dataIfPath: string,
         unlock: UnlockCodeProvider | UnlockCode | undefined,
         private readonly enableSmsStack: boolean,
         private readonly enableCardStorage: boolean,
-        enableTrace: boolean,
+        log: typeof console.log,
         onInitializationCompleted: (result: Modem | InitializationError) => void
     ) {
 
-        if (enableTrace) {
-            this.debug.namespace = `${this.debug.namespace} ${dataIfPath}`;
-            this.debug.enabled = true;
-        }
+        this.debug= debug(`Modem ${dataIfPath}`);
+        this.debug.enabled= true;
+        this.debug.log= log;
 
         this.debug(`Initializing GSM Modem`);
 
@@ -146,7 +157,15 @@ export class Modem {
 
         this.atStack = new AtStack(
             dataIfPath,
-            enableSmsStack ? `${this.debug.namespace} AtStack` : undefined
+            (() => {
+
+                let out = debug(`AtStack ${this.dataIfPath}`);
+                out.enabled = true;
+                out.log = this.debug.log;
+
+                return out;
+
+            })()
         );
 
         this.onInitializationCompleted = error => {
@@ -179,6 +198,18 @@ export class Modem {
 
             } else {
 
+                this.atStack.evtTerminate.attach(error => {
+
+                    this.debug(
+                        !!error ?
+                            `terminate with error: ${util.format(error)}`.red :
+                            `terminate without error`
+                    );
+
+                    this.evtTerminate.post(error);
+
+                });
+
                 this.debug("Modem initialization success");
 
                 onInitializationCompleted(this);
@@ -210,7 +241,18 @@ export class Modem {
             this.debug(`firmwareVersion: ${this.firmwareVersion}`);
         });
 
-        this.systemState = new SystemState(this.atStack);
+        this.systemState = new SystemState(
+            this.atStack,
+            (() => {
+
+                let out = debug(`SystemState ${this.dataIfPath}`);
+                out.enabled = true;
+                out.log = this.debug.log;
+
+                return out;
+
+            })()
+        );
 
         (async () => {
 
@@ -339,14 +381,11 @@ export class Modem {
 
     public terminate() { this.atStack.terminate(); }
 
-
     public get isTerminated(): typeof AtStack.prototype.isTerminated {
         return this.atStack.isTerminated;
     }
 
-    public get evtTerminate(): typeof AtStack.prototype.evtTerminate {
-        return this.atStack.evtTerminate;
-    }
+
 
     public get evtUnsolicitedAtMessage(): typeof AtStack.prototype.evtUnsolicitedMessage {
         return this.atStack.evtUnsolicitedMessage;
@@ -357,7 +396,18 @@ export class Modem {
 
     private async initCardLockFacility(): Promise<void> {
 
-        let cardLockFacility = new CardLockFacility(this.atStack);
+        let cardLockFacility = new CardLockFacility(
+            this.atStack,
+            (() => {
+
+                let out = debug(`CardLockFacility ${this.dataIfPath}`);
+                out.enabled = true;
+                out.log = this.debug.log;
+
+                return out;
+
+            })()
+        );
 
         cardLockFacility.evtUnlockCodeRequest.attachOnce(
             ({ pinState, times }) => {
@@ -516,20 +566,41 @@ export class Modem {
 
     private initSmsStack(): void {
 
-        this.smsStack = new SmsStack(this.atStack);
+        this.smsStack = new SmsStack(
+            this.atStack,
+            (() => {
 
-        this.smsStack.evtMessage.attach(async data => {
-            if (!this.evtMessage.evtAttach.postCount)
+                let out = debug(`SmsStack ${this.dataIfPath}`);
+                out.enabled = true;
+                out.log = this.debug.log;
+
+                return out;
+
+            })()
+        );
+
+        this.smsStack.evtMessage.attach(async message => {
+
+            this.debug("MESSAGE RECEIVED", message);
+
+            if (!this.evtMessage.evtAttach.postCount) {
                 await this.evtMessage.evtAttach.waitFor();
+            }
 
-            this.evtMessage.post(data);
+            this.evtMessage.post(message);
+
         });
 
-        this.smsStack.evtMessageStatusReport.attach(async data => {
-            if (!this.evtMessageStatusReport.evtAttach.postCount)
-                await this.evtMessageStatusReport.evtAttach.waitFor();
+        this.smsStack.evtMessageStatusReport.attach(async statusReport => {
 
-            this.evtMessageStatusReport.post(data);
+            this.debug("STATUS REPORT RECEIVED", statusReport);
+
+            if (!this.evtMessageStatusReport.evtAttach.postCount) {
+                await this.evtMessageStatusReport.evtAttach.waitFor();
+            }
+
+            this.evtMessageStatusReport.post(statusReport);
+
         });
 
     }
@@ -549,7 +620,18 @@ export class Modem {
 
     private async initCardStorage(): Promise<void> {
 
-        this.cardStorage = new CardStorage(this.atStack);
+        this.cardStorage = new CardStorage(
+            this.atStack,
+            (() => {
+
+                let out = debug(`CardStorage ${this.dataIfPath}`);
+                out.enabled = true;
+                out.log = this.debug.log;
+
+                return out;
+
+            })()
+        );
 
         await this.cardStorage.evtReady.waitFor();
 

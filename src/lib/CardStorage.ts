@@ -116,14 +116,12 @@ export class CardStorage {
 
     }
 
-    private debug: debug.IDebugger= debug("CardStorage");
 
-    constructor(private readonly atStack: AtStack) {
+    constructor(
+        private readonly atStack: AtStack,
+        private readonly debug: debug.IDebugger
+    ) {
 
-        if( atStack.debugPrefix !== undefined ){
-            this.debug.namespace= `${atStack.debugPrefix} ${this.debug.namespace}`;
-            this.debug.enabled= true;
-        }
 
         this.debug("Initialization");
 
@@ -364,9 +362,11 @@ export class CardStorage {
                     { "recoverable": true }
                 );
 
-                if (!resp && !number) continue;
+                if (!resp && !number){
+                     continue;
+                }
 
-                if (resp) {
+                if (!!resp) {
 
                     let p_CPBR_EXEC = resp as AtMessage.P_CPBR_EXEC;
 
@@ -380,11 +380,13 @@ export class CardStorage {
 
             }
 
+            this.debug(`phonebook entry: ${index} ${name} ${number}`);
+
             this.contactByIndex[index] = { index, number, name };
 
         }
 
-        this.debug("Contacts ready");
+        this.debug("Phonebook successfully retrieved");
 
     }
 
