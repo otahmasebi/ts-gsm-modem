@@ -3,7 +3,6 @@ function __export(m) {
     for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
 }
 Object.defineProperty(exports, "__esModule", { value: true });
-require("rejection-tracker")(__dirname, "..", "..");
 __export(require("./Modem"));
 var at_messages_parser_1 = require("at-messages-parser");
 exports.AtMessage = at_messages_parser_1.AtMessage;

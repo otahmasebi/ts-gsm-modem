@@ -88,8 +88,9 @@ var SmsStack = /** @class */ (function () {
         this.mrMessageIdMap = {};
         this.maxTrySendPdu = 3;
         //TODO: More test for when message fail to send
-        this.sendMessage = runExclusive.buildMethodCb(function (number, text, callback) { return __awaiter(_this, void 0, void 0, function () {
-            var pdus, error_1, messageId, i, pdus_1, pdus_1_1, _a, length, pdu, mr, error, tryLeft, result, _b, _c, mr_1, e_1_1, e_1, _d, e_2, _e;
+        /** Return sendDate or undefined if send fail */
+        this.sendMessage = runExclusive.buildMethod(function (number, text) { return __awaiter(_this, void 0, void 0, function () {
+            var e_1, _a, e_2, _b, pdus, error_1, messageId, i, pdus_1, pdus_1_1, _c, length, pdu, mr, error, tryLeft, result, _d, _e, mr_1, e_1_1;
             return __generator(this, function (_f) {
                 switch (_f.label) {
                     case 0:
@@ -106,8 +107,7 @@ var SmsStack = /** @class */ (function () {
                             "text: " + JSON.stringify(text),
                             "error: " + error_1.message
                         ].join(""));
-                        callback(undefined);
-                        return [2 /*return*/, null];
+                        return [2 /*return*/, undefined];
                     case 3:
                         messageId = uniqNow();
                         this.debug("Sending text:\n'" + text + "'\nto: " + number + ", message id ( send date timestamp ): " + messageId);
@@ -123,7 +123,7 @@ var SmsStack = /** @class */ (function () {
                         _f.label = 5;
                     case 5:
                         if (!!pdus_1_1.done) return [3 /*break*/, 10];
-                        _a = pdus_1_1.value, length = _a.length, pdu = _a.pdu;
+                        _c = pdus_1_1.value, length = _c.length, pdu = _c.pdu;
                         this.debug("Sending Message part " + i++ + "/" + pdus.length + " of message id: " + messageId);
                         mr = NaN;
                         error = null;
@@ -132,7 +132,7 @@ var SmsStack = /** @class */ (function () {
                     case 6:
                         if (!(tryLeft-- && isNaN(mr))) return [3 /*break*/, 8];
                         if (tryLeft < this.maxTrySendPdu - 1) {
-                            console.log("Retry sending PDU".red);
+                            this.debug("Retry sending PDU".red);
                         }
                         return [4 /*yield*/, this.sendPdu(length, pdu)];
                     case 7:
@@ -142,10 +142,11 @@ var SmsStack = /** @class */ (function () {
                         return [3 /*break*/, 6];
                     case 8:
                         if (error) {
-                            console.log(("Send Message Error after " + this.maxTrySendPdu + ", attempt: " + error.verbose).red);
+                            //TODO: use debug!
+                            this.debug(("Send Message Error after " + this.maxTrySendPdu + ", attempt: " + error.verbose).red);
                             try {
-                                for (_b = __values(Object.keys(this.mrMessageIdMap)), _c = _b.next(); !_c.done; _c = _b.next()) {
-                                    mr_1 = _c.value;
+                                for (_d = __values(Object.keys(this.mrMessageIdMap)), _e = _d.next(); !_e.done; _e = _d.next()) {
+                                    mr_1 = _e.value;
                                     if (this.mrMessageIdMap[mr_1] === messageId)
                                         delete this.mrMessageIdMap[mr_1];
                                 }
@@ -153,12 +154,11 @@ var SmsStack = /** @class */ (function () {
                             catch (e_2_1) { e_2 = { error: e_2_1 }; }
                             finally {
                                 try {
-                                    if (_c && !_c.done && (_e = _b.return)) _e.call(_b);
+                                    if (_e && !_e.done && (_b = _d.return)) _b.call(_d);
                                 }
                                 finally { if (e_2) throw e_2.error; }
                             }
-                            callback(undefined);
-                            return [2 /*return*/, null];
+                            return [2 /*return*/, undefined];
                         }
                         this.mrMessageIdMap[mr] = messageId;
                         _f.label = 9;
@@ -172,19 +172,18 @@ var SmsStack = /** @class */ (function () {
                         return [3 /*break*/, 13];
                     case 12:
                         try {
-                            if (pdus_1_1 && !pdus_1_1.done && (_d = pdus_1.return)) _d.call(pdus_1);
+                            if (pdus_1_1 && !pdus_1_1.done && (_a = pdus_1.return)) _a.call(pdus_1);
                         }
                         finally { if (e_1) throw e_1.error; }
                         return [7 /*endfinally*/];
-                    case 13:
-                        callback(new Date(messageId));
-                        return [2 /*return*/, null];
+                    case 13: return [2 /*return*/, new Date(messageId)];
                 }
             });
         }); });
         this.debug("Initialization");
-        atStack.runCommand('AT+CPMS="SM","SM","SM"\r', function (resp) {
-            var _a = resp.readingAndDeleting, used = _a.used, capacity = _a.capacity;
+        atStack.runCommand('AT+CPMS="SM","SM","SM"\r').then(function (_a) {
+            var resp = _a.resp;
+            var _b = resp.readingAndDeleting, used = _b.used, capacity = _b.capacity;
             _this.retrieveUnreadSms(used, capacity);
         });
         atStack.runCommand('AT+CNMI=1,1,0,2,0\r');
@@ -192,23 +191,25 @@ var SmsStack = /** @class */ (function () {
     }
     SmsStack.prototype.retrieveUnreadSms = function (used, capacity) {
         return __awaiter(this, void 0, void 0, function () {
-            var messageLeft, index, _a, resp, p_CMGR_SET, sms, error_2;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var messageLeft, index, resp, p_CMGR_SET, sms, error_2;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0:
                         this.debug(used + " PDU in sim memory");
                         messageLeft = used;
                         index = 0;
-                        _b.label = 1;
+                        _a.label = 1;
                     case 1:
                         if (!(index < capacity)) return [3 /*break*/, 8];
-                        if (!messageLeft)
+                        if (!messageLeft) {
                             return [3 /*break*/, 8];
+                        }
                         return [4 /*yield*/, this.atStack.runCommand("AT+CMGR=" + index + "\r")];
                     case 2:
-                        _a = __read.apply(void 0, [_b.sent(), 1]), resp = _a[0];
-                        if (!resp)
+                        resp = (_a.sent()).resp;
+                        if (!resp) {
                             return [3 /*break*/, 7];
+                        }
                         messageLeft--;
                         p_CMGR_SET = resp;
                         if (p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_READ &&
@@ -218,15 +219,15 @@ var SmsStack = /** @class */ (function () {
                             return [3 /*break*/, 7];
                         }
                         sms = void 0;
-                        _b.label = 3;
+                        _a.label = 3;
                     case 3:
-                        _b.trys.push([3, 5, , 6]);
+                        _a.trys.push([3, 5, , 6]);
                         return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
                     case 4:
-                        sms = _b.sent();
+                        sms = _a.sent();
                         return [3 /*break*/, 6];
                     case 5:
-                        error_2 = _b.sent();
+                        error_2 = _a.sent();
                         this.debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_2);
                         this.atStack.runCommand("AT+CMGD=" + index + "\r");
                         return [3 /*break*/, 7];
@@ -236,7 +237,7 @@ var SmsStack = /** @class */ (function () {
                             return [3 /*break*/, 7];
                         }
                         this.evtSmsDeliver.post([index, sms]);
-                        _b.label = 7;
+                        _a.label = 7;
                     case 7:
                         index++;
                         return [3 /*break*/, 1];
@@ -252,12 +253,15 @@ var SmsStack = /** @class */ (function () {
             _this.atStack.runCommand(pdu + "\u001A", {
                 "recoverable": true,
                 "retryOnErrors": false
-            }, function (resp, final) {
+            }).then(function (_a) {
+                var resp = _a.resp, final = _a.final;
                 var resp_t = resp;
-                if (!resp_t)
+                if (!resp_t) {
                     resolve({ "error": final, "mr": NaN });
-                else
+                }
+                else {
                     resolve({ "error": null, "mr": resp_t.mr });
+                }
             });
         });
     };
@@ -270,6 +274,7 @@ var SmsStack = /** @class */ (function () {
             return _this.retrievePdu(index);
         });
         this.evtSmsStatusReport.attach(function (smsStatusReport) {
+            var e_3, _a;
             var messageId = _this.mrMessageIdMap[smsStatusReport.ref];
             if (!messageId) {
                 _this.debug("No message ref for status report: ", smsStatusReport);
@@ -296,8 +301,8 @@ var SmsStack = /** @class */ (function () {
                     break;
             }
             try {
-                for (var _a = __values(Object.keys(_this.mrMessageIdMap)), _b = _a.next(); !_b.done; _b = _a.next()) {
-                    var mr = _b.value;
+                for (var _b = __values(Object.keys(_this.mrMessageIdMap)), _c = _b.next(); !_c.done; _c = _b.next()) {
+                    var mr = _c.value;
                     if (_this.mrMessageIdMap[mr] === messageId)
                         delete _this.mrMessageIdMap[mr];
                 }
@@ -305,7 +310,7 @@ var SmsStack = /** @class */ (function () {
             catch (e_3_1) { e_3 = { error: e_3_1 }; }
             finally {
                 try {
-                    if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                    if (_c && !_c.done && (_a = _b.return)) _a.call(_b);
                 }
                 finally { if (e_3) throw e_3.error; }
             }
@@ -317,7 +322,6 @@ var SmsStack = /** @class */ (function () {
                 "status": smsStatusReport._status,
                 "recipient": smsStatusReport.sr.recipient
             });
-            var e_3, _c;
         });
         this.evtSmsDeliver.attach(function (_a) {
             var _b = __read(_a, 2), index = _b[0], smsDeliver = _b[1];
@@ -335,6 +339,7 @@ var SmsStack = /** @class */ (function () {
             if (!_this.uncompletedMultipartSms[messageRef]) {
                 parts = {};
                 timer = _this.atStack.timers.add(function (logMessage) {
+                    var e_4, _a;
                     _this.debug(logMessage);
                     var partRefs = trackable_map_1.TrackableMap.intKeyAsSortedArray(parts);
                     var partRefPrev = 0;
@@ -343,7 +348,7 @@ var SmsStack = /** @class */ (function () {
                     try {
                         for (var partRefs_1 = __values(partRefs), partRefs_1_1 = partRefs_1.next(); !partRefs_1_1.done; partRefs_1_1 = partRefs_1.next()) {
                             var partRef_1 = partRefs_1_1.value;
-                            var _a = parts[partRef_1], storageIndex = _a.storageIndex, text = _a.text;
+                            var _b = parts[partRef_1], storageIndex = _b.storageIndex, text = _b.text;
                             for (var ref = partRefPrev + 1; ref < partRef_1; ref++) {
                                 partLeft--;
                                 concatenatedText += " *** Missing part *** ";
@@ -357,7 +362,7 @@ var SmsStack = /** @class */ (function () {
                     catch (e_4_1) { e_4 = { error: e_4_1 }; }
                     finally {
                         try {
-                            if (partRefs_1_1 && !partRefs_1_1.done && (_b = partRefs_1.return)) _b.call(partRefs_1);
+                            if (partRefs_1_1 && !partRefs_1_1.done && (_a = partRefs_1.return)) _a.call(partRefs_1);
                         }
                         finally { if (e_4) throw e_4.error; }
                     }
@@ -366,7 +371,6 @@ var SmsStack = /** @class */ (function () {
                     delete _this.uncompletedMultipartSms[messageRef];
                     var number = smsDeliver.number, date = smsDeliver.date;
                     _this.evtMessage.post({ number: number, date: date, "text": concatenatedText });
-                    var e_4, _b;
                 }, 240000, "missing parts");
                 _this.uncompletedMultipartSms[messageRef] = { timer: timer, parts: parts };
             }
@@ -385,26 +389,26 @@ var SmsStack = /** @class */ (function () {
     };
     SmsStack.prototype.retrievePdu = function (index) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, resp, p_CMGR_SET, sms, error_3;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var resp, p_CMGR_SET, sms, error_3;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.atStack.runCommand("AT+CMGR=" + index + "\r")];
                     case 1:
-                        _a = __read.apply(void 0, [_b.sent(), 1]), resp = _a[0];
+                        resp = (_a.sent()).resp;
                         if (!resp)
                             return [2 /*return*/];
                         p_CMGR_SET = resp;
                         if (p_CMGR_SET.stat !== at_messages_parser_1.AtMessage.MessageStat.REC_UNREAD)
                             return [2 /*return*/];
-                        _b.label = 2;
+                        _a.label = 2;
                     case 2:
-                        _b.trys.push([2, 4, , 5]);
+                        _a.trys.push([2, 4, , 5]);
                         return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
                     case 3:
-                        sms = _b.sent();
+                        sms = _a.sent();
                         return [3 /*break*/, 5];
                     case 4:
-                        error_3 = _b.sent();
+                        error_3 = _a.sent();
                         this.debug("PDU not decrypted: ".red, p_CMGR_SET.pdu, error_3);
                         this.atStack.runCommand("AT+CMGD=" + index + "\r");
                         return [2 /*return*/];

@@ -78,10 +78,10 @@ export class CardLockFacility {
         this.retrieving = true;
 
         this.atStack.runCommand(
-            "AT^CPIN?\r",
-            resp => {
+            "AT^CPIN?\r"
+        ).then(({ resp }) => {
 
-                let resp_t = resp as AtMessage.CX_CPIN_READ;
+                const resp_t = resp as AtMessage.CX_CPIN_READ;
 
                 this.retrieving = false;
 
@@ -95,8 +95,7 @@ export class CardLockFacility {
                     "times": this.times
                 });
 
-            }
-        );
+        });
 
     }
 
@@ -112,16 +111,18 @@ export class CardLockFacility {
 
         this.atStack.runCommand(`AT+CPIN=${pin}\r`, {
             "recoverable": true,
-        }, (_, final) => {
+        }).then(({ final }) => {
 
             this.unlocking = false;
 
-            if (!final.isError)
+            if (!final.isError){
                 return this.evtPinStateReady.post();
+            }
 
             this.retrieveCX_CPIN_READ();
 
         });
+
 
     }
 
@@ -134,14 +135,16 @@ export class CardLockFacility {
 
         this.unlocking = true;
 
-        this.atStack.runCommand(`AT+CPIN=${puk},${newPin}\r`, {
-            "recoverable": true,
-        }, (_, resp) => {
+        this.atStack.runCommand(
+            `AT+CPIN=${puk},${newPin}\r`,
+            { "recoverable": true, }
+        ).then(({ final }) => {
 
             this.unlocking = false;
 
-            if (!resp.isError)
+            if (!final.isError) {
                 return this.evtPinStateReady.post();
+            }
 
             this.retrieveCX_CPIN_READ();
 

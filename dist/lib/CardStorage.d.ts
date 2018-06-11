@@ -1,4 +1,3 @@
-/// <reference types="debug" />
 import { AtStack } from "./AtStack";
 import { VoidSyncEvent } from "ts-events-extended";
 import * as debug from "debug";
@@ -24,22 +23,21 @@ export declare class CardStorage {
     generateSafeContactName(contactName: string): string;
     constructor(atStack: AtStack, debug: debug.IDebugger);
     private p_CPBR_TEST;
-    private getFreeIndex();
-    private storageAccessGroupRef;
-    createContact: (number: string, name: string, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>;
+    private getFreeIndex;
+    createContact: (number: string, name: string) => Promise<Contact>;
     updateContact: (index: number, params: {
         number?: string | undefined;
         name?: string | undefined;
-    }, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>;
-    deleteContact: (index: number, callback?: (() => void) | undefined) => Promise<void>;
+    }) => Promise<Contact>;
+    deleteContact: (index: number) => Promise<void>;
     number: string | undefined;
-    writeNumber: (number: string, callback?: (() => void) | undefined) => Promise<void>;
+    writeNumber: (number: string) => Promise<void>;
     private readonly contactByIndex;
-    private init();
-    private static encodeUCS2(text);
-    private static decodeUCS2(hexStr);
-    private static printableLength(text);
-    private static countFFFD(text);
-    private static countUnprintableChar(text);
-    private static hasExtendedChar(text);
+    private init;
+    private static encodeUCS2;
+    private static decodeUCS2;
+    private static printableLength;
+    private static countFFFD;
+    private static countUnprintableChar;
+    private static hasExtendedChar;
 }

@@ -70,8 +70,14 @@ export class InitializationError extends Error {
     }
 }
 
+const storageAccessGroupRef = runExclusive.createGroupRef();
+
 export class Modem {
 
+    /**
+     * Note: if no log is passed then console.log is used.
+     * If log is false no log.
+     */
     public static create(
         params: {
             dataIfPath: string;
@@ -221,22 +227,22 @@ export class Modem {
             this.onInitializationCompleted(atStackError!)
         );
 
-        this.atStack.runCommand("AT+CGSN\r", resp => {
+        this.atStack.runCommand("AT+CGSN\r").then( ({resp}) => {
             this.imei = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
             this.debug(`IMEI: ${this.imei}`);
         });
 
-        this.atStack.runCommand("AT+CGMI\r", resp => {
+        this.atStack.runCommand("AT+CGMI\r").then( ({resp}) => {
             this.manufacturer = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
             this.debug(`manufacturer: ${this.manufacturer}`);
         });
 
-        this.atStack.runCommand("AT+CGMM\r", resp => {
+        this.atStack.runCommand("AT+CGMM\r").then(({ resp }) => {
             this.model = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
             this.debug(`model: ${this.model}`);
         });
 
-        this.atStack.runCommand("AT+CGMR\r", resp => {
+        this.atStack.runCommand("AT+CGMR\r").then(({ resp }) => {
             this.firmwareVersion = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
             this.debug(`firmwareVersion: ${this.firmwareVersion}`);
         });
@@ -325,14 +331,14 @@ export class Modem {
 
         let switchedIccid: string | undefined;
 
-        let [resp, final] = await this.atStack.runCommand(
+        const { resp, final } = await this.atStack.runCommand(
             "AT^ICCID?\r",
             { "recoverable": true }
         );
 
         if (final.isError) {
 
-            let [resp, final] = await this.atStack.runCommand(
+            const { resp, final } = await this.atStack.runCommand(
                 "AT+CRSM=176,12258,0,0,10\r",
                 { "recoverable": true }
             );
@@ -362,21 +368,21 @@ export class Modem {
     }
 
 
-    public readonly runCommand = runExclusive.buildMethodCb(
+    public readonly runCommand = runExclusive.buildMethod(
         ((...inputs) => this.atStack.runCommand.apply(this.atStack, inputs)
         ) as typeof AtStack.prototype.runCommand
     );
 
     public get runCommand_isRunning(): boolean {
-        return runExclusive.isRunning(this.runCommand);
+        return runExclusive.isRunning(this.runCommand, this);
     }
 
     public get runCommand_queuedCallCount(): number {
-        return runExclusive.getQueuedCallCount(this.runCommand);
+        return runExclusive.getQueuedCallCount(this.runCommand, this);
     }
 
     public runCommand_cancelAllQueuedCalls(): number {
-        return runExclusive.cancelAllQueuedCalls(this.runCommand);
+        return runExclusive.cancelAllQueuedCalls(this.runCommand, this);
     }
 
     public terminate() { this.atStack.terminate(); }
@@ -509,7 +515,7 @@ export class Modem {
         this.debug("SIM valid");
 
 
-        let [cx_SPN_SET] = await this.atStack.runCommand(
+        const { resp: cx_SPN_SET } = await this.atStack.runCommand(
             "AT^SPN=0\r",
             { "recoverable": true }
         );
@@ -527,7 +533,7 @@ export class Modem {
 
         }
 
-        let [resp] = await this.atStack.runCommand("AT+CIMI\r");
+        let { resp } = await this.atStack.runCommand("AT+CIMI\r");
 
         this.imsi = resp!.raw.split("\r\n")[1];
 
@@ -538,15 +544,16 @@ export class Modem {
             { "recoverable": true }
         );
 
-        if (!resp_CX_CVOICE_SET[1].isError) {
+        if (!resp_CX_CVOICE_SET.final.isError) {
 
-            let [cx_CVOICE_READ] = await this.atStack.runCommand(
+            let { resp: cx_CVOICE_READ } = await this.atStack.runCommand(
                 "AT^CVOICE?\r",
                 { "recoverable": true }
             );
 
-            if (cx_CVOICE_READ)
+            if (cx_CVOICE_READ) {
                 this.isVoiceEnabled = (cx_CVOICE_READ as AtMessage.CX_CVOICE_READ).isEnabled;
+            }
 
         }
 
@@ -605,15 +612,16 @@ export class Modem {
 
     }
 
-    public sendMessage = runExclusive.buildMethodCb(
+    public sendMessage = runExclusive.buildMethod(
         (async (...inputs) => {
 
-            if (!this.systemState.isNetworkReady)
+            if (!this.systemState.isNetworkReady){
                 await this.systemState.evtNetworkReady.waitFor();
+            }
 
-            this.smsStack.sendMessage.apply(this.smsStack, inputs);
+            return this.smsStack.sendMessage.apply(this.smsStack, inputs);
 
-        }) as any as typeof SmsStack.prototype.sendMessage
+        }) as typeof SmsStack.prototype.sendMessage
     );
 
     private cardStorage!: CardStorage;
@@ -665,21 +673,20 @@ export class Modem {
     public getContact: typeof CardStorage.prototype.getContact =
         (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
-    private storageAccessGroupRef = runExclusive.createGroupRef();
 
-    public createContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
+    public createContact = runExclusive.buildMethod(storageAccessGroupRef, (
         (...inputs) => this.cardStorage.createContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.createContact);
 
-    public updateContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
+    public updateContact = runExclusive.buildMethod(storageAccessGroupRef, (
         (...inputs) => this.cardStorage.updateContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.updateContact);
 
-    public deleteContact = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
+    public deleteContact = runExclusive.buildMethod(storageAccessGroupRef, (
         (...inputs) => this.cardStorage.deleteContact.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.deleteContact);
 
-    public writeNumber = runExclusive.buildMethodCb(this.storageAccessGroupRef, (
+    public writeNumber = runExclusive.buildMethod(storageAccessGroupRef, (
         (...inputs) => this.cardStorage.writeNumber.apply(this.cardStorage, inputs)
     ) as typeof CardStorage.prototype.writeNumber);
 

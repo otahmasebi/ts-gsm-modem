@@ -65,6 +65,10 @@ export declare class Modem {
     readonly dataIfPath: string;
     private readonly enableSmsStack;
     private readonly enableCardStorage;
+    /**
+     * Note: if no log is passed then console.log is used.
+     * If log is false no log.
+     */
     static create(params: {
         dataIfPath: string;
         unlock?: UnlockCode | UnlockCodeProvider;
@@ -89,15 +93,15 @@ export declare class Modem {
     private hasSim;
     private readonly debug;
     private constructor();
-    private buildUnlockCodeProvider(unlockCode);
-    private readIccid();
+    private buildUnlockCodeProvider;
+    private readIccid;
     readonly runCommand: {
-        (command: string, callback?: ((resp: AtMessage | undefined, final: AtMessage, raw: string) => void) | undefined): Promise<[AtMessage | undefined, AtMessage, string]>;
+        (command: string): Promise<import("./AtStack").RunOutputs>;
         (command: String, params: {
             recoverable?: boolean | undefined;
             reportMode?: AtMessage.ReportMode | undefined;
             retryOnErrors?: boolean | number[] | undefined;
-        }, callback?: ((resp: AtMessage | undefined, final: AtMessage, raw: string) => void) | undefined): Promise<[AtMessage | undefined, AtMessage, string]>;
+        }): Promise<import("./AtStack").RunOutputs>;
     };
     readonly runCommand_isRunning: boolean;
     readonly runCommand_queuedCallCount: number;
@@ -107,14 +111,14 @@ export declare class Modem {
     readonly evtUnsolicitedAtMessage: typeof AtStack.prototype.evtUnsolicitedMessage;
     lastPinTried: string | undefined;
     validSimPin: string | undefined;
-    private initCardLockFacility();
+    private initCardLockFacility;
     private smsStack;
     readonly evtMessage: SyncEvent<Message>;
     readonly evtMessageStatusReport: SyncEvent<StatusReport>;
-    private initSmsStack();
-    sendMessage: (number: string, text: string, callback?: ((sendDate: Date | undefined) => void) | undefined) => Promise<Date | undefined>;
+    private initSmsStack;
+    sendMessage: (number: string, text: string) => Promise<Date | undefined>;
     private cardStorage;
-    private initCardStorage();
+    private initCardStorage;
     readonly number: typeof CardStorage.prototype.number;
     readonly contacts: typeof CardStorage.prototype.contacts;
     readonly contactNameMaxLength: typeof CardStorage.prototype.contactNameMaxLength;
@@ -122,13 +126,12 @@ export declare class Modem {
     readonly storageLeft: typeof CardStorage.prototype.storageLeft;
     generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName;
     getContact: typeof CardStorage.prototype.getContact;
-    private storageAccessGroupRef;
-    createContact: (number: string, name: string, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>;
+    createContact: (number: string, name: string) => Promise<Contact>;
     updateContact: (index: number, params: {
         number?: string | undefined;
         name?: string | undefined;
-    }, callback?: ((contact: Contact) => void) | undefined) => Promise<Contact>;
-    deleteContact: (index: number, callback?: (() => void) | undefined) => Promise<void>;
-    writeNumber: (number: string, callback?: (() => void) | undefined) => Promise<void>;
+    }) => Promise<Contact>;
+    deleteContact: (index: number) => Promise<void>;
+    writeNumber: (number: string) => Promise<void>;
     ping(): Promise<void>;
 }

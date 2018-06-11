@@ -54,22 +54,6 @@ var __values = (this && this.__values) || function (o) {
         }
     };
 };
-var __read = (this && this.__read) || function (o, n) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator];
-    if (!m) return o;
-    var i = m.call(o), r, ar = [], e;
-    try {
-        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
-    }
-    catch (error) { e = { error: error }; }
-    finally {
-        try {
-            if (r && !r.done && (m = i["return"])) m.call(i);
-        }
-        finally { if (e) throw e.error; }
-    }
-    return ar;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 var SerialPortExt_1 = require("./SerialPortExt");
 var ts_events_extended_1 = require("ts-events-extended");
@@ -112,7 +96,7 @@ var AtStack = /** @class */ (function () {
         this.evtError = new ts_events_extended_1.SyncEvent();
         this.evtResponseAtMessage = new ts_events_extended_1.SyncEvent();
         //public runCommand = execQueue(this.runCommandManageParams);
-        this.runCommand = runExclusive.buildMethodCb(this.runCommandManageParams);
+        this.runCommand = runExclusive.buildMethod(this.runCommandManageParams);
         this.reportMode = undefined;
         this.isEchoEnable = undefined;
         this.hideEcho = false;
@@ -201,26 +185,33 @@ var AtStack = /** @class */ (function () {
         });
     };
     AtStack.generateSafeRunParams = function (params) {
-        if (!params)
+        if (!params) {
             params = {};
-        if (typeof params.recoverable !== "boolean")
+        }
+        if (typeof params.recoverable !== "boolean") {
             params.recoverable = false;
-        if (typeof params.reportMode !== "number")
+        }
+        if (typeof params.reportMode !== "number") {
             params.reportMode = at_messages_parser_1.AtMessage.ReportMode.DEBUG_INFO_VERBOSE;
+        }
         switch (typeof params.retryOnErrors) {
             case "boolean": break;
             case "object":
-                if (params.reportMode === at_messages_parser_1.AtMessage.ReportMode.NO_DEBUG_INFO)
+                if (params.reportMode === at_messages_parser_1.AtMessage.ReportMode.NO_DEBUG_INFO) {
                     params.retryOnErrors = false;
+                }
                 break;
             default:
-                if (params.reportMode === at_messages_parser_1.AtMessage.ReportMode.NO_DEBUG_INFO)
+                if (params.reportMode === at_messages_parser_1.AtMessage.ReportMode.NO_DEBUG_INFO) {
                     params.retryOnErrors = false;
-                else
+                }
+                else {
                     params.retryOnErrors = [14, 500];
+                }
         }
-        if (!params.retryOnErrors)
+        if (!params.retryOnErrors) {
             params.retryOnErrors = [];
+        }
         else if (typeof params.retryOnErrors === "boolean") {
             params.retryOnErrors = [];
             params.retryOnErrors.indexOf = function () {
@@ -239,42 +230,31 @@ var AtStack = /** @class */ (function () {
             inputs[_i] = arguments[_i];
         }
         return __awaiter(this, void 0, void 0, function () {
-            var command, params, callback, inputs_1, inputs_1_1, input, _a, resp, final, raw, e_1, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        command = undefined;
-                        params = undefined;
-                        callback = undefined;
-                        try {
-                            for (inputs_1 = __values(inputs), inputs_1_1 = inputs_1.next(); !inputs_1_1.done; inputs_1_1 = inputs_1.next()) {
-                                input = inputs_1_1.value;
-                                switch (typeof input) {
-                                    case "string":
-                                        command = input;
-                                        break;
-                                    case "object":
-                                        params = input;
-                                        break;
-                                    case "function":
-                                        callback = input;
-                                        break;
-                                }
-                            }
+            var e_1, _a, command, params, inputs_1, inputs_1_1, input;
+            return __generator(this, function (_b) {
+                command = undefined;
+                params = undefined;
+                try {
+                    for (inputs_1 = __values(inputs), inputs_1_1 = inputs_1.next(); !inputs_1_1.done; inputs_1_1 = inputs_1.next()) {
+                        input = inputs_1_1.value;
+                        switch (typeof input) {
+                            case "string":
+                                command = input;
+                                break;
+                            case "object":
+                                params = input;
+                                break;
                         }
-                        catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                        finally {
-                            try {
-                                if (inputs_1_1 && !inputs_1_1.done && (_b = inputs_1.return)) _b.call(inputs_1);
-                            }
-                            finally { if (e_1) throw e_1.error; }
-                        }
-                        return [4 /*yield*/, this.runCommandSetReportMode(command, AtStack.generateSafeRunParams(params))];
-                    case 1:
-                        _a = __read.apply(void 0, [_c.sent(), 3]), resp = _a[0], final = _a[1], raw = _a[2];
-                        callback(resp, final, raw);
-                        return [2 /*return*/, null];
+                    }
                 }
+                catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                finally {
+                    try {
+                        if (inputs_1_1 && !inputs_1_1.done && (_a = inputs_1.return)) _a.call(inputs_1);
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                }
+                return [2 /*return*/, this.runCommandSetReportMode(command, AtStack.generateSafeRunParams(params))];
             });
         });
     };
@@ -335,23 +315,25 @@ var AtStack = /** @class */ (function () {
     };
     AtStack.prototype.runCommandRetry = function (command, params) {
         return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
             var retryOnErrors, recoverable, _a, resp, final, raw, code;
+            var _this = this;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         retryOnErrors = params.retryOnErrors, recoverable = params.recoverable;
                         return [4 /*yield*/, this.runCommandBase(command)];
                     case 1:
-                        _a = __read.apply(void 0, [_b.sent(), 3]), resp = _a[0], final = _a[1], raw = _a[2];
-                        if (!final.isError) return [3 /*break*/, 7];
+                        _a = _b.sent(), resp = _a.resp, final = _a.final, raw = _a.raw;
+                        if (!final.isError) return [3 /*break*/, 6];
                         code = NaN;
                         if (final.id === at_messages_parser_1.AtMessage.idDict.COMMAND_NOT_SUPPORT ||
-                            final.id === at_messages_parser_1.AtMessage.idDict.TOO_MANY_PARAMETERS)
+                            final.id === at_messages_parser_1.AtMessage.idDict.TOO_MANY_PARAMETERS) {
                             this.retryLeft = 0;
+                        }
                         else if (final.id === at_messages_parser_1.AtMessage.idDict.P_CME_ERROR ||
-                            final.id === at_messages_parser_1.AtMessage.idDict.P_CMS_ERROR)
+                            final.id === at_messages_parser_1.AtMessage.idDict.P_CMS_ERROR) {
                             code = final.code;
+                        }
                         if (!(!this.retryLeft-- || retryOnErrors.indexOf(code) < 0)) return [3 /*break*/, 4];
                         if (!!recoverable) return [3 /*break*/, 3];
                         this.evtError.post(new RunCommandError(command, final));
@@ -359,17 +341,16 @@ var AtStack = /** @class */ (function () {
                     case 2:
                         _b.sent();
                         _b.label = 3;
-                    case 3: return [3 /*break*/, 7];
+                    case 3: return [3 /*break*/, 6];
                     case 4:
                         this.debug(("Retrying " + JSON.stringify(command) + " because " + JSON.stringify(final, null, 2)).yellow);
                         return [4 /*yield*/, new Promise(function (resolve) { return _this.timers.add(resolve, _this.delayBeforeRetry); })];
                     case 5:
                         _b.sent();
-                        return [4 /*yield*/, this.runCommandRetry(command, params)];
-                    case 6: return [2 /*return*/, _b.sent()];
-                    case 7:
+                        return [2 /*return*/, this.runCommandRetry(command, params)];
+                    case 6:
                         this.retryLeft = this.maxRetry;
-                        return [2 /*return*/, [resp, final, raw]];
+                        return [2 /*return*/, { resp: resp, final: final, raw: raw }];
                 }
             });
         });
@@ -440,7 +421,7 @@ var AtStack = /** @class */ (function () {
                         if (this.retryLeftWrite !== this.maxRetryWrite)
                             this.debug("Rewrite success!".green);
                         this.retryLeftWrite = this.maxRetryWrite;
-                        return [2 /*return*/, [resp, final, raw]];
+                        return [2 /*return*/, { resp: resp, final: final, raw: raw }];
                 }
             });
         });

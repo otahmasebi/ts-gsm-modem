@@ -47,6 +47,8 @@ export class CardStorageError extends Error {
     }
 }
 
+const storageAccessGroupRef = runExclusive.createGroupRef();
+
 export class CardStorage {
 
     public readonly evtReady = new VoidSyncEvent();
@@ -142,62 +144,61 @@ export class CardStorage {
 
     }
 
-    private storageAccessGroupRef= runExclusive.createGroupRef();
 
-    public createContact = runExclusive.buildMethodCb(this.storageAccessGroupRef,
-        (number: string, name: string, callback?: (contact: Contact) => void): Promise<Contact> => {
+    public createContact = runExclusive.buildMethod(
+        storageAccessGroupRef,
+        (number: string, name: string): Promise<Contact> => new Promise(
+            resolve => {
 
-            let contact: Contact = {
-                "index": this.getFreeIndex(),
-                "name": this.generateSafeContactName(name),
-                number
-            };
+                const contact: Contact = {
+                    "index": this.getFreeIndex(),
+                    "name": this.generateSafeContactName(name),
+                    number
+                };
 
-            if (isNaN(contact.index)) {
-                this.atStack.terminate(new CardStorageError("Memory full"));
-                return null as any;
-            }
-
-            //TODO check number valid
-
-            if (contact.number.length > this.numberMaxLength) {
-                this.atStack.terminate(new CardStorageError("Number too long"));
-                return null as any;
-            }
-
-            this.atStack.runCommand(`AT+CPBS="SM"\r`);
-
-            this.atStack.runCommand(`AT+CSCS="IRA"\r`);
-
-            this.atStack.runCommand(`AT+CPBW=${contact.index},"${contact.number}",,"${contact.name}"\r`,
-                () => {
-
-                    this.contactByIndex[contact.index] = contact;
-
-                    callback!(this.getContact(contact.index)!);
+                if (isNaN(contact.index)) {
+                    this.atStack.terminate(new CardStorageError("Memory full"));
+                    return;
                 }
-            );
 
-            return null as any;
+                //TODO check number valid
 
-        }
+                if (contact.number.length > this.numberMaxLength) {
+                    this.atStack.terminate(new CardStorageError("Number too long"));
+                    return;
+                }
+
+                this.atStack.runCommand(`AT+CPBS="SM"\r`);
+
+                this.atStack.runCommand(`AT+CSCS="IRA"\r`);
+
+                this.atStack.runCommand(`AT+CPBW=${contact.index},"${contact.number}",,"${contact.name}"\r`)
+                    .then(() => {
+
+                        this.contactByIndex[contact.index] = contact;
+
+                        resolve(this.getContact(contact.index)!);
+
+                    });
+
+
+            }
+        )
+
     );
 
-
-    public updateContact = runExclusive.buildMethodCb(this.storageAccessGroupRef,
-        (index: number, params: {
-            number?: string,
-            name?: string
-        }, callback?: (contact: Contact) => void): Promise<Contact> => {
+    public updateContact = runExclusive.buildMethod(
+        storageAccessGroupRef,
+        (index: number, params: { number?: string, name?: string }): Promise<Contact> => new Promise(resolve => {
 
             if (!this.contactByIndex[index]) {
                 this.atStack.terminate(new CardStorageError("Contact does not exist"));
-                return null as any;
+                return;
             }
 
             if (typeof params.name === "undefined" && typeof params.number === "undefined") {
                 this.atStack.terminate(new CardStorageError("name and contact can not be both null"));
-                return null as any;
+                return;
             }
 
             let contact = this.contactByIndex[index];
@@ -210,7 +211,9 @@ export class CardStorage {
                     this.atStack.terminate(new CardStorageError("Number too long"));
                     return null as any;
                 }
-            } else number = contact.number;
+            } else {
+                number = contact.number;
+            }
 
             let contactName = "";
             let enc: Encoding;
@@ -232,8 +235,8 @@ export class CardStorage {
 
             this.atStack.runCommand(`AT+CSCS="${enc}"\r`);
 
-            this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`,
-                () => {
+            this.atStack.runCommand(`AT+CPBW=${index},"${number}",,"${contactName}"\r`)
+                .then(() => {
 
                     this.contactByIndex[index] = {
                         ...this.contactByIndex[index],
@@ -241,41 +244,38 @@ export class CardStorage {
                         "name": (enc === "UCS2") ? CardStorage.decodeUCS2(contactName) : contactName
                     };
 
-                    callback!(this.getContact(index)!);
-                }
-            );
+                    resolve(this.getContact(index)!);
+                });
 
-            return null as any;
-
-        }
+        })
     );
 
-    public deleteContact = runExclusive.buildMethodCb(this.storageAccessGroupRef,
-        (index: number, callback?: () => void): Promise<void> => {
+    public deleteContact = runExclusive.buildMethod(
+        storageAccessGroupRef,
+        (index: number): Promise<void> => new Promise(resolve => {
 
             if (!this.contactByIndex[index]) {
                 this.atStack.terminate(new CardStorageError("Contact does not exists"));
-                return null as any;
+                return;
             }
 
             this.atStack.runCommand(`AT+CPBS="SM"\r`);
 
-            this.atStack.runCommand(`AT+CPBW=${index}\r`,
-                () => {
+            this.atStack.runCommand(`AT+CPBW=${index}\r`)
+                .then(() => {
                     delete this.contactByIndex[index];
-                    callback!();
-                }
-            );
+                    resolve();
+                });
 
-            return null as any;
-        }
+        })
     );
 
 
     public number: string | undefined = undefined;
 
-    public writeNumber = runExclusive.buildMethodCb(this.storageAccessGroupRef,
-        (number: string, callback?: () => void): Promise<void> => {
+    public writeNumber = runExclusive.buildMethod(
+        storageAccessGroupRef,
+        (number: string): Promise<void> => new Promise(resolve => {
 
             this.number = number;
 
@@ -283,11 +283,9 @@ export class CardStorage {
 
             this.atStack.runCommand(`AT+CPBW=1,"${number}"\r`);
 
-            this.atStack.runCommand(`AT+CPBS="SM"\r`, () => callback!());
+            this.atStack.runCommand(`AT+CPBS="SM"\r`).then(() => resolve());
 
-            return null as any;
-
-        }
+        })
     );
 
     private readonly contactByIndex: {
@@ -299,7 +297,7 @@ export class CardStorage {
 
         this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
 
-        let [resp] = await this.atStack.runCommand("AT+CNUM\r");
+        let { resp } = await this.atStack.runCommand("AT+CNUM\r");
 
         let atMessageList = resp as AtMessage.LIST;
 
@@ -315,30 +313,30 @@ export class CardStorage {
 
         this.atStack.runCommand(`AT+CPBS="SM"\r`);
 
-        resp = (await this.atStack.runCommand("AT+CPBR=?\r"))[0];
+        resp = (await this.atStack.runCommand("AT+CPBR=?\r")).resp;
 
         this.p_CPBR_TEST = resp as AtMessage.P_CPBR_TEST;
 
         let [minIndex, maxIndex] = this.p_CPBR_TEST.range;
 
-        resp = (await this.atStack.runCommand(`AT+CPBS?\r`))[0];
+        resp = (await this.atStack.runCommand(`AT+CPBS?\r`)).resp;
 
-        let contactLeft= (resp as AtMessage.P_CPBS_READ).used;
+        let contactLeft = (resp as AtMessage.P_CPBS_READ).used;
 
         for (let index = minIndex; index <= maxIndex; index++) {
 
-            if( !contactLeft ) break;
+            if (!contactLeft) break;
 
             this.atStack.runCommand(`AT+CSCS="IRA"\r`);
 
-            let [resp, final] = await this.atStack.runCommand(
+            let { resp, final } = await this.atStack.runCommand(
                 `AT+CPBR=${index}\r`,
                 { "recoverable": true }
             );
 
             if (final.isError && (final as AtMessage.P_CME_ERROR).code === 22)
                 continue;
-            
+
             contactLeft--;
 
             let name = "\uFFFD";
@@ -357,13 +355,13 @@ export class CardStorage {
 
                 this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
 
-                let [resp] = await this.atStack.runCommand(
+                let { resp } = await this.atStack.runCommand(
                     `AT+CPBR=${index}\r`,
                     { "recoverable": true }
                 );
 
-                if (!resp && !number){
-                     continue;
+                if (!resp && !number) {
+                    continue;
                 }
 
                 if (!!resp) {
@@ -412,13 +410,13 @@ export class CardStorage {
 
         if (length >= 4)
             hexStr = hexStr.substring(2, length) + hexStr.substring(0, 2);
-        
+
         let buffer: Buffer;
 
-        try{
-            buffer= Buffer.from(hexStr, "hex");
-        }catch{
-            buffer= new Buffer(hexStr, "hex");
+        try {
+            buffer = Buffer.from(hexStr, "hex");
+        } catch{
+            buffer = new Buffer(hexStr, "hex");
         }
 
         return encoding.decode(buffer, "ucs2") || "";

@@ -70,9 +70,9 @@ export class SmsStack {
 
         this.debug("Initialization");
 
-        atStack.runCommand('AT+CPMS="SM","SM","SM"\r', resp => {
+        atStack.runCommand('AT+CPMS="SM","SM","SM"\r').then( ({resp}) => {
 
-            let { used, capacity } = (resp! as AtMessage.P_CPMS_SET).readingAndDeleting;
+            const { used, capacity } = (resp! as AtMessage.P_CPMS_SET).readingAndDeleting;
 
             this.retrieveUnreadSms(used, capacity);
 
@@ -92,11 +92,15 @@ export class SmsStack {
 
         for (let index = 0; index < capacity; index++) {
 
-            if (!messageLeft) break;
+            if (!messageLeft){
+                 break;
+            }
 
-            let [resp] = await this.atStack.runCommand(`AT+CMGR=${index}\r`);
+            const { resp } = await this.atStack.runCommand(`AT+CMGR=${index}\r`);
 
-            if (!resp) continue;
+            if (!resp){
+                 continue;
+            }
 
             messageLeft--;
 
@@ -168,14 +172,15 @@ export class SmsStack {
             this.atStack.runCommand(`${pdu}\u001a`, {
                 "recoverable": true,
                 "retryOnErrors": false
-            }, (resp, final) => {
+            }).then(({ resp, final }) => {
 
-                let resp_t= resp as AtMessage.P_CMGS_SET | undefined;
+                let resp_t = resp as AtMessage.P_CMGS_SET | undefined;
 
-                if (!resp_t)
+                if (!resp_t){
                     resolve({ "error": final as AtMessage.P_CMS_ERROR, "mr": NaN });
-                else
+                }else{
                     resolve({ "error": null, "mr": resp_t.mr });
+                }
 
             });
 
@@ -187,11 +192,9 @@ export class SmsStack {
     private readonly maxTrySendPdu = 3;
 
     //TODO: More test for when message fail to send
-    public sendMessage = runExclusive.buildMethodCb(
-        async (number: string,
-            text: string,
-            callback?: (sendDate: Date | undefined) => void
-        ): Promise<Date | undefined> => {
+    /** Return sendDate or undefined if send fail */
+    public sendMessage = runExclusive.buildMethod(
+        async (number: string, text: string): Promise<Date | undefined> => {
 
             let pdus: Pdu[];
 
@@ -208,9 +211,7 @@ export class SmsStack {
                     `error: ${error.message}`
                 ].join(""));
 
-                callback!(undefined);
-
-                return null as any;
+                return undefined;
 
             }
 
@@ -237,8 +238,8 @@ export class SmsStack {
 
                 while (tryLeft-- && isNaN(mr)) {
 
-                    if (tryLeft < this.maxTrySendPdu - 1){
-                        console.log("Retry sending PDU".red);
+                    if (tryLeft < this.maxTrySendPdu - 1) {
+                        this.debug("Retry sending PDU".red);
                     }
 
 
@@ -252,25 +253,22 @@ export class SmsStack {
 
                 if (error) {
 
-                    console.log(`Send Message Error after ${this.maxTrySendPdu}, attempt: ${error.verbose}`.red);
+                    //TODO: use debug!
+                    this.debug(`Send Message Error after ${this.maxTrySendPdu}, attempt: ${error.verbose}`.red);
 
                     for (let mr of Object.keys(this.mrMessageIdMap))
                         if (this.mrMessageIdMap[mr] === messageId)
                             delete this.mrMessageIdMap[mr];
 
-                    callback!(undefined);
+                    return undefined;
 
-                    return null as any;
                 }
 
                 this.mrMessageIdMap[mr] = messageId;
 
             }
 
-
-            callback!(new Date(messageId));
-
-            return null as any;
+            return new Date(messageId);
 
         }
     );
@@ -280,26 +278,26 @@ export class SmsStack {
         this.atStack.evtUnsolicitedMessage.attach(
             (urc: AtMessage): urc is (AtMessage.P_CMTI_URC | AtMessage.P_CDSI_URC) =>
                 (urc instanceof AtMessage.P_CMTI_URC) || (urc instanceof AtMessage.P_CDSI_URC),
-            ({index}) => this.retrievePdu(index)
+            ({ index }) => this.retrievePdu(index)
         );
 
         this.evtSmsStatusReport.attach(smsStatusReport => {
 
             let messageId = this.mrMessageIdMap[smsStatusReport.ref];
 
-            if (!messageId){ 
+            if (!messageId) {
 
-                this.debug(`No message ref for status report: `,smsStatusReport);
+                this.debug(`No message ref for status report: `, smsStatusReport);
 
                 return;
 
             }
 
-            let isDelivered: boolean= true;
+            let isDelivered: boolean = true;
 
             switch (smsStatusReport._stClass) {
                 case "RESERVED":
-                case "STILL TRYING": 
+                case "STILL TRYING":
                     this.debug("Status report RESERVED or STILL TRYING", smsStatusReport);
                     return;
                 case "PERMANENT ERROR":
@@ -423,7 +421,7 @@ export class SmsStack {
 
     private async retrievePdu(index: number) {
 
-        let [resp] = await this.atStack.runCommand(`AT+CMGR=${index}\r`);
+        let { resp } = await this.atStack.runCommand(`AT+CMGR=${index}\r`);
 
         if (!resp) return;
 

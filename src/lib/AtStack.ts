@@ -9,8 +9,8 @@ import * as debug from "debug";
 
 import "colors";
 
-export type RunOutputs = [AtMessage | undefined, AtMessage, string];
-export type RunCallback = (resp: RunOutputs[0], final: RunOutputs[1], raw: RunOutputs[2]) => void;
+
+export type RunOutputs = { resp: AtMessage | undefined, final: AtMessage, raw: string };
 
 export type RunParams = {
     userProvided: {
@@ -146,7 +146,7 @@ export class AtStack {
 
                     this.evtUnsolicitedMessage.post(atMessage);
 
-                }else {
+                } else {
 
                     this.evtResponseAtMessage.post(atMessage);
 
@@ -161,68 +161,66 @@ export class AtStack {
         params: RunParams['userProvided'] | undefined
     ): RunParams['safe'] {
 
-        if (!params) params = {};
+        if (!params) {
+            params = {};
+        }
 
-        if (typeof params.recoverable !== "boolean")
+        if (typeof params.recoverable !== "boolean") {
             params.recoverable = false;
+        }
 
-        if (typeof params.reportMode !== "number")
+        if (typeof params.reportMode !== "number") {
             params.reportMode = AtMessage.ReportMode.DEBUG_INFO_VERBOSE;
+        }
 
         switch (typeof params.retryOnErrors) {
             case "boolean": break;
             case "object":
-                if (params.reportMode === AtMessage.ReportMode.NO_DEBUG_INFO)
+                if (params.reportMode === AtMessage.ReportMode.NO_DEBUG_INFO) {
                     params.retryOnErrors = false;
+                }
                 break;
             default:
-                if (params.reportMode === AtMessage.ReportMode.NO_DEBUG_INFO)
+                if (params.reportMode === AtMessage.ReportMode.NO_DEBUG_INFO) {
                     params.retryOnErrors = false;
-                else
+                } else {
                     params.retryOnErrors = [14, 500];
+                }
         }
 
-        if (!params.retryOnErrors)
+        if (!params.retryOnErrors) {
             params.retryOnErrors = [];
-        else if (typeof params.retryOnErrors === "boolean") {
+        } else if (typeof params.retryOnErrors === "boolean") {
             params.retryOnErrors = [];
             (params.retryOnErrors as number[]).indexOf = (...inputs) => { return 0; };
         }
 
         return params as RunParams['safe'];
 
-
     }
 
 
     //public runCommand = execQueue(this.runCommandManageParams);
-    public runCommand = runExclusive.buildMethodCb(this.runCommandManageParams);
+    public runCommand = runExclusive.buildMethod(this.runCommandManageParams);
 
-    private async runCommandManageParams(command: string, callback?: RunCallback): Promise<RunOutputs>;
-    private async runCommandManageParams(command: String, params: RunParams['userProvided'], callback?: RunCallback): Promise<RunOutputs>;
+    private async runCommandManageParams(command: string): Promise<RunOutputs>;
+    private async runCommandManageParams(command: String, params: RunParams['userProvided']): Promise<RunOutputs>;
     private async runCommandManageParams(...inputs: any[]): Promise<any> {
 
         let command: string | undefined = undefined;
         let params: RunParams['userProvided'] | undefined = undefined;
-        let callback: RunCallback | undefined = undefined;
 
         for (let input of inputs) {
             switch (typeof input) {
                 case "string": command = input; break;
                 case "object": params = input; break;
-                case "function": callback = input; break;
             }
         }
 
-
-        let [resp, final, raw] = await this.runCommandSetReportMode(
+        return this.runCommandSetReportMode(
             command!,
             AtStack.generateSafeRunParams(params),
         );
-
-        callback!(resp, final, raw);
-
-        return null as any;
 
     }
 
@@ -248,8 +246,7 @@ export class AtStack {
 
         }
 
-        let runOutputs = await this.runCommandSetEcho(command, params);
-
+        const runOutputs = await this.runCommandSetEcho(command, params);
 
         if (command.match(/(^ATZ\r$)|(^AT\+CMEE=\ ?[0-9]\r$)/))
             this.reportMode = undefined;
@@ -278,7 +275,7 @@ export class AtStack {
 
         }
 
-        let runOutputs = await this.runCommandRetry(command, params);
+        const runOutputs = await this.runCommandRetry(command, params);
 
         if (command.match(/^ATZ\r$/)) {
             this.isEchoEnable = undefined;
@@ -308,7 +305,7 @@ export class AtStack {
 
         let { retryOnErrors, recoverable } = params;
 
-        let [resp, final, raw] = await this.runCommandBase(command);
+        const { resp, final, raw } = await this.runCommandBase(command);
 
         if (final.isError) {
 
@@ -317,11 +314,14 @@ export class AtStack {
             if (
                 final.id === AtMessage.idDict.COMMAND_NOT_SUPPORT ||
                 final.id === AtMessage.idDict.TOO_MANY_PARAMETERS
-            ) this.retryLeft = 0;
-            else if (
+            ) {
+                this.retryLeft = 0;
+            } else if (
                 final.id === AtMessage.idDict.P_CME_ERROR ||
                 final.id === AtMessage.idDict.P_CMS_ERROR
-            ) code = (final as AtMessage.P_CME_ERROR | AtMessage.P_CMS_ERROR).code;
+            ) {
+                code = (final as AtMessage.P_CME_ERROR | AtMessage.P_CMS_ERROR).code;
+            }
 
             if (!this.retryLeft-- || retryOnErrors.indexOf(code) < 0) {
 
@@ -336,15 +336,14 @@ export class AtStack {
 
                 await new Promise(resolve => this.timers.add(resolve, this.delayBeforeRetry));
 
-                return await this.runCommandRetry(command, params);
+                return this.runCommandRetry(command, params);
             }
-
 
         }
 
         this.retryLeft = this.maxRetry;
 
-        return [resp, final, raw];
+        return { resp, final, raw };
 
     }
 
@@ -356,8 +355,6 @@ export class AtStack {
     private async runCommandBase(
         command: string
     ): Promise<RunOutputs> {
-
-        //debug(JSON.stringify(command).blue);
 
         let writeAndDrainPromise = this.serialPort.writeAndDrain(command);
 
@@ -422,7 +419,7 @@ export class AtStack {
 
         this.retryLeftWrite = this.maxRetryWrite;
 
-        return [resp, final, raw];
+        return { resp, final, raw };
 
     }
 

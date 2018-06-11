@@ -1,4 +1,3 @@
-/// <reference types="debug" />
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
@@ -22,8 +21,8 @@ export declare class CardLockFacility {
     private readonly pinState;
     private readonly times;
     private retrieving;
-    private retrieveCX_CPIN_READ();
+    private retrieveCX_CPIN_READ;
     private unlocking;
-    private __enterPin__(pin);
-    private __enterPuk__(puk, newPin);
+    private __enterPin__;
+    private __enterPuk__;
 }

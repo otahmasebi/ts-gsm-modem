@@ -1,4 +1,3 @@
-/// <reference types="debug" />
 import { AtStack } from "./AtStack";
 import { SyncEvent } from "ts-events-extended";
 import * as debug from "debug";
@@ -24,12 +23,13 @@ export declare class SmsStack {
     private evtSmsStatusReport;
     private readonly uncompletedMultipartSms;
     constructor(atStack: AtStack, debug: debug.IDebugger);
-    private retrieveUnreadSms(used, capacity);
+    private retrieveUnreadSms;
     private readonly statusReportMap;
     private readonly mrMessageIdMap;
-    private sendPdu(pduLength, pdu);
+    private sendPdu;
     private readonly maxTrySendPdu;
-    sendMessage: (number: string, text: string, callback?: ((sendDate: Date | undefined) => void) | undefined) => Promise<Date | undefined>;
-    private registerListeners();
-    private retrievePdu(index);
+    /** Return sendDate or undefined if send fail */
+    sendMessage: (number: string, text: string) => Promise<Date | undefined>;
+    private registerListeners;
+    private retrievePdu;
 }

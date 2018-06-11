@@ -1,12 +1,10 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "GSM Modem manager",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
   "scripts": {
-    "postinstall": "npm run remove-bold-color",
-    "remove-bold-color": "sed -i '/bold: string;/d' ./node_modules/@types/colors/index.d.ts || true",
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
     "test": "node ./dist/test/main"
@@ -31,7 +29,6 @@
     "debug": "^2.6.1",
     "legacy-encoding": "^3.0.0",
     "node-python-messaging": "git+https://206e4c24cb9a1e4a8d42b7ac86e4a026b02cee42:x-oauth-basic@github.com/garronej/node-python-messaging.git",
-    "rejection-tracker": "garronej/rejection-tracker",
     "run-exclusive": "github:garronej/run-exclusive",
     "serialport": "EmergingTechnologyAdvisors/node-serialport#4.0.7",
     "timer-extended": "garronej/timer-extended",
@@ -40,10 +37,9 @@
     "gsm-modem-connection": "git+https://206e4c24cb9a1e4a8d42b7ac86e4a026b02cee42:x-oauth-basic@github.com/garronej/gsm-modem-connection.git"
   },
   "devDependencies": {
-    "typescript": "2.7.1",
-    "@types/colors": "^1.1.3",
     "@types/chai": "^3.4.34",
     "@types/debug": "0.0.29",
-    "@types/node": "^8.9.1"
+    "@types/node": "^8.9.1",
+    "typescript": "^2.9.1"
   }
 }

@@ -10,7 +10,7 @@ export declare class SerialPortExt extends SerialPort {
     writeAndDrain: (buffer: string | Buffer, callback?: (() => void) | undefined) => Promise<void>;
 }
 export declare class SerialPortError extends Error {
-    readonly causedBy: "DRAIN" | "WRITE" | "OPEN_TIMEOUT" | undefined;
+    readonly causedBy?: "DRAIN" | "WRITE" | "OPEN_TIMEOUT" | undefined;
     readonly originalError: Error;
     constructor(originalError: Error | string, causedBy?: "DRAIN" | "WRITE" | "OPEN_TIMEOUT" | undefined);
 }

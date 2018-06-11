@@ -1,4 +1,3 @@
-/// <reference types="debug" />
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
@@ -17,5 +16,5 @@ export declare class SystemState {
     readonly evtNetworkReady: VoidSyncEvent;
     readonly isValidSim: boolean;
     readonly evtValidSim: VoidSyncEvent;
-    private update(atMessage);
+    private update;
 }

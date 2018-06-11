@@ -72,8 +72,8 @@ var SerialPortExt = /** @class */ (function (_super) {
             _this.on("close", function () { return _this.evtOpen.detach(); });
         })();
         _this.writeAndDrain = runExclusive.buildMethodCb(function (buffer, callback) { return __awaiter(_this, void 0, void 0, function () {
-            var _this = this;
             var _error_1, error, errorWrite, serialPortError, errorDrain, serialPortError;
+            var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:

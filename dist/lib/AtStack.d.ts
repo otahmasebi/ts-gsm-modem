@@ -1,11 +1,13 @@
-/// <reference types="debug" />
 import { SyncEvent } from "ts-events-extended";
 import { Timers } from "timer-extended";
 import { AtMessage } from "at-messages-parser";
 import * as debug from "debug";
 import "colors";
-export declare type RunOutputs = [AtMessage | undefined, AtMessage, string];
-export declare type RunCallback = (resp: RunOutputs[0], final: RunOutputs[1], raw: RunOutputs[2]) => void;
+export declare type RunOutputs = {
+    resp: AtMessage | undefined;
+    final: AtMessage;
+    raw: string;
+};
 export declare type RunParams = {
     userProvided: {
         recoverable?: boolean;
@@ -39,29 +41,28 @@ export declare class AtStack {
     terminate(error?: Error): void;
     private readonly evtError;
     private readonly evtResponseAtMessage;
-    private registerListeners();
-    private static generateSafeRunParams(params);
+    private registerListeners;
+    private static generateSafeRunParams;
     runCommand: {
-        (command: string, callback?: RunCallback | undefined): Promise<[AtMessage | undefined, AtMessage, string]>;
+        (command: string): Promise<RunOutputs>;
         (command: String, params: {
             recoverable?: boolean | undefined;
             reportMode?: AtMessage.ReportMode | undefined;
             retryOnErrors?: boolean | number[] | undefined;
-        }, callback?: RunCallback | undefined): Promise<[AtMessage | undefined, AtMessage, string]>;
+        }): Promise<RunOutputs>;
     };
-    private runCommandManageParams(command, callback?);
-    private runCommandManageParams(command, params, callback?);
+    private runCommandManageParams;
     private reportMode;
-    private runCommandSetReportMode(command, params);
+    private runCommandSetReportMode;
     private isEchoEnable;
     private hideEcho;
-    private runCommandSetEcho(command, params);
+    private runCommandSetEcho;
     private readonly maxRetry;
     private readonly delayBeforeRetry;
     private retryLeft;
-    private runCommandRetry(command, params);
+    private runCommandRetry;
     private readonly maxRetryWrite;
     private readonly delayReWrite;
     private retryLeftWrite;
-    private runCommandBase(command);
+    private runCommandBase;
 }

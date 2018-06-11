@@ -37,12 +37,13 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var index_1 = require("../lib/index");
-var fs = require("fs");
-var path = require("path");
 require("colors");
 var _debug = require("debug");
 var debug = _debug("main");
 debug.enabled = true;
+process.on("unhandledRejection", function (error) {
+    throw error;
+});
 (function () { return __awaiter(_this, void 0, void 0, function () {
     var accessPoint, modem, error_1, initializationError, messageText, joseph, sentMessageId;
     return __generator(this, function (_a) {
@@ -72,7 +73,37 @@ debug.enabled = true;
                     debug("Modem terminate", { error: error });
                     index_1.ConnectionMonitor.getInstance().stop();
                 });
-                messageText = fs.readFileSync(path.join(__dirname, "messageText.txt").replace(/dist/, "src"), "utf8");
+                messageText = [
+                    "Un mal qui r\u00E9pand la terreur,",
+                    "Mal que le Ciel en sa fureur",
+                    "Inventa pour punir les crimes de la terre,",
+                    "La Peste (puisqu\u2019il faut l\u2019appeler par son nom),",
+                    "Capable d\u2019enrichir en un jour l\u2019Ach\u00E9ron,",
+                    "Faisait aux Animaux la guerre.",
+                    "Ils ne mouraient pas tous, mais tous \u00E9taient frapp\u00E9s :",
+                    "On n\u2019en voyait point d\u2019occup\u00E9s",
+                    "\u00C0 chercher le soutien d\u2019une mourante vie ;",
+                    "Nul mets n\u2019excitait leur envie ;",
+                    "Ni Loups ni Renards n\u2019\u00E9piaient",
+                    "La douce et l\u2019innocente proie ;",
+                    "Les Tourterelles se fuyaient :",
+                    "Plus d\u2019amour, partant plus de joie.",
+                    "Le Lion tint conseil, et dit : \u00AB Mes chers amis,",
+                    "Je crois que le Ciel a permis",
+                    "Pour nos p\u00E9ch\u00E9s cette infortune.",
+                    "Que le plus coupable de nous",
+                    "Se sacrifie aux traits du c\u00E9leste courroux ;",
+                    "Peut-\u00EAtre il obtiendra la gu\u00E9rison commune.",
+                    "L\u2019histoire nous apprend qu\u2019en de tels accidents",
+                    "On fait de pareils d\u00E9vouements.",
+                    "Ne nous flattons donc point, voyons sans indulgence",
+                    "L\u2019\u00E9tat de notre conscience.",
+                    "Pour moi, satisfaisant mes app\u00E9tits gloutons,",
+                    "J\u2019ai d\u00E9vor\u00E9 force moutons.",
+                    "Que m\u2019avaient-ils fait ? nulle offense ;",
+                    "M\u00EAme il m\u2019est arriv\u00E9 quelquefois de manger",
+                    "Le berger."
+                ].join("\n");
                 joseph = "0636786385";
                 return [4 /*yield*/, modem.sendMessage(joseph, messageText)];
             case 6:

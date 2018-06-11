@@ -48,7 +48,8 @@ var CardLockFacility = /** @class */ (function () {
     CardLockFacility.prototype.retrieveCX_CPIN_READ = function () {
         var _this = this;
         this.retrieving = true;
-        this.atStack.runCommand("AT^CPIN?\r", function (resp) {
+        this.atStack.runCommand("AT^CPIN?\r").then(function (_a) {
+            var resp = _a.resp;
             var resp_t = resp;
             _this.retrieving = false;
             _this.cx_CPIN_READ = resp_t;
@@ -71,10 +72,12 @@ var CardLockFacility = /** @class */ (function () {
         this.unlocking = true;
         this.atStack.runCommand("AT+CPIN=" + pin + "\r", {
             "recoverable": true,
-        }, function (_, final) {
+        }).then(function (_a) {
+            var final = _a.final;
             _this.unlocking = false;
-            if (!final.isError)
+            if (!final.isError) {
                 return _this.evtPinStateReady.post();
+            }
             _this.retrieveCX_CPIN_READ();
         });
     };
@@ -89,12 +92,12 @@ var CardLockFacility = /** @class */ (function () {
         if (!newPin.match(/^[0-9]{4}$/))
             throw new Error();
         this.unlocking = true;
-        this.atStack.runCommand("AT+CPIN=" + puk + "," + newPin + "\r", {
-            "recoverable": true,
-        }, function (_, resp) {
+        this.atStack.runCommand("AT+CPIN=" + puk + "," + newPin + "\r", { "recoverable": true, }).then(function (_a) {
+            var final = _a.final;
             _this.unlocking = false;
-            if (!resp.isError)
+            if (!final.isError) {
                 return _this.evtPinStateReady.post();
+            }
             _this.retrieveCX_CPIN_READ();
         });
     };

@@ -19,10 +19,10 @@ export class SystemState {
 
         this.debug("Initialization");
 
-        this.atStack.evtUnsolicitedMessage.attach(atMessage => this.update(atMessage as any));
+        this.atStack.evtUnsolicitedMessage.attach(atMessage => this.update(atMessage));
 
-        this.atStack.runCommand("AT^SYSINFO\r",
-            resp => {
+        this.atStack.runCommand("AT^SYSINFO\r")
+            .then(({ resp }) => {
 
                 let resp_t = resp as AtMessage.CX_SYSINFO_EXEC;
 
@@ -45,8 +45,7 @@ export class SystemState {
                     "sysMode": resp_t.sysMode
                 } as any);
 
-            }
-        );
+            });
 
     }
 
@@ -96,16 +95,6 @@ export class SystemState {
                 break;
             default: return;
         }
-
-        /*
-        debug(JSON.stringify({
-            "isValidSim": this.isValidSim,
-            "isNetworkReady": this.isNetworkReady,
-            "simState": AtMessage.SimState[this.simState],
-            "serviceStatus": AtMessage.ServiceStatus[this.serviceStatus],
-            "sysMode": AtMessage.SysMode[this.sysMode]
-        }, null, 2));
-        */
 
     }
 

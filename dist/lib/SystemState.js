@@ -14,7 +14,9 @@ var SystemState = /** @class */ (function () {
         this.evtValidSim = new ts_events_extended_1.VoidSyncEvent();
         this.debug("Initialization");
         this.atStack.evtUnsolicitedMessage.attach(function (atMessage) { return _this.update(atMessage); });
-        this.atStack.runCommand("AT^SYSINFO\r", function (resp) {
+        this.atStack.runCommand("AT^SYSINFO\r")
+            .then(function (_a) {
+            var resp = _a.resp;
             var resp_t = resp;
             _this.isRoaming = resp_t.isRoaming;
             _this.evtReportSimPresence.post(resp_t.simState !== at_messages_parser_1.AtMessage.SimState.NO_SIM);
@@ -82,15 +84,6 @@ var SystemState = /** @class */ (function () {
                 break;
             default: return;
         }
-        /*
-        debug(JSON.stringify({
-            "isValidSim": this.isValidSim,
-            "isNetworkReady": this.isNetworkReady,
-            "simState": AtMessage.SimState[this.simState],
-            "serviceStatus": AtMessage.ServiceStatus[this.serviceStatus],
-            "sysMode": AtMessage.SysMode[this.sysMode]
-        }, null, 2));
-        */
     };
     return SystemState;
 }());
