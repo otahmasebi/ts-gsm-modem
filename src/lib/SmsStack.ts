@@ -16,8 +16,6 @@ import { Timer } from "timer-extended";
 import { TrackableMap } from "trackable-map"
 
 
-import * as debug from "debug";
-
 import "colors";
 
 export interface Message {
@@ -65,7 +63,7 @@ export class SmsStack {
 
     constructor(
         private readonly atStack: AtStack,
-        private readonly debug: debug.IDebugger
+        private readonly debug: typeof console.log
     ) {
 
         this.debug("Initialization");

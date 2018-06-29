@@ -37,13 +37,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var index_1 = require("../lib/index");
-require("colors");
-var _debug = require("debug");
-var debug = _debug("main");
-debug.enabled = true;
-process.on("unhandledRejection", function (error) {
-    throw error;
-});
+var logger = require("logger");
+process.on("unhandledRejection", function (error) { throw error; });
+var debug = logger.debugFactory();
 (function () { return __awaiter(_this, void 0, void 0, function () {
     var accessPoint, modem, error_1, initializationError, messageText, joseph, sentMessageId;
     return __generator(this, function (_a) {

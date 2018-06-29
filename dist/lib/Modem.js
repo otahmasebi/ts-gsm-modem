@@ -64,7 +64,7 @@ var SmsStack_1 = require("./SmsStack");
 var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
 var util = require("util");
-var debug = require("debug");
+var logger = require("logger");
 require("colors");
 var InitializationError = /** @class */ (function (_super) {
     __extends(InitializationError, _super);
@@ -85,6 +85,7 @@ var Modem = /** @class */ (function () {
         this.dataIfPath = dataIfPath;
         this.enableSmsStack = enableSmsStack;
         this.enableCardStorage = enableCardStorage;
+        this.log = log;
         this.iccidAvailableBeforeUnlock = undefined;
         this.serviceProviderName = undefined;
         this.isVoiceEnabled = undefined;
@@ -163,9 +164,7 @@ var Modem = /** @class */ (function () {
             }
             return _this.cardStorage.writeNumber.apply(_this.cardStorage, inputs);
         }));
-        this.debug = debug("Modem " + dataIfPath);
-        this.debug.enabled = true;
-        this.debug.log = log;
+        this.debug = logger.debugFactory("Modem " + dataIfPath, true, log);
         this.debug("Initializing GSM Modem");
         if (typeof unlock === "function") {
             this.unlockCodeProvider = unlock;
@@ -173,12 +172,7 @@ var Modem = /** @class */ (function () {
         else if (unlock) {
             this.unlockCodeProvider = this.buildUnlockCodeProvider(unlock);
         }
-        this.atStack = new AtStack_1.AtStack(dataIfPath, (function () {
-            var out = debug("AtStack " + _this.dataIfPath);
-            out.enabled = true;
-            out.log = _this.debug.log;
-            return out;
-        })());
+        this.atStack = new AtStack_1.AtStack(dataIfPath, logger.debugFactory("AtStack " + this.dataIfPath, true, log));
         this.onInitializationCompleted = function (error) {
             _this.atStack.evtTerminate.detach(_this);
             if (error) {
@@ -232,12 +226,7 @@ var Modem = /** @class */ (function () {
             _this.firmwareVersion = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
             _this.debug("firmwareVersion: " + _this.firmwareVersion);
         });
-        this.systemState = new SystemState_1.SystemState(this.atStack, (function () {
-            var out = debug("SystemState " + _this.dataIfPath);
-            out.enabled = true;
-            out.log = _this.debug.log;
-            return out;
-        })());
+        this.systemState = new SystemState_1.SystemState(this.atStack, logger.debugFactory("SystemState " + this.dataIfPath, true, log));
         (function () { return __awaiter(_this, void 0, void 0, function () {
             var hasSim, _a;
             return __generator(this, function (_b) {
@@ -410,12 +399,7 @@ var Modem = /** @class */ (function () {
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        cardLockFacility = new CardLockFacility_1.CardLockFacility(this.atStack, (function () {
-                            var out = debug("CardLockFacility " + _this.dataIfPath);
-                            out.enabled = true;
-                            out.log = _this.debug.log;
-                            return out;
-                        })());
+                        cardLockFacility = new CardLockFacility_1.CardLockFacility(this.atStack, logger.debugFactory("CardLockFacility " + this.dataIfPath, true, this.log));
                         cardLockFacility.evtUnlockCodeRequest.attachOnce(function (_a) {
                             var pinState = _a.pinState, times = _a.times;
                             var iccid = _this.iccid || undefined;
@@ -507,7 +491,7 @@ var Modem = /** @class */ (function () {
                         cx_SPN_SET = (_b.sent()).resp;
                         if (cx_SPN_SET)
                             this.serviceProviderName = cx_SPN_SET.serviceProviderName;
-                        debug("Service Provider name: " + this.serviceProviderName);
+                        this.debug("Service Provider name: " + this.serviceProviderName);
                         if (!!this.iccidAvailableBeforeUnlock) return [3 /*break*/, 6];
                         _a = this;
                         return [4 /*yield*/, this.readIccid()];
@@ -546,12 +530,7 @@ var Modem = /** @class */ (function () {
     };
     Modem.prototype.initSmsStack = function () {
         var _this = this;
-        this.smsStack = new SmsStack_1.SmsStack(this.atStack, (function () {
-            var out = debug("SmsStack " + _this.dataIfPath);
-            out.enabled = true;
-            out.log = _this.debug.log;
-            return out;
-        })());
+        this.smsStack = new SmsStack_1.SmsStack(this.atStack, logger.debugFactory("SmsStack " + this.dataIfPath, true, this.log));
         this.smsStack.evtMessage.attach(function (message) { return __awaiter(_this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
@@ -587,16 +566,10 @@ var Modem = /** @class */ (function () {
     };
     Modem.prototype.initCardStorage = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        this.cardStorage = new CardStorage_1.CardStorage(this.atStack, (function () {
-                            var out = debug("CardStorage " + _this.dataIfPath);
-                            out.enabled = true;
-                            out.log = _this.debug.log;
-                            return out;
-                        })());
+                        this.cardStorage = new CardStorage_1.CardStorage(this.atStack, logger.debugFactory("CardStorage " + this.dataIfPath, true, this.log));
                         return [4 /*yield*/, this.cardStorage.evtReady.waitFor()];
                     case 1:
                         _a.sent();

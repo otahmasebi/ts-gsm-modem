@@ -1,7 +1,4 @@
-import { SyncEvent } from "ts-events-extended";
-import { Timers } from "timer-extended";
 import { AtMessage } from "at-messages-parser";
-import * as debug from "debug";
 import "colors";
 export declare type RunOutputs = {
     resp: AtMessage | undefined;
@@ -31,26 +28,19 @@ export declare class ParseError extends Error {
 }
 export declare class AtStack {
     private readonly debug;
-    readonly timers: Timers;
-    readonly evtUnsolicitedMessage: SyncEvent<AtMessage>;
-    readonly evtTerminate: SyncEvent<Error | null>;
+    readonly timers: any;
+    readonly evtUnsolicitedMessage: any;
+    readonly evtTerminate: any;
     private readonly serialPort;
     private readonly serialPortAtParser;
-    constructor(dataIfPath: string, debug: debug.IDebugger);
+    constructor(dataIfPath: string, debug: typeof console.log);
     readonly isTerminated: boolean;
     terminate(error?: Error): void;
     private readonly evtError;
     private readonly evtResponseAtMessage;
     private registerListeners;
     private static generateSafeRunParams;
-    runCommand: {
-        (command: string): Promise<RunOutputs>;
-        (command: String, params: {
-            recoverable?: boolean | undefined;
-            reportMode?: AtMessage.ReportMode | undefined;
-            retryOnErrors?: boolean | number[] | undefined;
-        }): Promise<RunOutputs>;
-    };
+    runCommand: any;
     private runCommandManageParams;
     private reportMode;
     private runCommandSetReportMode;

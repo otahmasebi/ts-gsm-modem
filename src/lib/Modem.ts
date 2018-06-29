@@ -8,8 +8,8 @@ import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { SyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
 import * as util from "util";
+import * as logger from "logger";
 
-import * as debug from "debug";
 
 import "colors";
 
@@ -138,20 +138,18 @@ export class Modem {
 
     private hasSim: true | undefined = undefined;
 
-    private readonly debug!: debug.IDebugger;
+    private readonly debug!: typeof console.log;
 
     private constructor(
         public readonly dataIfPath: string,
         unlock: UnlockCodeProvider | UnlockCode | undefined,
         private readonly enableSmsStack: boolean,
         private readonly enableCardStorage: boolean,
-        log: typeof console.log,
+        private log: typeof console.log,
         onInitializationCompleted: (result: Modem | InitializationError) => void
     ) {
 
-        this.debug= debug(`Modem ${dataIfPath}`);
-        this.debug.enabled= true;
-        this.debug.log= log;
+        this.debug= logger.debugFactory(`Modem ${dataIfPath}`, true, log);
 
         this.debug(`Initializing GSM Modem`);
 
@@ -163,15 +161,7 @@ export class Modem {
 
         this.atStack = new AtStack(
             dataIfPath,
-            (() => {
-
-                let out = debug(`AtStack ${this.dataIfPath}`);
-                out.enabled = true;
-                out.log = this.debug.log;
-
-                return out;
-
-            })()
+            logger.debugFactory(`AtStack ${this.dataIfPath}`, true, log)
         );
 
         this.onInitializationCompleted = error => {
@@ -249,15 +239,7 @@ export class Modem {
 
         this.systemState = new SystemState(
             this.atStack,
-            (() => {
-
-                let out = debug(`SystemState ${this.dataIfPath}`);
-                out.enabled = true;
-                out.log = this.debug.log;
-
-                return out;
-
-            })()
+            logger.debugFactory(`SystemState ${this.dataIfPath}`, true, log)
         );
 
         (async () => {
@@ -404,15 +386,7 @@ export class Modem {
 
         let cardLockFacility = new CardLockFacility(
             this.atStack,
-            (() => {
-
-                let out = debug(`CardLockFacility ${this.dataIfPath}`);
-                out.enabled = true;
-                out.log = this.debug.log;
-
-                return out;
-
-            })()
+            logger.debugFactory(`CardLockFacility ${this.dataIfPath}`, true, this.log)
         );
 
         cardLockFacility.evtUnlockCodeRequest.attachOnce(
@@ -523,7 +497,7 @@ export class Modem {
         if (cx_SPN_SET)
             this.serviceProviderName = (cx_SPN_SET as AtMessage.CX_SPN_SET).serviceProviderName;
 
-        debug(`Service Provider name: ${this.serviceProviderName}`);
+        this.debug(`Service Provider name: ${this.serviceProviderName}`);
 
         if (!this.iccidAvailableBeforeUnlock) {
 
@@ -575,15 +549,7 @@ export class Modem {
 
         this.smsStack = new SmsStack(
             this.atStack,
-            (() => {
-
-                let out = debug(`SmsStack ${this.dataIfPath}`);
-                out.enabled = true;
-                out.log = this.debug.log;
-
-                return out;
-
-            })()
+            logger.debugFactory(`SmsStack ${this.dataIfPath}`, true, this.log)
         );
 
         this.smsStack.evtMessage.attach(async message => {
@@ -630,15 +596,7 @@ export class Modem {
 
         this.cardStorage = new CardStorage(
             this.atStack,
-            (() => {
-
-                let out = debug(`CardStorage ${this.dataIfPath}`);
-                out.enabled = true;
-                out.log = this.debug.log;
-
-                return out;
-
-            })()
+            logger.debugFactory(`CardStorage ${this.dataIfPath}`, true, this.log)
         );
 
         await this.cardStorage.evtReady.waitFor();

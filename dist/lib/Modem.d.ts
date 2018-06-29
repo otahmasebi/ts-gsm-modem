@@ -1,8 +1,6 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
-import { CardStorage, Contact } from "./CardStorage";
-import { Message, StatusReport } from "./SmsStack";
-import { SyncEvent } from "ts-events-extended";
+import { CardStorage } from "./CardStorage";
 import "colors";
 export declare type UnlockResult = UnlockResult.Success | UnlockResult.Failed;
 export declare namespace UnlockResult {
@@ -65,6 +63,7 @@ export declare class Modem {
     readonly dataIfPath: string;
     private readonly enableSmsStack;
     private readonly enableCardStorage;
+    private log;
     /**
      * Note: if no log is passed then console.log is used.
      * If log is false no log.
@@ -87,7 +86,7 @@ export declare class Modem {
     imsi: string;
     serviceProviderName: string | undefined;
     isVoiceEnabled: boolean | undefined;
-    readonly evtTerminate: SyncEvent<Error | null>;
+    readonly evtTerminate: any;
     private readonly unlockCodeProvider;
     private readonly onInitializationCompleted;
     private hasSim;
@@ -95,14 +94,7 @@ export declare class Modem {
     private constructor();
     private buildUnlockCodeProvider;
     private readIccid;
-    readonly runCommand: {
-        (command: string): Promise<import("./AtStack").RunOutputs>;
-        (command: String, params: {
-            recoverable?: boolean | undefined;
-            reportMode?: AtMessage.ReportMode | undefined;
-            retryOnErrors?: boolean | number[] | undefined;
-        }): Promise<import("./AtStack").RunOutputs>;
-    };
+    readonly runCommand: any;
     readonly runCommand_isRunning: boolean;
     readonly runCommand_queuedCallCount: number;
     runCommand_cancelAllQueuedCalls(): number;
@@ -113,10 +105,10 @@ export declare class Modem {
     validSimPin: string | undefined;
     private initCardLockFacility;
     private smsStack;
-    readonly evtMessage: SyncEvent<Message>;
-    readonly evtMessageStatusReport: SyncEvent<StatusReport>;
+    readonly evtMessage: any;
+    readonly evtMessageStatusReport: any;
     private initSmsStack;
-    sendMessage: (number: string, text: string) => Promise<Date | undefined>;
+    sendMessage: any;
     private cardStorage;
     private initCardStorage;
     readonly number: typeof CardStorage.prototype.number;
@@ -126,12 +118,9 @@ export declare class Modem {
     readonly storageLeft: typeof CardStorage.prototype.storageLeft;
     generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName;
     getContact: typeof CardStorage.prototype.getContact;
-    createContact: (number: string, name: string) => Promise<Contact>;
-    updateContact: (index: number, params: {
-        number?: string | undefined;
-        name?: string | undefined;
-    }) => Promise<Contact>;
-    deleteContact: (index: number) => Promise<void>;
-    writeNumber: (number: string) => Promise<void>;
+    createContact: any;
+    updateContact: any;
+    deleteContact: any;
+    writeNumber: any;
     ping(): Promise<void>;
 }

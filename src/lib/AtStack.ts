@@ -5,8 +5,6 @@ import { Timers } from "timer-extended";
 
 import { getSerialPortParser, AtMessage } from "at-messages-parser";
 
-import * as debug from "debug";
-
 import "colors";
 
 
@@ -53,7 +51,7 @@ export class AtStack {
     private readonly serialPortAtParser = getSerialPortParser(30000);
     constructor(
         dataIfPath: string,
-        private readonly debug: debug.IDebugger
+        private readonly debug: typeof console.log
     ) {
 
         this.debug("Initialization");

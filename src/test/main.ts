@@ -1,16 +1,12 @@
 import { Modem, InitializationError, ConnectionMonitor } from "../lib/index";
 //@ts-ignore: we may un comment
 import * as repl from "repl";
+import * as logger from "logger";
 
-import "colors";
+process.on("unhandledRejection", error=> { throw error; });
 
-import * as _debug from "debug";
-let debug = _debug("main");
-debug.enabled = true;
 
-process.on("unhandledRejection", error=> {
-    throw error;
-});
+const debug= logger.debugFactory();
 
 (async () => {
 

@@ -5,8 +5,6 @@ import * as runExclusive from "run-exclusive";
 
 import * as encoding from "legacy-encoding";
 
-import * as debug from "debug";
-
 export type Encoding = "IRA" | "GSM" | "UCS2";
 
 export interface Contact {
@@ -121,7 +119,7 @@ export class CardStorage {
 
     constructor(
         private readonly atStack: AtStack,
-        private readonly debug: debug.IDebugger
+        private readonly debug: typeof console.log
     ) {
 
 

@@ -2,7 +2,6 @@ import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 
-import * as debug from "debug";
 
 import "colors";
 
@@ -14,7 +13,7 @@ export class SystemState {
 
     constructor(
         private readonly atStack: AtStack,
-        private readonly debug: debug.IDebugger
+        private readonly debug: typeof console.log
     ) {
 
         this.debug("Initialization");
