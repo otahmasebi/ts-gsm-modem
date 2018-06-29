@@ -1,4 +1,5 @@
 import { AtStack } from "./AtStack";
+import { VoidSyncEvent } from "ts-events-extended";
 export declare type Encoding = "IRA" | "GSM" | "UCS2";
 export interface Contact {
     index: number;
@@ -11,7 +12,7 @@ export declare class CardStorageError extends Error {
 export declare class CardStorage {
     private readonly atStack;
     private readonly debug;
-    readonly evtReady: any;
+    readonly evtReady: VoidSyncEvent;
     readonly isReady: boolean;
     readonly contacts: Contact[];
     getContact(index: number): Contact | undefined;
@@ -22,11 +23,14 @@ export declare class CardStorage {
     constructor(atStack: AtStack, debug: typeof console.log);
     private p_CPBR_TEST;
     private getFreeIndex;
-    createContact: any;
-    updateContact: any;
-    deleteContact: any;
+    createContact: (number: string, name: string) => Promise<Contact>;
+    updateContact: (index: number, params: {
+        number?: string | undefined;
+        name?: string | undefined;
+    }) => Promise<Contact>;
+    deleteContact: (index: number) => Promise<void>;
     number: string | undefined;
-    writeNumber: any;
+    writeNumber: (number: string) => Promise<void>;
     private readonly contactByIndex;
     private init;
     private static encodeUCS2;

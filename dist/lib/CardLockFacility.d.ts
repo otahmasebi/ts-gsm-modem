@@ -1,3 +1,4 @@
+import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import "colors";
@@ -8,8 +9,8 @@ export interface UnlockCodeRequest {
 export declare class CardLockFacility {
     private readonly atStack;
     private readonly debug;
-    readonly evtUnlockCodeRequest: any;
-    readonly evtPinStateReady: any;
+    readonly evtUnlockCodeRequest: SyncEvent<UnlockCodeRequest>;
+    readonly evtPinStateReady: VoidSyncEvent;
     constructor(atStack: AtStack, debug: typeof console.log);
     enterPin(pin: string): void;
     enterPin2(pin2: string): void;

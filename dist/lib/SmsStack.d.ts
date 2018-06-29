@@ -1,4 +1,5 @@
 import { AtStack } from "./AtStack";
+import { SyncEvent } from "ts-events-extended";
 import "colors";
 export interface Message {
     number: string;
@@ -15,8 +16,8 @@ export interface StatusReport {
 export declare class SmsStack {
     private readonly atStack;
     private readonly debug;
-    readonly evtMessage: any;
-    readonly evtMessageStatusReport: any;
+    readonly evtMessage: SyncEvent<Message>;
+    readonly evtMessageStatusReport: SyncEvent<StatusReport>;
     private evtSmsDeliver;
     private evtSmsStatusReport;
     private readonly uncompletedMultipartSms;
@@ -27,7 +28,7 @@ export declare class SmsStack {
     private sendPdu;
     private readonly maxTrySendPdu;
     /** Return sendDate or undefined if send fail */
-    sendMessage: any;
+    sendMessage: (number: string, text: string) => Promise<Date | undefined>;
     private registerListeners;
     private retrievePdu;
 }
