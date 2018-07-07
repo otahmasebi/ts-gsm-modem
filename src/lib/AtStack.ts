@@ -72,9 +72,11 @@ export class AtStack {
         return (this.evtTerminate.postCount !== 0);
     }
 
-    public terminate(error?: Error): void {
+    public async terminate(error?: Error): Promise<void> {
 
-        if (this.isTerminated) return
+        if (this.isTerminated){
+             return
+        }
 
         if (error) {
 
@@ -86,9 +88,15 @@ export class AtStack {
 
             this.debug("User called terminate");
 
-            if (this.serialPort.isOpen()) { this.serialPort.close(); }
-
             this.evtTerminate.post(null);
+
+            if (this.serialPort.isOpen()) {
+
+                await new Promise<void>((resolve, reject) =>
+                    this.serialPort.close(error => !error ? resolve() : reject(error))
+                );
+
+            }
 
         }
 
@@ -115,8 +123,8 @@ export class AtStack {
 
         this.serialPort.once("disconnect", () => {
             this.debug("disconnect");
-            if (!this.isTerminated){
-                 this.evtTerminate.post(new Error("Modem disconnected"));
+            if (!this.isTerminated) {
+                this.evtTerminate.post(new Error("Modem disconnected"));
             }
         });
 
@@ -140,7 +148,7 @@ export class AtStack {
                     return;
                 }
 
-                if (atMessage.isUnsolicited){
+                if (atMessage.isUnsolicited) {
 
                     this.evtUnsolicitedMessage.post(atMessage);
 

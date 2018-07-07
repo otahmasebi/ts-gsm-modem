@@ -37,7 +37,7 @@ export declare class AtStack {
     private readonly serialPortAtParser;
     constructor(dataIfPath: string, debug: typeof console.log);
     readonly isTerminated: boolean;
-    terminate(error?: Error): void;
+    terminate(error?: Error): Promise<void>;
     private readonly evtError;
     private readonly evtResponseAtMessage;
     private registerListeners;

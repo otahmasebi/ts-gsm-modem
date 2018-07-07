@@ -10,7 +10,6 @@ import * as runExclusive from "run-exclusive";
 import * as util from "util";
 import * as logger from "logger";
 
-
 import "colors";
 
 export type UnlockResult = UnlockResult.Success | UnlockResult.Failed;
@@ -38,7 +37,8 @@ export interface UnlockCodeProvider {
         iccid: string | undefined,
         pinState: AtMessage.LockedPinState,
         tryLeft: number,
-        performUnlock: PerformUnlock
+        performUnlock: PerformUnlock,
+        terminate: ()=> Promise<void>
     ): void;
 }
 
@@ -367,7 +367,9 @@ export class Modem {
         return runExclusive.cancelAllQueuedCalls(this.runCommand, this);
     }
 
-    public terminate() { this.atStack.terminate(); }
+    public async terminate() { 
+        await this.atStack.terminate(); 
+    }
 
     public get isTerminated(): typeof AtStack.prototype.isTerminated {
         return this.atStack.isTerminated;
@@ -464,11 +466,10 @@ export class Modem {
 
                             return resultSuccess;
 
-
                         }
 
-
-                    }
+                    },
+                    ()=> this.atStack.terminate()
                 );
 
 

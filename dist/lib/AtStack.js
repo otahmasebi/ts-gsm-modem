@@ -122,19 +122,32 @@ var AtStack = /** @class */ (function () {
         configurable: true
     });
     AtStack.prototype.terminate = function (error) {
-        if (this.isTerminated)
-            return;
-        if (error) {
-            this.debug("Terminate have been called from outside of the class...");
-            this.evtError.post(error);
-        }
-        else {
-            this.debug("User called terminate");
-            if (this.serialPort.isOpen()) {
-                this.serialPort.close();
-            }
-            this.evtTerminate.post(null);
-        }
+        return __awaiter(this, void 0, void 0, function () {
+            var _this = this;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (this.isTerminated) {
+                            return [2 /*return*/];
+                        }
+                        if (!error) return [3 /*break*/, 1];
+                        this.debug("Terminate have been called from outside of the class...");
+                        this.evtError.post(error);
+                        return [3 /*break*/, 3];
+                    case 1:
+                        this.debug("User called terminate");
+                        this.evtTerminate.post(null);
+                        if (!this.serialPort.isOpen()) return [3 /*break*/, 3];
+                        return [4 /*yield*/, new Promise(function (resolve, reject) {
+                                return _this.serialPort.close(function (error) { return !error ? resolve() : reject(error); });
+                            })];
+                    case 2:
+                        _a.sent();
+                        _a.label = 3;
+                    case 3: return [2 /*return*/];
+                }
+            });
+        });
     };
     AtStack.prototype.registerListeners = function () {
         var _this = this;
