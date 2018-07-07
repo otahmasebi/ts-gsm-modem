@@ -25,7 +25,7 @@ export interface UnlockCodeProvider {
         manufacturer: string;
         model: string;
         firmwareVersion: string;
-    }, iccid: string | undefined, pinState: AtMessage.LockedPinState, tryLeft: number, performUnlock: PerformUnlock): void;
+    }, iccid: string | undefined, pinState: AtMessage.LockedPinState, tryLeft: number, performUnlock: PerformUnlock, terminate: () => Promise<void>): void;
 }
 export interface UnlockCode {
     pinFirstTry: string;
@@ -107,7 +107,7 @@ export declare class Modem {
     readonly runCommand_isRunning: boolean;
     readonly runCommand_queuedCallCount: number;
     runCommand_cancelAllQueuedCalls(): number;
-    terminate(): void;
+    terminate(): Promise<void>;
     readonly isTerminated: typeof AtStack.prototype.isTerminated;
     readonly evtUnsolicitedAtMessage: typeof AtStack.prototype.evtUnsolicitedMessage;
     lastPinTried: string | undefined;

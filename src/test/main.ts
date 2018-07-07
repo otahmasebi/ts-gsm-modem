@@ -87,7 +87,11 @@ const debug= logger.debugFactory();
 
     debug("Manual termination of the modem");
 
-    modem.terminate();
+    modem.terminate().then(()=>{
+
+        console.log("Resolve modem terminated");
+
+    });
 
     console.assert(modem.isTerminated === true);
 

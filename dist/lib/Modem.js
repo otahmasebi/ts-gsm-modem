@@ -377,7 +377,18 @@ var Modem = /** @class */ (function () {
     Modem.prototype.runCommand_cancelAllQueuedCalls = function () {
         return runExclusive.cancelAllQueuedCalls(this.runCommand, this);
     };
-    Modem.prototype.terminate = function () { this.atStack.terminate(); };
+    Modem.prototype.terminate = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.atStack.terminate()];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
     Object.defineProperty(Modem.prototype, "isTerminated", {
         get: function () {
             return this.atStack.isTerminated;
@@ -470,7 +481,7 @@ var Modem = /** @class */ (function () {
                                         }
                                     });
                                 });
-                            });
+                            }, function () { return _this.atStack.terminate(); });
                         });
                         return [4 /*yield*/, cardLockFacility.evtPinStateReady.waitFor()];
                     case 1:
