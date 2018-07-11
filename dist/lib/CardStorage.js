@@ -312,7 +312,7 @@ var CardStorage = /** @class */ (function () {
                     case 1:
                         resp = (_c.sent()).resp;
                         atMessageList = resp;
-                        if (atMessageList.atMessages.length) {
+                        if (!!atMessageList && atMessageList.atMessages.length) {
                             p_CNUM_EXEC = atMessageList.atMessages[0];
                             this.number = p_CNUM_EXEC.number;
                         }

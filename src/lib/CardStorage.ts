@@ -297,9 +297,9 @@ export class CardStorage {
 
         let { resp } = await this.atStack.runCommand("AT+CNUM\r");
 
-        let atMessageList = resp as AtMessage.LIST;
+        const atMessageList = resp as (AtMessage.LIST | undefined);
 
-        if (atMessageList.atMessages.length) {
+        if (!!atMessageList && atMessageList.atMessages.length) {
 
             let p_CNUM_EXEC = atMessageList.atMessages[0] as AtMessage.P_CNUM_EXEC;
 
