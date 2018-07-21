@@ -12,7 +12,7 @@ import {
 } from "node-python-messaging";
 import * as runExclusive from "run-exclusive";
 import { SyncEvent } from "ts-events-extended";
-import { Timer } from "timer-extended";
+import { Timer, Timers } from "timer-extended";
 import { TrackableMap } from "trackable-map"
 
 
@@ -271,6 +271,13 @@ export class SmsStack {
         }
     );
 
+    private readonly timers = new Timers();
+
+    /** To call before stop */
+    public clearAllTimers(){
+        this.timers.clearAll();
+    }
+
     private registerListeners(): void {
 
         this.atStack.evtUnsolicitedMessage.attach(
@@ -355,7 +362,7 @@ export class SmsStack {
 
                 parts = {};
 
-                timer = this.atStack.timers.add(
+                timer = this.timers.add(
                     (logMessage: string) => {
 
                         this.debug(logMessage);

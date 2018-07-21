@@ -1,12 +1,10 @@
-import { SerialPortExt } from "./SerialPortExt";
+import { SerialPortExt, SerialPortError } from "./SerialPortExt";
 import { SyncEvent, EvtError } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
-import { Timers } from "timer-extended";
 
 import { getSerialPortParser, AtMessage } from "at-messages-parser";
 
 import "colors";
-
 
 export type RunOutputs = { resp: AtMessage | undefined, final: AtMessage, raw: string };
 
@@ -24,33 +22,81 @@ export type RunParams = {
 };
 
 export class RunCommandError extends Error {
-    constructor(public readonly command: string,
-        public readonly atMessageError: AtMessage) {
-        super(RunCommandError.name);
+
+    constructor(
+        public readonly command: string,
+        public readonly atMessageError: AtMessage
+    ) {
+        super("AT command that had to complete successfully failed ( command was set as recoverable: false )");
         Object.setPrototypeOf(this, new.target.prototype);
     }
+
+    public toString(): string {
+        return [
+            `RunCommandError: ${this.message}`,
+            `command: ${this.command}`,
+            `AT: ${JSON.stringify(this.atMessageError.raw)}`
+        ].join("\n");
+    }
+
 }
 
 export class ParseError extends Error {
+
     constructor(public readonly unparsed: string) {
-        super(ParseError.name);
+        super("at-message-parser could not parse data flow");
         Object.setPrototypeOf(this, new.target.prototype);
     }
+
+    public toString(): string {
+        return [
+            `ParseError: ${this.message}`,
+            `failed to parse: ${JSON.stringify(this.unparsed)}`
+        ].join("\n")
+    }
+
+}
+
+export class ModemNotRespondingError extends Error {
+
+    constructor(public readonly lastCommandSent: string) {
+        super("Modem stopped responding to at commands ( No data received for a while )");
+        Object.setPrototypeOf(this, new.target.prototype);
+    }
+
+    public toString(): string {
+        return [
+            `ModemNotRespondingError: ${this.message}`,
+            `lastCommandSent: ${this.lastCommandSent}`
+        ].join("\n");
+    }
+
+}
+
+export class ModemDisconnectedError extends Error {
+
+    constructor(){
+        super("Modem disconnected");
+        Object.setPrototypeOf(this, new.target.prototype);
+    }
+
+    public toString(): string {
+        return `ModemDisconnectedError: ${this.message}`;
+    }
+
 }
 
 
 export class AtStack {
 
-
-    public readonly timers = new Timers();
-
     public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
-    public readonly evtTerminate = new SyncEvent<Error | null>();
 
     private readonly serialPort: SerialPortExt;
+
     private readonly serialPortAtParser = getSerialPortParser(30000);
+
     constructor(
-        dataIfPath: string,
+        public readonly dataIfPath: string,
         private readonly debug: typeof console.log
     ) {
 
@@ -61,90 +107,15 @@ export class AtStack {
             "parser": this.serialPortAtParser as any
         });
 
-        this.registerListeners();
+        this.serialPort.on("disconnect", ()=> this._terminate(new ModemDisconnectedError()));
 
-        this.runCommand("ATZ\r");
-
-
-    }
-
-    public get isTerminated(): boolean {
-        return (this.evtTerminate.postCount !== 0);
-    }
-
-    public async terminate(error?: Error): Promise<void> {
-
-        if (this.isTerminated){
-             return
-        }
-
-        if (error) {
-
-            this.debug("Terminate have been called from outside of the class...");
-
-            this.evtError.post(error);
-
-        } else {
-
-            this.debug("User called terminate");
-
-            this.evtTerminate.post(null);
-
-            if (this.serialPort.isOpen()) {
-
-                await new Promise<void>((resolve, reject) =>
-                    this.serialPort.close(error => !error ? resolve() : reject(error))
-                );
-
-            }
-
-        }
-
-
-    }
-
-    private readonly evtError = new SyncEvent<Error>();
-
-    private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
-
-    private registerListeners(): void {
-
-        this.evtError.attachOnce(async error => {
-
-            this.debug("unrecoverable error: ".red, error);
-
-            if (!this.isTerminated) this.evtTerminate.post(error);
-
-            await new Promise<void>(resolve => setImmediate(resolve));
-
-            if (this.serialPort.isOpen()) { this.serialPort.close(); }
-
-        });
-
-        this.serialPort.once("disconnect", () => {
-            this.debug("disconnect");
-            if (!this.isTerminated) {
-                this.evtTerminate.post(new Error("Modem disconnected"));
-            }
-        });
-
-        this.serialPort.once("close", () => {
-            this.debug("serial port close");
-            this.evtResponseAtMessage.detach();
-            this.timers.clearAll();
-            this.serialPortAtParser.flush();
-        });
-
-        this.serialPort.evtError.attach(error => {
-            this.debug("Serial port error: ", error);
-            this.evtError.post(error);
-        });
+        this.serialPort.evtError.attachOnce(error => this._terminate(error));
 
         this.serialPort.on("data",
             (atMessage: AtMessage | null, unparsed: string) => {
 
                 if (!atMessage) {
-                    this.evtError.post(new ParseError(unparsed));
+                    this._terminate(new ParseError(unparsed));
                     return;
                 }
 
@@ -161,7 +132,121 @@ export class AtStack {
             }
         );
 
+        this.runCommand("ATZ\r");
+
+
     }
+
+
+    private readonly _evtTerminate = new SyncEvent<SerialPortError | RunCommandError | ParseError | ModemNotRespondingError | ModemDisconnectedError | null>();
+
+    /** A public clone of _evtTerminate ( so user can't detach the internal handler of _evtTerminate ) */
+    public readonly evtTerminate= (()=>{
+
+        const evt: typeof AtStack.prototype._evtTerminate= new SyncEvent();
+
+        this._evtTerminate.attach(error=> evt.post(error));
+
+        return evt;
+
+    })();
+
+    public get terminateState(): undefined | "TERMINATING" | "TERMINATED" {
+        if( !this.haveTerminateFunctionBeenCalled){
+            return undefined;
+        }else if( this._evtTerminate.postCount === 0 ){
+            return "TERMINATING";
+        }else{
+            return "TERMINATED";
+        }
+    }
+
+    /** 
+     * If RESTART MT is set evtTerminate will post a disconnect. 
+     * Else it will post null.
+     * */
+    public async terminate(restart: "RESTART MT" | undefined = undefined): Promise<void> {
+
+        if (!this.haveTerminateFunctionBeenCalled) {
+
+            this.debug("Terminate called from outside of AT stack");
+
+            if (!restart) {
+
+                await this._terminate(null);
+
+            }else{
+
+                this.runCommand(
+                    "AT+CFUN=1,1\r",
+                    { "recoverable": false, "retryOnErrors": true }
+                ).then(({ final })=> {
+
+                    if( !final.isError ){
+                        this.debug("MT Restart command issued successfully");
+                    }else{
+                        this.debug("Error issuing the MT restart command");
+                    }
+
+                });
+
+                await this._evtTerminate.waitFor();
+
+            }
+
+            return;
+
+        } else if (this._evtTerminate.postCount === 0) {
+
+            await this._evtTerminate.waitFor();
+
+        } else {
+
+            return;
+
+        }
+
+    }
+
+    private haveTerminateFunctionBeenCalled = false;
+
+    private async _terminate(
+        error: SyncEvent.Type<typeof AtStack.prototype._evtTerminate>
+    ): Promise<void> {
+
+        //_terminate can not be called more than once.
+
+        this.haveTerminateFunctionBeenCalled = true;
+
+        this.evtResponseAtMessage.detach();
+
+        clearTimeout(this.runCommandRetryTimer);
+
+        this.serialPortAtParser.flush();
+
+        if (this.serialPort.isOpen()) {
+
+            await new Promise<void>(resolve =>
+                this.serialPort.close(e => {
+
+                    if ( !!e) {
+
+                        this.debug("Serial port close error", e);
+
+                    }
+
+                    resolve();
+
+                })
+            );
+
+        }
+
+        this._evtTerminate.post(error);
+
+    }
+
+    private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
 
     private static generateSafeRunParams(
         params: RunParams['userProvided'] | undefined
@@ -205,13 +290,15 @@ export class AtStack {
 
     }
 
-
-    //public runCommand = execQueue(this.runCommandManageParams);
     public runCommand = runExclusive.buildMethod(this.runCommandManageParams);
 
     private async runCommandManageParams(command: string): Promise<RunOutputs>;
     private async runCommandManageParams(command: String, params: RunParams['userProvided']): Promise<RunOutputs>;
     private async runCommandManageParams(...inputs: any[]): Promise<any> {
+
+        if (this.haveTerminateFunctionBeenCalled) {
+            await new Promise(resolve => { });
+        }
 
         let command: string | undefined = undefined;
         let params: RunParams['userProvided'] | undefined = undefined;
@@ -304,6 +391,8 @@ export class AtStack {
 
     private retryLeft = this.maxRetry;
 
+    private runCommandRetryTimer: NodeJS.Timer = undefined as any;
+
     private async runCommandRetry(
         command: string,
         params: RunParams['safe'],
@@ -332,7 +421,7 @@ export class AtStack {
             if (!this.retryLeft-- || retryOnErrors.indexOf(code) < 0) {
 
                 if (!recoverable) {
-                    this.evtError.post(new RunCommandError(command, final));
+                    this._terminate(new RunCommandError(command, final));
                     await new Promise<void>(resolve => { });
                 }
 
@@ -340,7 +429,9 @@ export class AtStack {
 
                 this.debug(`Retrying ${JSON.stringify(command)} because ${JSON.stringify(final, null, 2)}`.yellow);
 
-                await new Promise(resolve => this.timers.add(resolve, this.delayBeforeRetry));
+                await new Promise(
+                    resolve => this.runCommandRetryTimer = setTimeout(resolve, this.delayBeforeRetry)
+                );
 
                 return this.runCommandRetry(command, params);
             }
@@ -388,7 +479,7 @@ export class AtStack {
             }
 
             if (!this.retryLeftWrite--) {
-                this.evtError.post(new Error("Modem not responding"));
+                this._terminate(new ModemNotRespondingError(command));
                 await new Promise(resolve => { });
             }
 

@@ -65,6 +65,7 @@ var at_messages_parser_1 = require("at-messages-parser");
 var node_python_messaging_1 = require("node-python-messaging");
 var runExclusive = require("run-exclusive");
 var ts_events_extended_1 = require("ts-events-extended");
+var timer_extended_1 = require("timer-extended");
 var trackable_map_1 = require("trackable-map");
 require("colors");
 var uniqNow = (function () {
@@ -180,6 +181,7 @@ var SmsStack = /** @class */ (function () {
                 }
             });
         }); });
+        this.timers = new timer_extended_1.Timers();
         this.debug("Initialization");
         atStack.runCommand('AT+CPMS="SM","SM","SM"\r').then(function (_a) {
             var resp = _a.resp;
@@ -265,6 +267,10 @@ var SmsStack = /** @class */ (function () {
             });
         });
     };
+    /** To call before stop */
+    SmsStack.prototype.clearAllTimers = function () {
+        this.timers.clearAll();
+    };
     SmsStack.prototype.registerListeners = function () {
         var _this = this;
         this.atStack.evtUnsolicitedMessage.attach(function (urc) {
@@ -338,7 +344,7 @@ var SmsStack = /** @class */ (function () {
             var parts;
             if (!_this.uncompletedMultipartSms[messageRef]) {
                 parts = {};
-                timer = _this.atStack.timers.add(function (logMessage) {
+                timer = _this.timers.add(function (logMessage) {
                     var e_4, _a;
                     _this.debug(logMessage);
                     var partRefs = trackable_map_1.TrackableMap.intKeyAsSortedArray(parts);

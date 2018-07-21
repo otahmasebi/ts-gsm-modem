@@ -6,9 +6,6 @@ export interface Contact {
     number: string;
     name: string;
 }
-export declare class CardStorageError extends Error {
-    constructor(message: string);
-}
 export declare class CardStorage {
     private readonly atStack;
     private readonly debug;

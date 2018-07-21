@@ -65,27 +65,38 @@ var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
 var util = require("util");
 var logger = require("logger");
+var gsm_modem_connection_1 = require("gsm-modem-connection");
 require("colors");
+//TODO: add full original error.
 var InitializationError = /** @class */ (function (_super) {
     __extends(InitializationError, _super);
-    function InitializationError(message, modemInfos) {
+    function InitializationError(srcError, dataIfPath, modemInfos) {
         var _newTarget = this.constructor;
-        var _this = _super.call(this, message) || this;
+        var _this = _super.call(this, "Failed to initialize modem on " + dataIfPath) || this;
+        _this.srcError = srcError;
+        _this.dataIfPath = dataIfPath;
         _this.modemInfos = modemInfos;
         Object.setPrototypeOf(_this, _newTarget.prototype);
         return _this;
     }
+    InitializationError.prototype.toString = function () {
+        return [
+            "InitializationError: " + this.message,
+            "Cause: " + this.srcError,
+            "Modem infos: " + util.format(this.modemInfos)
+        ].join("\n");
+    };
     return InitializationError;
 }(Error));
 exports.InitializationError = InitializationError;
-var storageAccessGroupRef = runExclusive.createGroupRef();
 var Modem = /** @class */ (function () {
-    function Modem(dataIfPath, unlock, enableSmsStack, enableCardStorage, log, onInitializationCompleted) {
+    function Modem(dataIfPath, unlock, enableSmsStack, enableCardStorage, log, resolveConstructor) {
         var _this = this;
         this.dataIfPath = dataIfPath;
         this.enableSmsStack = enableSmsStack;
         this.enableCardStorage = enableCardStorage;
         this.log = log;
+        this.resolveConstructor = resolveConstructor;
         this.iccidAvailableBeforeUnlock = undefined;
         this.serviceProviderName = undefined;
         this.isVoiceEnabled = undefined;
@@ -136,35 +147,35 @@ var Modem = /** @class */ (function () {
             }
             return _this.cardStorage.getContact.apply(_this.cardStorage, inputs);
         };
-        this.createContact = runExclusive.buildMethod(storageAccessGroupRef, (function () {
+        this.createContact = function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.createContact.apply(_this.cardStorage, inputs);
-        }));
-        this.updateContact = runExclusive.buildMethod(storageAccessGroupRef, (function () {
+        };
+        this.updateContact = function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.updateContact.apply(_this.cardStorage, inputs);
-        }));
-        this.deleteContact = runExclusive.buildMethod(storageAccessGroupRef, (function () {
+        };
+        this.deleteContact = function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.deleteContact.apply(_this.cardStorage, inputs);
-        }));
-        this.writeNumber = runExclusive.buildMethod(storageAccessGroupRef, (function () {
+        };
+        this.writeNumber = function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 inputs[_i] = arguments[_i];
             }
             return _this.cardStorage.writeNumber.apply(_this.cardStorage, inputs);
-        }));
-        this.debug = logger.debugFactory("Modem " + dataIfPath, true, log);
+        };
+        this.debug = logger.debugFactory("Modem " + dataIfPath, true, this.log);
         this.debug("Initializing GSM Modem");
         if (typeof unlock === "function") {
             this.unlockCodeProvider = unlock;
@@ -172,66 +183,122 @@ var Modem = /** @class */ (function () {
         else if (unlock) {
             this.unlockCodeProvider = this.buildUnlockCodeProvider(unlock);
         }
-        this.atStack = new AtStack_1.AtStack(dataIfPath, logger.debugFactory("AtStack " + this.dataIfPath, true, log));
-        this.onInitializationCompleted = function (error) {
-            _this.atStack.evtTerminate.detach(_this);
-            if (error) {
-                _this.atStack.terminate(error);
-                onInitializationCompleted(new InitializationError(error.message, {
-                    "hasSim": _this.hasSim,
-                    "imei": _this.imei,
-                    "manufacturer": _this.manufacturer,
-                    "model": _this.model,
-                    "firmwareVersion": _this.firmwareVersion,
-                    "iccid": _this.iccid,
-                    "iccidAvailableBeforeUnlock": _this.iccidAvailableBeforeUnlock,
-                    "validSimPin": _this.validSimPin,
-                    "lastPinTried": _this.lastPinTried,
-                    "imsi": _this.imsi,
-                    "serviceProviderName": _this.serviceProviderName,
-                    "isVoiceEnabled": _this.isVoiceEnabled
-                }));
-            }
-            else {
-                _this.atStack.evtTerminate.attach(function (error) {
-                    _this.debug(!!error ?
-                        ("terminate with error: " + util.format(error)).red :
-                        "terminate without error");
-                    _this.evtTerminate.post(error);
-                });
-                _this.debug("Modem initialization success");
-                onInitializationCompleted(_this);
-            }
-        };
-        this.atStack.evtTerminate.attachOnce(this, function (atStackError) {
-            return _this.onInitializationCompleted(atStackError);
+        if (!gsm_modem_connection_1.Monitor.hasInstance) {
+            this.debug("Connection monitor not used, skipping preliminary modem reboot");
+            this.initAtStack();
+        }
+        var cm = gsm_modem_connection_1.Monitor.getInstance();
+        var accessPoint = Array.from(cm.connectedModems).find(function (_a) {
+            var dataIfPath = _a.dataIfPath;
+            return dataIfPath === _this.dataIfPath;
         });
-        this.atStack.runCommand("AT+CGSN\r").then(function (_a) {
-            var resp = _a.resp;
-            _this.imei = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
-            _this.debug("IMEI: " + _this.imei);
+        if (!accessPoint) {
+            this.resolveConstructor(new InitializationError(new Error("According to gsm-modem-connection modem does not seem to be connected on specified interface"), this.dataIfPath, {}));
+            return;
+        }
+        this.debug("Performing preliminary modem reboot by issuing the AT command to restart MT");
+        (new AtStack_1.AtStack(this.dataIfPath, function () { })).terminate("RESTART MT");
+        cm.evtModemDisconnect.attachOnceExtract(function (ap) { return ap === accessPoint; }, function () { return _this.debug("Modem disconnected as expected caught ( event extracted from monitor )"); });
+        cm.evtModemConnect.attachOnceExtract(function (_a) {
+            var id = _a.id;
+            return id === accessPoint.id;
+        }, function (_a) {
+            var dataIfPath = _a.dataIfPath;
+            _this.dataIfPath = dataIfPath;
+            _this.debug("Modem reconnected successfully ( event extracted from monitor )");
+            _this.initAtStack();
         });
-        this.atStack.runCommand("AT+CGMI\r").then(function (_a) {
-            var resp = _a.resp;
-            _this.manufacturer = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
-            _this.debug("manufacturer: " + _this.manufacturer);
+    }
+    /**
+     * Note: if no log is passed then console.log is used.
+     * If log is false no log.
+     * throw InitializationError
+     */
+    Modem.create = function (params) {
+        return new Promise(function (resolve, reject) {
+            var enableSmsStack = !(params.disableSmsFeatures === true);
+            var enableCardStorage = !(params.disableContactsFeatures === true);
+            var log = (function () {
+                switch (params.log) {
+                    case undefined: return console.log.bind(console);
+                    case false: return function () { };
+                    default: return params.log;
+                }
+            })();
+            new Modem(params.dataIfPath, params.unlock, enableSmsStack, enableCardStorage, log, function (result) { return (result instanceof Modem) ? resolve(result) : reject(result); });
         });
-        this.atStack.runCommand("AT+CGMM\r").then(function (_a) {
-            var resp = _a.resp;
-            _this.model = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
-            _this.debug("model: " + _this.model);
-        });
-        this.atStack.runCommand("AT+CGMR\r").then(function (_a) {
-            var resp = _a.resp;
-            _this.firmwareVersion = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
-            _this.debug("firmwareVersion: " + _this.firmwareVersion);
-        });
-        this.systemState = new SystemState_1.SystemState(this.atStack, logger.debugFactory("SystemState " + this.dataIfPath, true, log));
-        (function () { return __awaiter(_this, void 0, void 0, function () {
+    };
+    Modem.prototype.initAtStack = function () {
+        return __awaiter(this, void 0, void 0, function () {
             var hasSim, _a;
+            var _this = this;
             return __generator(this, function (_b) {
                 switch (_b.label) {
-                    case 0: return [4 /*yield*/, this.systemState.evtReportSimPresence.waitFor()];
+                    case 0:
+                        this.atStack = new AtStack_1.AtStack(this.dataIfPath, logger.debugFactory("AtStack " + this.dataIfPath, true, this.log));
+                        this.onInitializationCompleted = function (error) {
+                            _this.atStack.evtTerminate.detach(_this);
+                            if (!!error) {
+                                var initializationError_1 = new InitializationError(error, _this.dataIfPath, {
+                                    "hasSim": _this.hasSim,
+                                    "imei": _this.imei,
+                                    "manufacturer": _this.manufacturer,
+                                    "model": _this.model,
+                                    "firmwareVersion": _this.firmwareVersion,
+                                    "iccid": _this.iccid,
+                                    "iccidAvailableBeforeUnlock": _this.iccidAvailableBeforeUnlock,
+                                    "validSimPin": _this.validSimPin,
+                                    "lastPinTried": _this.lastPinTried,
+                                    "imsi": _this.imsi,
+                                    "serviceProviderName": _this.serviceProviderName,
+                                    "isVoiceEnabled": _this.isVoiceEnabled
+                                });
+                                _this.debug(initializationError_1.toString().red);
+                                if (!!_this.smsStack) {
+                                    _this.smsStack.clearAllTimers();
+                                }
+                                //TODO: restart here?
+                                _this.atStack.terminate().then(function () { return _this.resolveConstructor(initializationError_1); });
+                            }
+                            else {
+                                _this.atStack.evtTerminate.attach(function (error) { return __awaiter(_this, void 0, void 0, function () {
+                                    return __generator(this, function (_a) {
+                                        this.debug(!!error ?
+                                            ("terminate with error: " + error).red :
+                                            "terminate without error");
+                                        if (!!this.smsStack) {
+                                            this.smsStack.clearAllTimers();
+                                        }
+                                        this.evtTerminate.post(error);
+                                        return [2 /*return*/];
+                                    });
+                                }); });
+                                _this.resolveConstructor(_this);
+                            }
+                        };
+                        this.atStack.evtTerminate.attachOnce(function (error) { return !!error; }, this, function (error) { return _this.onInitializationCompleted(error); });
+                        this.atStack.runCommand("AT+CGSN\r").then(function (_a) {
+                            var resp = _a.resp;
+                            _this.imei = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
+                            _this.debug("IMEI: " + _this.imei);
+                        });
+                        this.atStack.runCommand("AT+CGMI\r").then(function (_a) {
+                            var resp = _a.resp;
+                            _this.manufacturer = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
+                            _this.debug("manufacturer: " + _this.manufacturer);
+                        });
+                        this.atStack.runCommand("AT+CGMM\r").then(function (_a) {
+                            var resp = _a.resp;
+                            _this.model = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
+                            _this.debug("model: " + _this.model);
+                        });
+                        this.atStack.runCommand("AT+CGMR\r").then(function (_a) {
+                            var resp = _a.resp;
+                            _this.firmwareVersion = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
+                            _this.debug("firmwareVersion: " + _this.firmwareVersion);
+                        });
+                        this.systemState = new SystemState_1.SystemState(this.atStack, logger.debugFactory("SystemState " + this.dataIfPath, true, this.log));
+                        return [4 /*yield*/, this.systemState.evtReportSimPresence.waitFor()];
                     case 1:
                         hasSim = _b.sent();
                         this.debug("SIM present: " + hasSim);
@@ -251,29 +318,11 @@ var Modem = /** @class */ (function () {
                         return [2 /*return*/];
                 }
             });
-        }); })();
-    }
-    /**
-     * Note: if no log is passed then console.log is used.
-     * If log is false no log.
-     */
-    Modem.create = function (params) {
-        return new Promise(function (resolve, reject) {
-            var enableSmsStack = !(params.disableSmsFeatures === true);
-            var enableCardStorage = !(params.disableContactsFeatures === true);
-            var log = (function () {
-                switch (params.log) {
-                    case undefined: return console.log.bind(console);
-                    case false: return function () { };
-                    default: return params.log;
-                }
-            })();
-            new Modem(params.dataIfPath, params.unlock, enableSmsStack, enableCardStorage, log, function (result) { return (result instanceof Modem) ? resolve(result) : reject(result); });
         });
     };
     Modem.prototype.buildUnlockCodeProvider = function (unlockCode) {
         var _this = this;
-        return function (modemInfos, iccid, pinState, tryLeft, performUnlock) { return __awaiter(_this, void 0, void 0, function () {
+        return function (_modemInfos, _iccid, pinState, tryLeft, performUnlock) { return __awaiter(_this, void 0, void 0, function () {
             var e_1, _a, _b, _c, pin, unlockResult, e_1_1;
             return __generator(this, function (_d) {
                 switch (_d.label) {
@@ -338,10 +387,12 @@ var Modem = /** @class */ (function () {
                         return [4 /*yield*/, this.atStack.runCommand("AT+CRSM=176,12258,0,0,10\r", { "recoverable": true })];
                     case 2:
                         _b = _c.sent(), resp_1 = _b.resp, final_1 = _b.final;
-                        if (final_1.isError)
+                        if (final_1.isError) {
                             switchedIccid = undefined;
-                        else
+                        }
+                        else {
                             switchedIccid = resp_1.response;
+                        }
                         return [3 /*break*/, 4];
                     case 3:
                         switchedIccid = resp.iccid;
@@ -378,20 +429,14 @@ var Modem = /** @class */ (function () {
         return runExclusive.cancelAllQueuedCalls(this.runCommand, this);
     };
     Modem.prototype.terminate = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.atStack.terminate()];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
-            });
-        });
+        if (!!this.smsStack) {
+            this.smsStack.clearAllTimers();
+        }
+        return this.atStack.terminate();
     };
-    Object.defineProperty(Modem.prototype, "isTerminated", {
+    Object.defineProperty(Modem.prototype, "terminateState", {
         get: function () {
-            return this.atStack.isTerminated;
+            return this.atStack.terminateState;
         },
         enumerable: true,
         configurable: true
@@ -430,11 +475,12 @@ var Modem = /** @class */ (function () {
                                     inputs[_i] = arguments[_i];
                                 }
                                 return __awaiter(_this, void 0, void 0, function () {
-                                    var result, resultFailed, resultSuccess;
+                                    var context, _result, resultSuccess, resultFailed;
+                                    var _this = this;
                                     return __generator(this, function (_a) {
                                         switch (_a.label) {
                                             case 0:
-                                                if (this.atStack.isTerminated) {
+                                                if (!!this.atStack.terminateState) {
                                                     throw new Error("This modem is no longer available");
                                                 }
                                                 switch (pinState) {
@@ -453,29 +499,32 @@ var Modem = /** @class */ (function () {
                                                         cardLockFacility.enterPuk2(inputs[0], inputs[1]);
                                                         break;
                                                 }
+                                                context = {};
                                                 return [4 /*yield*/, Promise.race([
-                                                        cardLockFacility.evtUnlockCodeRequest.waitFor(),
-                                                        cardLockFacility.evtPinStateReady.waitFor(),
-                                                        this.atStack.evtTerminate.waitFor()
+                                                        new Promise(function (resolve) { return cardLockFacility.evtPinStateReady.attachOnce(context, function () { return resolve({ "type": "SUCCESS" }); }); }),
+                                                        new Promise(function (resolve) { return cardLockFacility.evtUnlockCodeRequest.attachOnce(context, function (unlockCodeRequest) { return resolve({ "type": "FAILED", unlockCodeRequest: unlockCodeRequest }); }); }),
+                                                        new Promise(function (resolve) { return _this.atStack.evtTerminate.attachOnce(context, function (error) { return resolve({ "type": "TERMINATE", error: error }); }); })
                                                     ])];
                                             case 1:
-                                                result = _a.sent();
-                                                if (result instanceof Error) {
-                                                    throw result;
-                                                }
-                                                else if (result) {
-                                                    resultFailed = {
-                                                        "success": false,
-                                                        "pinState": result.pinState,
-                                                        "tryLeft": result.times
-                                                    };
-                                                    return [2 /*return*/, resultFailed];
-                                                }
-                                                else {
-                                                    resultSuccess = {
-                                                        "success": true
-                                                    };
-                                                    return [2 /*return*/, resultSuccess];
+                                                _result = _a.sent();
+                                                cardLockFacility.evtPinStateReady.detach(context);
+                                                cardLockFacility.evtUnlockCodeRequest.detach(context);
+                                                this.atStack.evtTerminate.detach(context);
+                                                switch (_result.type) {
+                                                    case "SUCCESS":
+                                                        resultSuccess = {
+                                                            "success": true
+                                                        };
+                                                        return [2 /*return*/, resultSuccess];
+                                                    case "FAILED":
+                                                        resultFailed = {
+                                                            "success": false,
+                                                            "pinState": _result.unlockCodeRequest.pinState,
+                                                            "tryLeft": _result.unlockCodeRequest.times
+                                                        };
+                                                        return [2 /*return*/, resultFailed];
+                                                    case "TERMINATE":
+                                                        throw _result.error || new Error("Terminate have been called on locked modem");
                                                 }
                                                 return [2 /*return*/];
                                         }
@@ -625,6 +674,7 @@ var Modem = /** @class */ (function () {
         enumerable: true,
         configurable: true
     });
+    /** Issue AT\r command */
     Modem.prototype.ping = function () {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {

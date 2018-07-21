@@ -58,19 +58,25 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var SerialPortExt_1 = require("./SerialPortExt");
 var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
-var timer_extended_1 = require("timer-extended");
 var at_messages_parser_1 = require("at-messages-parser");
 require("colors");
 var RunCommandError = /** @class */ (function (_super) {
     __extends(RunCommandError, _super);
     function RunCommandError(command, atMessageError) {
         var _newTarget = this.constructor;
-        var _this = _super.call(this, RunCommandError.name) || this;
+        var _this = _super.call(this, "AT command that had to complete successfully failed ( command was set as recoverable: false )") || this;
         _this.command = command;
         _this.atMessageError = atMessageError;
         Object.setPrototypeOf(_this, _newTarget.prototype);
         return _this;
     }
+    RunCommandError.prototype.toString = function () {
+        return [
+            "RunCommandError: " + this.message,
+            "command: " + this.command,
+            "AT: " + JSON.stringify(this.atMessageError.raw)
+        ].join("\n");
+    };
     return RunCommandError;
 }(Error));
 exports.RunCommandError = RunCommandError;
@@ -78,24 +84,68 @@ var ParseError = /** @class */ (function (_super) {
     __extends(ParseError, _super);
     function ParseError(unparsed) {
         var _newTarget = this.constructor;
-        var _this = _super.call(this, ParseError.name) || this;
+        var _this = _super.call(this, "at-message-parser could not parse data flow") || this;
         _this.unparsed = unparsed;
         Object.setPrototypeOf(_this, _newTarget.prototype);
         return _this;
     }
+    ParseError.prototype.toString = function () {
+        return [
+            "ParseError: " + this.message,
+            "failed to parse: " + JSON.stringify(this.unparsed)
+        ].join("\n");
+    };
     return ParseError;
 }(Error));
 exports.ParseError = ParseError;
+var ModemNotRespondingError = /** @class */ (function (_super) {
+    __extends(ModemNotRespondingError, _super);
+    function ModemNotRespondingError(lastCommandSent) {
+        var _newTarget = this.constructor;
+        var _this = _super.call(this, "Modem stopped responding to at commands ( No data received for a while )") || this;
+        _this.lastCommandSent = lastCommandSent;
+        Object.setPrototypeOf(_this, _newTarget.prototype);
+        return _this;
+    }
+    ModemNotRespondingError.prototype.toString = function () {
+        return [
+            "ModemNotRespondingError: " + this.message,
+            "lastCommandSent: " + this.lastCommandSent
+        ].join("\n");
+    };
+    return ModemNotRespondingError;
+}(Error));
+exports.ModemNotRespondingError = ModemNotRespondingError;
+var ModemDisconnectedError = /** @class */ (function (_super) {
+    __extends(ModemDisconnectedError, _super);
+    function ModemDisconnectedError() {
+        var _newTarget = this.constructor;
+        var _this = _super.call(this, "Modem disconnected") || this;
+        Object.setPrototypeOf(_this, _newTarget.prototype);
+        return _this;
+    }
+    ModemDisconnectedError.prototype.toString = function () {
+        return "ModemDisconnectedError: " + this.message;
+    };
+    return ModemDisconnectedError;
+}(Error));
+exports.ModemDisconnectedError = ModemDisconnectedError;
 var AtStack = /** @class */ (function () {
     function AtStack(dataIfPath, debug) {
+        var _this = this;
+        this.dataIfPath = dataIfPath;
         this.debug = debug;
-        this.timers = new timer_extended_1.Timers();
         this.evtUnsolicitedMessage = new ts_events_extended_1.SyncEvent();
-        this.evtTerminate = new ts_events_extended_1.SyncEvent();
         this.serialPortAtParser = at_messages_parser_1.getSerialPortParser(30000);
-        this.evtError = new ts_events_extended_1.SyncEvent();
+        this._evtTerminate = new ts_events_extended_1.SyncEvent();
+        /** A public clone of _evtTerminate ( so user can't detach the internal handler of _evtTerminate ) */
+        this.evtTerminate = (function () {
+            var evt = new ts_events_extended_1.SyncEvent();
+            _this._evtTerminate.attach(function (error) { return evt.post(error); });
+            return evt;
+        })();
+        this.haveTerminateFunctionBeenCalled = false;
         this.evtResponseAtMessage = new ts_events_extended_1.SyncEvent();
-        //public runCommand = execQueue(this.runCommandManageParams);
         this.runCommand = runExclusive.buildMethod(this.runCommandManageParams);
         this.reportMode = undefined;
         this.isEchoEnable = undefined;
@@ -103,6 +153,7 @@ var AtStack = /** @class */ (function () {
         this.maxRetry = 10;
         this.delayBeforeRetry = 5000;
         this.retryLeft = this.maxRetry;
+        this.runCommandRetryTimer = undefined;
         this.maxRetryWrite = 3;
         this.delayReWrite = 1000;
         this.retryLeftWrite = this.maxRetryWrite;
@@ -111,82 +162,11 @@ var AtStack = /** @class */ (function () {
         this.serialPort = new SerialPortExt_1.SerialPortExt(dataIfPath, {
             "parser": this.serialPortAtParser
         });
-        this.registerListeners();
-        this.runCommand("ATZ\r");
-    }
-    Object.defineProperty(AtStack.prototype, "isTerminated", {
-        get: function () {
-            return (this.evtTerminate.postCount !== 0);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    AtStack.prototype.terminate = function (error) {
-        return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (this.isTerminated) {
-                            return [2 /*return*/];
-                        }
-                        if (!error) return [3 /*break*/, 1];
-                        this.debug("Terminate have been called from outside of the class...");
-                        this.evtError.post(error);
-                        return [3 /*break*/, 3];
-                    case 1:
-                        this.debug("User called terminate");
-                        this.evtTerminate.post(null);
-                        if (!this.serialPort.isOpen()) return [3 /*break*/, 3];
-                        return [4 /*yield*/, new Promise(function (resolve, reject) {
-                                return _this.serialPort.close(function (error) { return !error ? resolve() : reject(error); });
-                            })];
-                    case 2:
-                        _a.sent();
-                        _a.label = 3;
-                    case 3: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    AtStack.prototype.registerListeners = function () {
-        var _this = this;
-        this.evtError.attachOnce(function (error) { return __awaiter(_this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        this.debug("unrecoverable error: ".red, error);
-                        if (!this.isTerminated)
-                            this.evtTerminate.post(error);
-                        return [4 /*yield*/, new Promise(function (resolve) { return setImmediate(resolve); })];
-                    case 1:
-                        _a.sent();
-                        if (this.serialPort.isOpen()) {
-                            this.serialPort.close();
-                        }
-                        return [2 /*return*/];
-                }
-            });
-        }); });
-        this.serialPort.once("disconnect", function () {
-            _this.debug("disconnect");
-            if (!_this.isTerminated) {
-                _this.evtTerminate.post(new Error("Modem disconnected"));
-            }
-        });
-        this.serialPort.once("close", function () {
-            _this.debug("serial port close");
-            _this.evtResponseAtMessage.detach();
-            _this.timers.clearAll();
-            _this.serialPortAtParser.flush();
-        });
-        this.serialPort.evtError.attach(function (error) {
-            _this.debug("Serial port error: ", error);
-            _this.evtError.post(error);
-        });
+        this.serialPort.on("disconnect", function () { return _this._terminate(new ModemDisconnectedError()); });
+        this.serialPort.evtError.attachOnce(function (error) { return _this._terminate(error); });
         this.serialPort.on("data", function (atMessage, unparsed) {
             if (!atMessage) {
-                _this.evtError.post(new ParseError(unparsed));
+                _this._terminate(new ParseError(unparsed));
                 return;
             }
             if (atMessage.isUnsolicited) {
@@ -195,6 +175,97 @@ var AtStack = /** @class */ (function () {
             else {
                 _this.evtResponseAtMessage.post(atMessage);
             }
+        });
+        this.runCommand("ATZ\r");
+    }
+    Object.defineProperty(AtStack.prototype, "terminateState", {
+        get: function () {
+            if (!this.haveTerminateFunctionBeenCalled) {
+                return undefined;
+            }
+            else if (this._evtTerminate.postCount === 0) {
+                return "TERMINATING";
+            }
+            else {
+                return "TERMINATED";
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    /**
+     * If RESTART MT is set evtTerminate will post a disconnect.
+     * Else it will post null.
+     * */
+    AtStack.prototype.terminate = function (restart) {
+        if (restart === void 0) { restart = undefined; }
+        return __awaiter(this, void 0, void 0, function () {
+            var _this = this;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!!this.haveTerminateFunctionBeenCalled) return [3 /*break*/, 5];
+                        this.debug("Terminate called from outside of AT stack");
+                        if (!!restart) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this._terminate(null)];
+                    case 1:
+                        _a.sent();
+                        return [3 /*break*/, 4];
+                    case 2:
+                        this.runCommand("AT+CFUN=1,1\r", { "recoverable": false, "retryOnErrors": true }).then(function (_a) {
+                            var final = _a.final;
+                            if (!final.isError) {
+                                _this.debug("MT Restart command issued successfully");
+                            }
+                            else {
+                                _this.debug("Error issuing the MT restart command");
+                            }
+                        });
+                        return [4 /*yield*/, this._evtTerminate.waitFor()];
+                    case 3:
+                        _a.sent();
+                        _a.label = 4;
+                    case 4: return [2 /*return*/];
+                    case 5:
+                        if (!(this._evtTerminate.postCount === 0)) return [3 /*break*/, 7];
+                        return [4 /*yield*/, this._evtTerminate.waitFor()];
+                    case 6:
+                        _a.sent();
+                        return [3 /*break*/, 8];
+                    case 7: return [2 /*return*/];
+                    case 8: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    AtStack.prototype._terminate = function (error) {
+        return __awaiter(this, void 0, void 0, function () {
+            var _this = this;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        //_terminate can not be called more than once.
+                        this.haveTerminateFunctionBeenCalled = true;
+                        this.evtResponseAtMessage.detach();
+                        clearTimeout(this.runCommandRetryTimer);
+                        this.serialPortAtParser.flush();
+                        if (!this.serialPort.isOpen()) return [3 /*break*/, 2];
+                        return [4 /*yield*/, new Promise(function (resolve) {
+                                return _this.serialPort.close(function (e) {
+                                    if (!!e) {
+                                        _this.debug("Serial port close error", e);
+                                    }
+                                    resolve();
+                                });
+                            })];
+                    case 1:
+                        _a.sent();
+                        _a.label = 2;
+                    case 2:
+                        this._evtTerminate.post(error);
+                        return [2 /*return*/];
+                }
+            });
         });
     };
     AtStack.generateSafeRunParams = function (params) {
@@ -245,29 +316,38 @@ var AtStack = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             var e_1, _a, command, params, inputs_1, inputs_1_1, input;
             return __generator(this, function (_b) {
-                command = undefined;
-                params = undefined;
-                try {
-                    for (inputs_1 = __values(inputs), inputs_1_1 = inputs_1.next(); !inputs_1_1.done; inputs_1_1 = inputs_1.next()) {
-                        input = inputs_1_1.value;
-                        switch (typeof input) {
-                            case "string":
-                                command = input;
-                                break;
-                            case "object":
-                                params = input;
-                                break;
+                switch (_b.label) {
+                    case 0:
+                        if (!this.haveTerminateFunctionBeenCalled) return [3 /*break*/, 2];
+                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                    case 1:
+                        _b.sent();
+                        _b.label = 2;
+                    case 2:
+                        command = undefined;
+                        params = undefined;
+                        try {
+                            for (inputs_1 = __values(inputs), inputs_1_1 = inputs_1.next(); !inputs_1_1.done; inputs_1_1 = inputs_1.next()) {
+                                input = inputs_1_1.value;
+                                switch (typeof input) {
+                                    case "string":
+                                        command = input;
+                                        break;
+                                    case "object":
+                                        params = input;
+                                        break;
+                                }
+                            }
                         }
-                    }
+                        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                        finally {
+                            try {
+                                if (inputs_1_1 && !inputs_1_1.done && (_a = inputs_1.return)) _a.call(inputs_1);
+                            }
+                            finally { if (e_1) throw e_1.error; }
+                        }
+                        return [2 /*return*/, this.runCommandSetReportMode(command, AtStack.generateSafeRunParams(params))];
                 }
-                catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                finally {
-                    try {
-                        if (inputs_1_1 && !inputs_1_1.done && (_a = inputs_1.return)) _a.call(inputs_1);
-                    }
-                    finally { if (e_1) throw e_1.error; }
-                }
-                return [2 /*return*/, this.runCommandSetReportMode(command, AtStack.generateSafeRunParams(params))];
             });
         });
     };
@@ -349,7 +429,7 @@ var AtStack = /** @class */ (function () {
                         }
                         if (!(!this.retryLeft-- || retryOnErrors.indexOf(code) < 0)) return [3 /*break*/, 4];
                         if (!!recoverable) return [3 /*break*/, 3];
-                        this.evtError.post(new RunCommandError(command, final));
+                        this._terminate(new RunCommandError(command, final));
                         return [4 /*yield*/, new Promise(function (resolve) { })];
                     case 2:
                         _b.sent();
@@ -357,7 +437,7 @@ var AtStack = /** @class */ (function () {
                     case 3: return [3 /*break*/, 6];
                     case 4:
                         this.debug(("Retrying " + JSON.stringify(command) + " because " + JSON.stringify(final, null, 2)).yellow);
-                        return [4 /*yield*/, new Promise(function (resolve) { return _this.timers.add(resolve, _this.delayBeforeRetry); })];
+                        return [4 /*yield*/, new Promise(function (resolve) { return _this.runCommandRetryTimer = setTimeout(resolve, _this.delayBeforeRetry); })];
                     case 5:
                         _b.sent();
                         return [2 /*return*/, this.runCommandRetry(command, params)];
@@ -400,7 +480,7 @@ var AtStack = /** @class */ (function () {
                         _a.label = 7;
                     case 7:
                         if (!!this.retryLeftWrite--) return [3 /*break*/, 9];
-                        this.evtError.post(new Error("Modem not responding"));
+                        this._terminate(new ModemNotRespondingError(command));
                         return [4 /*yield*/, new Promise(function (resolve) { })];
                     case 8:
                         _a.sent();

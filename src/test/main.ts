@@ -1,10 +1,9 @@
-import { Modem, InitializationError, ConnectionMonitor } from "../lib/index";
+import { Modem, ConnectionMonitor } from "../lib/index";
 //@ts-ignore: we may un comment
 import * as repl from "repl";
 import * as logger from "logger";
 
 process.on("unhandledRejection", error=> { throw error; });
-
 
 const debug= logger.debugFactory();
 
@@ -20,14 +19,13 @@ const debug= logger.debugFactory();
 
         modem = await Modem.create({
             "dataIfPath": accessPoint.dataIfPath,
-            "unlock": { "pinFirstTry": "0000", "pinSecondTry": "1234" }
+            "unlock": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
+            "log": logger.log
         });
 
-    } catch (error) {
+    } catch {
 
-        let initializationError = error as InitializationError;
-
-        debug(initializationError);
+        debug("Modem initialization error");
 
         return;
 
@@ -35,7 +33,7 @@ const debug= logger.debugFactory();
 
     modem.evtTerminate.attachOnce(error => {
 
-        debug("Modem terminate", { error });
+        debug("Modem terminate");
 
         ConnectionMonitor.getInstance().stop();
 
@@ -77,74 +75,32 @@ const debug= logger.debugFactory();
     ].join("\n");
     /* spell-checker: enable */
 
-    let joseph = "0636786385";
+    const joseph = "0636786385";
 
-    let sentMessageId = await modem.sendMessage(joseph, messageText);
+    const sentMessageId = await modem.sendMessage(joseph, messageText);
 
     debug("SendDate( used as id): ", sentMessageId);
 
-    await new Promise(resolve => setTimeout(resolve, 60000));
+    const contact = await modem.createContact("007", "James Bond");
+
+    console.assert( modem.getContact(contact.index)!.name === contact.name);
+    console.assert( modem.getContact(contact.index)!.number === contact.number);
+
+    await modem.deleteContact(contact.index);
+
+    console.assert( modem.getContact(contact.index) === undefined );
+
+    await new Promise(resolve => setTimeout(resolve, 35000));
 
     debug("Manual termination of the modem");
 
     modem.terminate().then(()=>{
 
-        console.log("Resolve modem terminated");
+        console.assert(modem.terminateState === "TERMINATED");
 
     });
 
-    console.assert(modem.isTerminated === true);
+    console.assert(modem.terminateState === "TERMINATING");
 
-    /*
-
-    let { context } = repl.start({
-        "terminal": true,
-        "prompt": "> "
-    }) as any;
-
-    Object.assign(context, {
-        modem,
-        run(command: string): string  {
-
-            modem.runCommand(command + "\r", { "recoverable": true, "retryOnErrors": false }, (resp, final) => {
-
-                if (resp)
-                    console.log(JSON.stringify(resp, null, 2));
-
-                if (final.isError)
-                    console.log(JSON.stringify(final, null, 2).red);
-                else
-                    console.log(final.raw.green);
-
-            });
-
-            return "COMMAND QUEUED";
-
-        }
-    });
-
-    Object.defineProperty(context, "exit", {
-        "get": ()=> process.exit(0)
-    });
-
-    */
-
-    /*
-    ( async function keepAlive(){
-
-        while( true ){
-
-            if( modem.isTerminated ) return;
-
-            await new Promise(resolve=>setTimeout(resolve,1000));
-
-            await modem!.ping();
-
-            console.log("PING");
-
-        }
-
-    });
-    */
 
 })();

@@ -1,5 +1,5 @@
+import { SerialPortError } from "./SerialPortExt";
 import { SyncEvent } from "ts-events-extended";
-import { Timers } from "timer-extended";
 import { AtMessage } from "at-messages-parser";
 import "colors";
 export declare type RunOutputs = {
@@ -23,24 +23,41 @@ export declare class RunCommandError extends Error {
     readonly command: string;
     readonly atMessageError: AtMessage;
     constructor(command: string, atMessageError: AtMessage);
+    toString(): string;
 }
 export declare class ParseError extends Error {
     readonly unparsed: string;
     constructor(unparsed: string);
+    toString(): string;
+}
+export declare class ModemNotRespondingError extends Error {
+    readonly lastCommandSent: string;
+    constructor(lastCommandSent: string);
+    toString(): string;
+}
+export declare class ModemDisconnectedError extends Error {
+    constructor();
+    toString(): string;
 }
 export declare class AtStack {
+    readonly dataIfPath: string;
     private readonly debug;
-    readonly timers: Timers;
     readonly evtUnsolicitedMessage: SyncEvent<AtMessage>;
-    readonly evtTerminate: SyncEvent<Error | null>;
     private readonly serialPort;
     private readonly serialPortAtParser;
     constructor(dataIfPath: string, debug: typeof console.log);
-    readonly isTerminated: boolean;
-    terminate(error?: Error): Promise<void>;
-    private readonly evtError;
+    private readonly _evtTerminate;
+    /** A public clone of _evtTerminate ( so user can't detach the internal handler of _evtTerminate ) */
+    readonly evtTerminate: SyncEvent<SerialPortError | RunCommandError | ParseError | ModemNotRespondingError | ModemDisconnectedError | null>;
+    readonly terminateState: undefined | "TERMINATING" | "TERMINATED";
+    /**
+     * If RESTART MT is set evtTerminate will post a disconnect.
+     * Else it will post null.
+     * */
+    terminate(restart?: "RESTART MT" | undefined): Promise<void>;
+    private haveTerminateFunctionBeenCalled;
+    private _terminate;
     private readonly evtResponseAtMessage;
-    private registerListeners;
     private static generateSafeRunParams;
     runCommand: {
         (command: string): Promise<RunOutputs>;
@@ -59,6 +76,7 @@ export declare class AtStack {
     private readonly maxRetry;
     private readonly delayBeforeRetry;
     private retryLeft;
+    private runCommandRetryTimer;
     private runCommandRetry;
     private readonly maxRetryWrite;
     private readonly delayReWrite;

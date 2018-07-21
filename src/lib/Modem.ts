@@ -1,7 +1,7 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import { SystemState } from "./SystemState";
-import { CardLockFacility } from "./CardLockFacility";
+import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 //@ts-ignore: Contact need to be imported as it is used as return type.
 import { CardStorage, Contact } from "./CardStorage";
 import { SmsStack, Message, StatusReport } from "./SmsStack";
@@ -9,6 +9,7 @@ import { SyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
 import * as util from "util";
 import * as logger from "logger";
+import { Monitor as ConnectionMonitor } from "gsm-modem-connection";
 
 import "colors";
 
@@ -38,7 +39,7 @@ export interface UnlockCodeProvider {
         pinState: AtMessage.LockedPinState,
         tryLeft: number,
         performUnlock: PerformUnlock,
-        terminate: ()=> Promise<void>
+        terminate: () => Promise<void>
     ): void;
 }
 
@@ -47,9 +48,11 @@ export interface UnlockCode {
     pinSecondTry?: string;
 }
 
+//TODO: add full original error.
 export class InitializationError extends Error {
     constructor(
-        message: string,
+        public readonly srcError: Error,
+        public readonly dataIfPath: string,
         public readonly modemInfos: Partial<{
             hasSim: boolean;
             imei: string;
@@ -65,18 +68,28 @@ export class InitializationError extends Error {
             isVoiceEnabled: boolean;
         }>
     ) {
-        super(message);
+        super(`Failed to initialize modem on ${dataIfPath}`);
         Object.setPrototypeOf(this, new.target.prototype);
     }
-}
 
-const storageAccessGroupRef = runExclusive.createGroupRef();
+    public toString(): string {
+
+        return [
+            `InitializationError: ${this.message}`,
+            `Cause: ${this.srcError}`,
+            `Modem infos: ${util.format(this.modemInfos)}`
+        ].join("\n");
+
+    }
+
+}
 
 export class Modem {
 
     /**
      * Note: if no log is passed then console.log is used.
      * If log is false no log.
+     * throw InitializationError
      */
     public static create(
         params: {
@@ -85,23 +98,23 @@ export class Modem {
             disableSmsFeatures?: boolean;
             disableContactsFeatures?: boolean;
             log?: typeof console.log | false;
+
         }
     ) {
         return new Promise<Modem>(
             (resolve, reject) => {
 
-                let enableSmsStack = !(params.disableSmsFeatures === true);
-                let enableCardStorage = !(params.disableContactsFeatures === true);
-                let log: typeof console.log = (()=>{
+                const enableSmsStack = !(params.disableSmsFeatures === true);
+                const enableCardStorage = !(params.disableContactsFeatures === true);
+                const log: typeof console.log = (() => {
 
-                    switch(params.log){
+                    switch (params.log) {
                         case undefined: return console.log.bind(console);
-                        case false: return ()=>{};
+                        case false: return () => { };
                         default: return params.log;
                     }
 
                 })();
-
 
                 new Modem(
                     params.dataIfPath,
@@ -117,8 +130,8 @@ export class Modem {
 
     }
 
-    private readonly atStack: AtStack;
-    private readonly systemState!: SystemState;
+    private atStack!: AtStack;
+    private systemState!: SystemState;
 
     public imei!: string;
     public manufacturer!: string;
@@ -131,27 +144,27 @@ export class Modem {
     public serviceProviderName: string | undefined = undefined;
     public isVoiceEnabled: boolean | undefined = undefined;
 
-    public readonly evtTerminate= new SyncEvent<Error | null>();
+    public readonly evtTerminate = new SyncEvent<Error | null>();
 
     private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
-    private readonly onInitializationCompleted!: (error?: Error) => void;
+    private onInitializationCompleted!: (error?: Error) => void;
 
     private hasSim: true | undefined = undefined;
 
     private readonly debug!: typeof console.log;
 
     private constructor(
-        public readonly dataIfPath: string,
+        private dataIfPath: string,
         unlock: UnlockCodeProvider | UnlockCode | undefined,
         private readonly enableSmsStack: boolean,
         private readonly enableCardStorage: boolean,
-        private log: typeof console.log,
-        onInitializationCompleted: (result: Modem | InitializationError) => void
+        private readonly log: typeof console.log,
+        private readonly resolveConstructor: (result: Modem | InitializationError) => void
     ) {
 
-        this.debug= logger.debugFactory(`Modem ${dataIfPath}`, true, log);
+        this.debug = logger.debugFactory(`Modem ${dataIfPath}`, true, this.log);
 
-        this.debug(`Initializing GSM Modem`);
+        this.debug("Initializing GSM Modem");
 
         if (typeof unlock === "function") {
             this.unlockCodeProvider = unlock;
@@ -159,70 +172,135 @@ export class Modem {
             this.unlockCodeProvider = this.buildUnlockCodeProvider(unlock);
         }
 
+        if (!ConnectionMonitor.hasInstance) {
+
+            this.debug("Connection monitor not used, skipping preliminary modem reboot");
+
+            this.initAtStack();
+
+        }
+
+        const cm = ConnectionMonitor.getInstance();
+
+        const accessPoint = Array.from(cm.connectedModems).find(({ dataIfPath }) => dataIfPath === this.dataIfPath);
+
+        if (!accessPoint) {
+            this.resolveConstructor(new InitializationError(
+                new Error("According to gsm-modem-connection modem does not seem to be connected on specified interface"),
+                this.dataIfPath,
+                {}
+            ));
+            return;
+        }
+
+        this.debug("Performing preliminary modem reboot by issuing the AT command to restart MT");
+
+        (new AtStack(this.dataIfPath, () => { })).terminate("RESTART MT");
+
+        cm.evtModemDisconnect.attachOnceExtract(
+            ap => ap === accessPoint,
+            () => this.debug("Modem disconnected as expected caught ( event extracted from monitor )")
+        );
+
+        cm.evtModemConnect.attachOnceExtract(
+            ({ id }) => id === accessPoint.id,
+            ({ dataIfPath }) => {
+
+                this.dataIfPath = dataIfPath;
+
+                this.debug("Modem reconnected successfully ( event extracted from monitor )");
+
+                this.initAtStack();
+
+            }
+        );
+
+    }
+
+    private async initAtStack(): Promise<void> {
+
         this.atStack = new AtStack(
-            dataIfPath,
-            logger.debugFactory(`AtStack ${this.dataIfPath}`, true, log)
+            this.dataIfPath,
+            logger.debugFactory(`AtStack ${this.dataIfPath}`, true, this.log)
         );
 
         this.onInitializationCompleted = error => {
 
             this.atStack.evtTerminate.detach(this);
 
-            if (error) {
+            if (!!error) {
 
-                this.atStack.terminate(error);
-
-                onInitializationCompleted(
-                    new InitializationError(
-                        error.message,
-                        {
-                            "hasSim": this.hasSim,
-                            "imei": this.imei,
-                            "manufacturer": this.manufacturer,
-                            "model": this.model,
-                            "firmwareVersion": this.firmwareVersion,
-                            "iccid": this.iccid,
-                            "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
-                            "validSimPin": this.validSimPin,
-                            "lastPinTried": this.lastPinTried,
-                            "imsi": this.imsi,
-                            "serviceProviderName": this.serviceProviderName,
-                            "isVoiceEnabled": this.isVoiceEnabled
-                        }
-                    )
+                const initializationError = new InitializationError(
+                    error,
+                    this.dataIfPath,
+                    {
+                        "hasSim": this.hasSim,
+                        "imei": this.imei,
+                        "manufacturer": this.manufacturer,
+                        "model": this.model,
+                        "firmwareVersion": this.firmwareVersion,
+                        "iccid": this.iccid,
+                        "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
+                        "validSimPin": this.validSimPin,
+                        "lastPinTried": this.lastPinTried,
+                        "imsi": this.imsi,
+                        "serviceProviderName": this.serviceProviderName,
+                        "isVoiceEnabled": this.isVoiceEnabled
+                    }
                 );
+
+                this.debug(initializationError.toString().red);
+
+                if (!!this.smsStack) {
+
+                    this.smsStack.clearAllTimers();
+
+                }
+
+                //TODO: restart here?
+                this.atStack.terminate().then(
+                    () => this.resolveConstructor(initializationError)
+                );
+
 
             } else {
 
-                this.atStack.evtTerminate.attach(error => {
+                this.atStack.evtTerminate.attach(async error => {
 
                     this.debug(
                         !!error ?
-                            `terminate with error: ${util.format(error)}`.red :
+                            `terminate with error: ${error}`.red :
                             `terminate without error`
                     );
+
+                    if (!!this.smsStack) {
+
+                        this.smsStack.clearAllTimers();
+
+                    }
 
                     this.evtTerminate.post(error);
 
                 });
 
-                this.debug("Modem initialization success");
+                this.resolveConstructor(this);
 
-                onInitializationCompleted(this);
             }
 
-        }
+        };
 
-        this.atStack.evtTerminate.attachOnce(this, atStackError =>
-            this.onInitializationCompleted(atStackError!)
+        this.atStack.evtTerminate.attachOnce(
+            error => !!error,
+            this,
+            error => this.onInitializationCompleted(error!)
         );
 
-        this.atStack.runCommand("AT+CGSN\r").then( ({resp}) => {
+        this.atStack.runCommand("AT+CGSN\r").then(({ resp }) => {
             this.imei = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
             this.debug(`IMEI: ${this.imei}`);
         });
 
-        this.atStack.runCommand("AT+CGMI\r").then( ({resp}) => {
+        this.atStack.runCommand("AT+CGMI\r").then(({ resp }) => {
             this.manufacturer = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
             this.debug(`manufacturer: ${this.manufacturer}`);
         });
@@ -239,41 +317,37 @@ export class Modem {
 
         this.systemState = new SystemState(
             this.atStack,
-            logger.debugFactory(`SystemState ${this.dataIfPath}`, true, log)
+            logger.debugFactory(`SystemState ${this.dataIfPath}`, true, this.log)
         );
 
-        (async () => {
+        const hasSim = await this.systemState.evtReportSimPresence.waitFor();
 
-            let hasSim = await this.systemState.evtReportSimPresence.waitFor();
+        this.debug(`SIM present: ${hasSim}`);
 
-            this.debug(`SIM present: ${hasSim}`);
+        if (!hasSim) {
+            this.onInitializationCompleted(new Error("Modem has no SIM card"));
+            return;
+        }
 
-            if (!hasSim) {
-                this.onInitializationCompleted(new Error(`Modem has no SIM card`));
-                return;
-            }
+        this.hasSim = true;
 
-            this.hasSim = true;
+        this.iccid = await this.readIccid();
 
-            this.iccid = await this.readIccid();
+        if (this.iccid) {
+            this.debug(`ICCID: ${this.iccid}`);
+        }
 
-            if (this.iccid) {
-                this.debug(`ICCID: ${this.iccid}`);
-            }
-
-            this.initCardLockFacility();
-
-        })();
+        this.initCardLockFacility();
 
     }
 
     private buildUnlockCodeProvider(unlockCode: UnlockCode): UnlockCodeProvider {
 
-        return async (modemInfos, iccid, pinState, tryLeft, performUnlock) => {
+        return async (_modemInfos, _iccid, pinState, tryLeft, performUnlock) => {
 
             this.debug(`Sim locked...`);
 
-            for (let pin of [unlockCode.pinFirstTry, unlockCode.pinSecondTry, undefined]) {
+            for (const pin of [unlockCode.pinFirstTry, unlockCode.pinSecondTry, undefined]) {
 
                 if (!pin || pinState !== "SIM PIN") {
                     this.onInitializationCompleted(
@@ -284,7 +358,7 @@ export class Modem {
 
                 if (tryLeft === 1) {
                     this.onInitializationCompleted(
-                        new Error(`Prevent unlock sim, only one try left`)
+                        new Error("Prevent unlock sim, only one try left")
                     );
                     return;
                 }
@@ -305,7 +379,7 @@ export class Modem {
 
             }
 
-        }
+        };
 
     }
 
@@ -325,11 +399,17 @@ export class Modem {
                 { "recoverable": true }
             );
 
-            if (final.isError)
+            if (final.isError) {
                 switchedIccid = undefined;
-            else switchedIccid = (resp as AtMessage.P_CRSM_SET).response!;
+            } else {
+                switchedIccid = (resp as AtMessage.P_CRSM_SET).response!;
+            }
 
-        } else switchedIccid = (resp as AtMessage.CX_ICCID_SET).iccid;
+        } else {
+
+            switchedIccid = (resp as AtMessage.CX_ICCID_SET).iccid;
+
+        }
 
         return (function unswitch(switched): string {
 
@@ -367,15 +447,21 @@ export class Modem {
         return runExclusive.cancelAllQueuedCalls(this.runCommand, this);
     }
 
-    public async terminate() { 
-        await this.atStack.terminate(); 
+    public terminate(): Promise<void> {
+
+        if (!!this.smsStack) {
+
+            this.smsStack.clearAllTimers();
+
+        }
+
+        return this.atStack.terminate();
+
     }
 
-    public get isTerminated(): typeof AtStack.prototype.isTerminated {
-        return this.atStack.isTerminated;
+    public get terminateState() {
+        return this.atStack.terminateState;
     }
-
-
 
     public get evtUnsolicitedAtMessage(): typeof AtStack.prototype.evtUnsolicitedMessage {
         return this.atStack.evtUnsolicitedMessage;
@@ -394,13 +480,16 @@ export class Modem {
         cardLockFacility.evtUnlockCodeRequest.attachOnce(
             ({ pinState, times }) => {
 
-                let iccid = this.iccid || undefined;
+                const iccid = this.iccid || undefined;
 
                 this.iccidAvailableBeforeUnlock = !!iccid;
 
                 if (!this.unlockCodeProvider) {
 
-                    this.onInitializationCompleted(new Error("SIM card is pin locked but no code was provided"));
+                    this.onInitializationCompleted(
+                        new Error("SIM card is pin locked but no code was provided")
+                    );
+
                     return;
 
                 }
@@ -417,7 +506,7 @@ export class Modem {
                     times,
                     async (...inputs) => {
 
-                        if (this.atStack.isTerminated) {
+                        if (!!this.atStack.terminateState) {
                             throw new Error("This modem is no longer available");
                         }
 
@@ -438,38 +527,61 @@ export class Modem {
                                 break;
                         }
 
-                        let result = await Promise.race([
-                            cardLockFacility.evtUnlockCodeRequest.waitFor(),
-                            cardLockFacility.evtPinStateReady.waitFor(),
-                            this.atStack.evtTerminate.waitFor() as Promise<Error>
+                        const context = {};
+
+                        const _result = await Promise.race([
+                            new Promise<{ type: "SUCCESS"; }>(
+                                resolve => cardLockFacility.evtPinStateReady.attachOnce(
+                                    context,
+                                    () => resolve({ "type": "SUCCESS" })
+                                )
+                            ),
+                            new Promise<{ type: "FAILED"; unlockCodeRequest: UnlockCodeRequest }>(
+                                resolve => cardLockFacility.evtUnlockCodeRequest.attachOnce(
+                                    context,
+                                    unlockCodeRequest => resolve({ "type": "FAILED", unlockCodeRequest })
+                                )
+                            ),
+                            new Promise<{ type: "TERMINATE"; error: SyncEvent.Type<typeof AtStack.prototype.evtTerminate>; }>(
+                                resolve => this.atStack.evtTerminate.attachOnce(
+                                    context,
+                                    error => resolve({ "type": "TERMINATE", error })
+                                )
+                            )
                         ]);
 
-                        if (result instanceof Error) {
+                        cardLockFacility.evtPinStateReady.detach(context);
+                        cardLockFacility.evtUnlockCodeRequest.detach(context);
+                        this.atStack.evtTerminate.detach(context);
 
-                            throw result;
+                        switch (_result.type) {
+                            case "SUCCESS":
 
-                        } else if (result) {
+                                const resultSuccess: UnlockResult.Success = {
+                                    "success": true
+                                };
 
-                            let resultFailed: UnlockResult.Failed = {
-                                "success": false,
-                                "pinState": result.pinState,
-                                "tryLeft": result.times
-                            };
+                                return resultSuccess;
 
-                            return resultFailed;
+                            case "FAILED":
 
-                        } else {
+                                const resultFailed: UnlockResult.Failed = {
+                                    "success": false,
+                                    "pinState": _result.unlockCodeRequest.pinState,
+                                    "tryLeft": _result.unlockCodeRequest.times
+                                };
 
-                            let resultSuccess: UnlockResult.Success = {
-                                "success": true
-                            };
+                                return resultFailed;
 
-                            return resultSuccess;
+                            case "TERMINATE":
+
+                                throw _result.error || new Error("Terminate have been called on locked modem");
 
                         }
 
+
                     },
-                    ()=> this.atStack.terminate()
+                    () => this.atStack.terminate()
                 );
 
 
@@ -508,7 +620,7 @@ export class Modem {
 
         }
 
-        let { resp } = await this.atStack.runCommand("AT+CIMI\r");
+        const { resp } = await this.atStack.runCommand("AT+CIMI\r");
 
         this.imsi = resp!.raw.split("\r\n")[1];
 
@@ -582,7 +694,7 @@ export class Modem {
     public sendMessage = runExclusive.buildMethod(
         (async (...inputs) => {
 
-            if (!this.systemState.isNetworkReady){
+            if (!this.systemState.isNetworkReady) {
                 await this.systemState.evtNetworkReady.waitFor();
             }
 
@@ -633,27 +745,23 @@ export class Modem {
         (...inputs) => this.cardStorage.getContact.apply(this.cardStorage, inputs);
 
 
-    public createContact = runExclusive.buildMethod(storageAccessGroupRef, (
-        (...inputs) => this.cardStorage.createContact.apply(this.cardStorage, inputs)
-    ) as typeof CardStorage.prototype.createContact);
+    public createContact: typeof CardStorage.prototype.createContact =
+        (...inputs) => this.cardStorage.createContact.apply(this.cardStorage, inputs);
 
-    public updateContact = runExclusive.buildMethod(storageAccessGroupRef, (
-        (...inputs) => this.cardStorage.updateContact.apply(this.cardStorage, inputs)
-    ) as typeof CardStorage.prototype.updateContact);
+    public updateContact: typeof CardStorage.prototype.updateContact =
+        (...inputs) => this.cardStorage.updateContact.apply(this.cardStorage, inputs);
 
-    public deleteContact = runExclusive.buildMethod(storageAccessGroupRef, (
-        (...inputs) => this.cardStorage.deleteContact.apply(this.cardStorage, inputs)
-    ) as typeof CardStorage.prototype.deleteContact);
+    public deleteContact: typeof CardStorage.prototype.deleteContact =
+        (...inputs) => this.cardStorage.deleteContact.apply(this.cardStorage, inputs);
 
-    public writeNumber = runExclusive.buildMethod(storageAccessGroupRef, (
-        (...inputs) => this.cardStorage.writeNumber.apply(this.cardStorage, inputs)
-    ) as typeof CardStorage.prototype.writeNumber);
+    public writeNumber: typeof CardStorage.prototype.writeNumber =
+        (...inputs) => this.cardStorage.writeNumber.apply(this.cardStorage, inputs);
 
+
+    /** Issue AT\r command */
     public async ping() {
 
         await this.atStack.runCommand("AT\r");
-
-        return;
 
     }
 

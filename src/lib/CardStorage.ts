@@ -38,12 +38,6 @@ const replaceArray: [RegExp, string][] = [
 ];
 // cSpell:enable
 
-export class CardStorageError extends Error {
-    constructor(message: string) {
-        super(`CardStorage: ${message}`);
-        Object.setPrototypeOf(this, new.target.prototype);
-    }
-}
 
 const storageAccessGroupRef = runExclusive.createGroupRef();
 
@@ -117,6 +111,7 @@ export class CardStorage {
     }
 
 
+
     constructor(
         private readonly atStack: AtStack,
         private readonly debug: typeof console.log
@@ -155,15 +150,13 @@ export class CardStorage {
                 };
 
                 if (isNaN(contact.index)) {
-                    this.atStack.terminate(new CardStorageError("Memory full"));
-                    return;
+                    throw new Error("Memory full");
                 }
 
                 //TODO check number valid
 
                 if (contact.number.length > this.numberMaxLength) {
-                    this.atStack.terminate(new CardStorageError("Number too long"));
-                    return;
+                    throw new Error("Number too long");
                 }
 
                 this.atStack.runCommand(`AT+CPBS="SM"\r`);
@@ -190,13 +183,11 @@ export class CardStorage {
         (index: number, params: { number?: string, name?: string }): Promise<Contact> => new Promise(resolve => {
 
             if (!this.contactByIndex[index]) {
-                this.atStack.terminate(new CardStorageError("Contact does not exist"));
-                return;
+                throw new Error("Contact does not exist");
             }
 
             if (typeof params.name === "undefined" && typeof params.number === "undefined") {
-                this.atStack.terminate(new CardStorageError("name and contact can not be both null"));
-                return;
+                throw new Error("name and contact can not be both null");
             }
 
             let contact = this.contactByIndex[index];
@@ -206,8 +197,7 @@ export class CardStorage {
             if (params.number !== undefined) {
                 number = params.number;
                 if (number.length > this.numberMaxLength) {
-                    this.atStack.terminate(new CardStorageError("Number too long"));
-                    return null as any;
+                    throw new Error("Number too long");
                 }
             } else {
                 number = contact.number;
@@ -253,8 +243,7 @@ export class CardStorage {
         (index: number): Promise<void> => new Promise(resolve => {
 
             if (!this.contactByIndex[index]) {
-                this.atStack.terminate(new CardStorageError("Contact does not exists"));
-                return;
+                throw new Error("Contact does not exists");
             }
 
             this.atStack.runCommand(`AT+CPBS="SM"\r`);

@@ -29,6 +29,9 @@ export declare class SmsStack {
     private readonly maxTrySendPdu;
     /** Return sendDate or undefined if send fail */
     sendMessage: (number: string, text: string) => Promise<Date | undefined>;
+    private readonly timers;
+    /** To call before stop */
+    clearAllTimers(): void;
     private registerListeners;
     private retrievePdu;
 }

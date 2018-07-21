@@ -50,69 +50,114 @@ var SerialPort = require("serialport");
 var runExclusive = require("run-exclusive");
 var ts_events_extended_1 = require("ts-events-extended");
 var openTimeOut = 5000;
+/** Do not use on("error",) use evtError otherwise use as SerialPort */
 var SerialPortExt = /** @class */ (function (_super) {
     __extends(SerialPortExt, _super);
     function SerialPortExt() {
         //Todo test if when terminate still running because of evtError
         var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.evtError = new ts_events_extended_1.SyncEvent();
-        _this.evtOpen = new ts_events_extended_1.VoidSyncEvent();
-        _this.evtData = new ts_events_extended_1.SyncEvent();
-        //@ts-ignore: We dont want to overload the constructor so we init here
-        _this.registerListener = (function () {
-            _this.on("error", function (error) { return _this.evtError.post(new SerialPortError(error)); });
-            _this.on("open", function () { return _this.evtOpen.post(); });
-            _this.on("data", function () {
-                var data = [];
-                for (var _i = 0; _i < arguments.length; _i++) {
-                    data[_i] = arguments[_i];
-                }
-                return _this.evtData.post(data);
-            });
-            _this.on("close", function () { return _this.evtOpen.detach(); });
+        _this.evtError = (function () {
+            var evt = new ts_events_extended_1.SyncEvent();
+            _this.once("error", function (error) { return evt.post(new SerialPortError(error, _this.writeHistory, "EMITTED BY SERIAL PORT INSTANCE")); });
+            return evt;
         })();
-        _this.writeAndDrain = runExclusive.buildMethodCb(function (buffer, callback) { return __awaiter(_this, void 0, void 0, function () {
-            var _error_1, error, errorWrite, serialPortError, errorDrain, serialPortError;
+        _this.writeHistory = [];
+        /**
+         * Never throw, never resolve if error ( an evtError will be posted )
+         * Assert is not called after close as we have no way to test if closed.
+         */
+        _this.writeAndDrain = runExclusive.buildMethod(function (buffer) { return __awaiter(_this, void 0, void 0, function () {
+            var timer_1, onceOpen_1, onceClose_1, onceError_1, result, _a;
             var _this = this;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
-                        if (!!this.isOpen()) return [3 /*break*/, 6];
-                        _a.label = 1;
+                        if (this.writeHistory.length > 6) {
+                            this.writeHistory.shift();
+                        }
+                        this.writeHistory.push(buffer);
+                        if (!!this.isOpen()) return [3 /*break*/, 7];
+                        return [4 /*yield*/, Promise.race([
+                                new Promise(function (resolve) {
+                                    onceOpen_1 = function () { return resolve("OPEN"); };
+                                    _this.once("open", onceOpen_1);
+                                }),
+                                new Promise(function (resolve) {
+                                    onceClose_1 = function () { return resolve("TERMINATED"); };
+                                    _this.once("close", onceClose_1);
+                                }),
+                                new Promise(function (resolve) {
+                                    onceError_1 = function () { return resolve("TERMINATED"); };
+                                    _this.once("error", onceClose_1);
+                                }),
+                                new Promise(function (resolve) {
+                                    return timer_1 = setTimeout(function () { return resolve("TIMEOUT"); }, openTimeOut);
+                                })
+                            ])];
                     case 1:
-                        _a.trys.push([1, 3, , 6]);
-                        return [4 /*yield*/, this.evtOpen.waitFor(openTimeOut)];
-                    case 2:
-                        _a.sent();
-                        return [3 /*break*/, 6];
-                    case 3:
-                        _error_1 = _a.sent();
-                        if (!(_error_1 instanceof ts_events_extended_1.EvtError.Detached)) return [3 /*break*/, 5];
-                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                        result = _b.sent();
+                        this.removeListener("open", onceOpen_1);
+                        this.removeListener("close", onceClose_1);
+                        this.removeListener("error", onceError_1);
+                        clearTimeout(timer_1);
+                        _a = result;
+                        switch (_a) {
+                            case "OPEN": return [3 /*break*/, 2];
+                            case "TERMINATED": return [3 /*break*/, 3];
+                            case "TIMEOUT": return [3 /*break*/, 5];
+                        }
+                        return [3 /*break*/, 7];
+                    case 2: return [3 /*break*/, 7];
+                    case 3: return [4 /*yield*/, new Promise(function (resolve) { })];
                     case 4:
-                        _a.sent();
-                        _a.label = 5;
+                        _b.sent();
+                        _b.label = 5;
                     case 5:
-                        error = new SerialPortError("Serial port took too much time to open", "OPEN_TIMEOUT");
-                        this.evtError.post(error);
-                        return [2 /*return*/];
-                    case 6: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
-                    case 7:
-                        errorWrite = _a.sent();
-                        if (errorWrite) {
-                            serialPortError = new SerialPortError(errorWrite, "WRITE");
-                            this.evtError.post(serialPortError);
-                            return [2 /*return*/];
-                        }
-                        return [4 /*yield*/, new Promise(function (resolve) { return _this.drain(function (error) { return resolve(error); }); })];
+                        this.evtError.post(new SerialPortError("Serial port took too much time to open", this.writeHistory, "OPEN TIMEOUT"));
+                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                    case 6:
+                        _b.sent();
+                        _b.label = 7;
+                    case 7: return [4 /*yield*/, (function () { return __awaiter(_this, void 0, void 0, function () {
+                            var error;
+                            var _this = this;
+                            return __generator(this, function (_a) {
+                                switch (_a.label) {
+                                    case 0: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
+                                    case 1:
+                                        error = _a.sent();
+                                        if (!!!error) return [3 /*break*/, 3];
+                                        this.evtError.post(new SerialPortError(error, this.writeHistory, "ERROR CALLING WRITE"));
+                                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                                    case 2:
+                                        _a.sent();
+                                        _a.label = 3;
+                                    case 3: return [2 /*return*/];
+                                }
+                            });
+                        }); })()];
                     case 8:
-                        errorDrain = _a.sent();
-                        if (errorDrain) {
-                            serialPortError = new SerialPortError(errorDrain, "DRAIN");
-                            this.evtError.post(serialPortError);
-                            return [2 /*return*/];
-                        }
-                        callback();
+                        _b.sent();
+                        return [4 /*yield*/, (function () { return __awaiter(_this, void 0, void 0, function () {
+                                var error;
+                                var _this = this;
+                                return __generator(this, function (_a) {
+                                    switch (_a.label) {
+                                        case 0: return [4 /*yield*/, new Promise(function (resolve) { return _this.drain(function (error) { return resolve(error); }); })];
+                                        case 1:
+                                            error = _a.sent();
+                                            if (!!!error) return [3 /*break*/, 3];
+                                            this.evtError.post(new SerialPortError(error, this.writeHistory, "ERROR CALLING DRAIN"));
+                                            return [4 /*yield*/, new Promise(function (resolve) { })];
+                                        case 2:
+                                            _a.sent();
+                                            _a.label = 3;
+                                        case 3: return [2 /*return*/];
+                                    }
+                                });
+                            }); })()];
+                    case 9:
+                        _b.sent();
                         return [2 /*return*/];
                 }
             });
@@ -124,17 +169,28 @@ var SerialPortExt = /** @class */ (function (_super) {
 exports.SerialPortExt = SerialPortExt;
 var SerialPortError = /** @class */ (function (_super) {
     __extends(SerialPortError, _super);
-    function SerialPortError(originalError, causedBy) {
+    function SerialPortError(originalError, writeHistory, origin) {
         var _newTarget = this.constructor;
-        var _this = _super.call(this, SerialPortError.name) || this;
-        _this.causedBy = causedBy;
+        var _this = _super.call(this, "Error produced by node-serialport") || this;
+        _this.writeHistory = writeHistory;
+        _this.origin = origin;
         Object.setPrototypeOf(_this, _newTarget.prototype);
-        if (typeof originalError === "string")
+        if (typeof originalError === "string") {
             _this.originalError = new Error(originalError);
-        else
+        }
+        else {
             _this.originalError = originalError;
+        }
         return _this;
     }
+    SerialPortError.prototype.toString = function () {
+        return [
+            "SerialPortExtError: " + this.message,
+            "Origin: " + this.origin,
+            "message: " + this.originalError.message,
+            "Previous write (older to newest): " + JSON.stringify(this.writeHistory.map(function (b) { return "" + b; }), null, 2)
+        ].join("\n");
+    };
     return SerialPortError;
 }(Error));
 exports.SerialPortError = SerialPortError;

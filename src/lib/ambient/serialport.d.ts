@@ -25,7 +25,7 @@ declare module "serialport" {
     };
 
 
-    class SerialPort{
+    class SerialPort {
         constructor(path: string, options?: Options, openImmediately?: boolean, callback?: (err: string) => void)
         isOpen(): boolean;
         on(event: "data", callback: (...data: any[]) => void): SerialPort;
@@ -55,6 +55,8 @@ declare module "serialport" {
             byteDelimiter(byteArray: number[]): Parser;
         };
         listenerCount: NodeJS.EventEmitter["listenerCount"];
+        removeListener: NodeJS.EventEmitter["removeListener"];
+        removeAllListeners: NodeJS.EventEmitter["removeAllListeners"];
 
     }
 

@@ -1,6 +1,6 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
-import { CardStorage, Contact } from "./CardStorage";
+import { CardStorage } from "./CardStorage";
 import { Message, StatusReport } from "./SmsStack";
 import { SyncEvent } from "ts-events-extended";
 import "colors";
@@ -32,6 +32,8 @@ export interface UnlockCode {
     pinSecondTry?: string;
 }
 export declare class InitializationError extends Error {
+    readonly srcError: Error;
+    readonly dataIfPath: string;
     readonly modemInfos: Partial<{
         hasSim: boolean;
         imei: string;
@@ -46,7 +48,7 @@ export declare class InitializationError extends Error {
         serviceProviderName: string;
         isVoiceEnabled: boolean;
     }>;
-    constructor(message: string, modemInfos: Partial<{
+    constructor(srcError: Error, dataIfPath: string, modemInfos: Partial<{
         hasSim: boolean;
         imei: string;
         manufacturer: string;
@@ -60,15 +62,18 @@ export declare class InitializationError extends Error {
         serviceProviderName: string;
         isVoiceEnabled: boolean;
     }>);
+    toString(): string;
 }
 export declare class Modem {
-    readonly dataIfPath: string;
+    private dataIfPath;
     private readonly enableSmsStack;
     private readonly enableCardStorage;
-    private log;
+    private readonly log;
+    private readonly resolveConstructor;
     /**
      * Note: if no log is passed then console.log is used.
      * If log is false no log.
+     * throw InitializationError
      */
     static create(params: {
         dataIfPath: string;
@@ -77,8 +82,8 @@ export declare class Modem {
         disableContactsFeatures?: boolean;
         log?: typeof console.log | false;
     }): Promise<Modem>;
-    private readonly atStack;
-    private readonly systemState;
+    private atStack;
+    private systemState;
     imei: string;
     manufacturer: string;
     model: string;
@@ -90,10 +95,11 @@ export declare class Modem {
     isVoiceEnabled: boolean | undefined;
     readonly evtTerminate: SyncEvent<Error | null>;
     private readonly unlockCodeProvider;
-    private readonly onInitializationCompleted;
+    private onInitializationCompleted;
     private hasSim;
     private readonly debug;
     private constructor();
+    private initAtStack;
     private buildUnlockCodeProvider;
     private readIccid;
     readonly runCommand: {
@@ -108,7 +114,7 @@ export declare class Modem {
     readonly runCommand_queuedCallCount: number;
     runCommand_cancelAllQueuedCalls(): number;
     terminate(): Promise<void>;
-    readonly isTerminated: typeof AtStack.prototype.isTerminated;
+    readonly terminateState: "TERMINATED" | "TERMINATING" | undefined;
     readonly evtUnsolicitedAtMessage: typeof AtStack.prototype.evtUnsolicitedMessage;
     lastPinTried: string | undefined;
     validSimPin: string | undefined;
@@ -127,12 +133,10 @@ export declare class Modem {
     readonly storageLeft: typeof CardStorage.prototype.storageLeft;
     generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName;
     getContact: typeof CardStorage.prototype.getContact;
-    createContact: (number: string, name: string) => Promise<Contact>;
-    updateContact: (index: number, params: {
-        number?: string | undefined;
-        name?: string | undefined;
-    }) => Promise<Contact>;
-    deleteContact: (index: number) => Promise<void>;
-    writeNumber: (number: string) => Promise<void>;
+    createContact: typeof CardStorage.prototype.createContact;
+    updateContact: typeof CardStorage.prototype.updateContact;
+    deleteContact: typeof CardStorage.prototype.deleteContact;
+    writeNumber: typeof CardStorage.prototype.writeNumber;
+    /** Issue AT\r command */
     ping(): Promise<void>;
 }

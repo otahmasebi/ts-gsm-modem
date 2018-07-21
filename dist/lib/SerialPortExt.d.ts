@@ -1,16 +1,21 @@
 /// <reference path="../../src/lib/ambient/serialport.d.ts" />
 /// <reference types="node" />
 import * as SerialPort from "serialport";
-import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import { SyncEvent } from "ts-events-extended";
+/** Do not use on("error",) use evtError otherwise use as SerialPort */
 export declare class SerialPortExt extends SerialPort {
     readonly evtError: SyncEvent<SerialPortError>;
-    readonly evtOpen: VoidSyncEvent;
-    readonly evtData: SyncEvent<any[]>;
-    private registerListener;
-    writeAndDrain: (buffer: string | Buffer, callback?: (() => void) | undefined) => Promise<void>;
+    readonly writeHistory: (Buffer | string)[];
+    /**
+     * Never throw, never resolve if error ( an evtError will be posted )
+     * Assert is not called after close as we have no way to test if closed.
+     */
+    writeAndDrain: (buffer: string | Buffer) => Promise<void>;
 }
 export declare class SerialPortError extends Error {
-    readonly causedBy?: "DRAIN" | "WRITE" | "OPEN_TIMEOUT" | undefined;
+    readonly writeHistory: (Buffer | string)[];
+    readonly origin: "ERROR CALLING DRAIN" | "ERROR CALLING WRITE" | "OPEN TIMEOUT" | "EMITTED BY SERIAL PORT INSTANCE";
     readonly originalError: Error;
-    constructor(originalError: Error | string, causedBy?: "DRAIN" | "WRITE" | "OPEN_TIMEOUT" | undefined);
+    constructor(originalError: Error | string, writeHistory: (Buffer | string)[], origin: "ERROR CALLING DRAIN" | "ERROR CALLING WRITE" | "OPEN TIMEOUT" | "EMITTED BY SERIAL PORT INSTANCE");
+    toString(): string;
 }
