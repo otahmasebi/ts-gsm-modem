@@ -162,7 +162,7 @@ var AtStack = /** @class */ (function () {
         this.serialPort = new SerialPortExt_1.SerialPortExt(dataIfPath, {
             "parser": this.serialPortAtParser
         });
-        this.serialPort.on("disconnect", function () { return _this._terminate(new ModemDisconnectedError()); });
+        this.serialPort.once("disconnect", function () { return _this._terminate(new ModemDisconnectedError()); });
         this.serialPort.evtError.attachOnce(function (error) { return _this._terminate(error); });
         this.serialPort.on("data", function (atMessage, unparsed) {
             if (!atMessage) {

@@ -107,7 +107,7 @@ export class AtStack {
             "parser": this.serialPortAtParser as any
         });
 
-        this.serialPort.on("disconnect", ()=> this._terminate(new ModemDisconnectedError()));
+        this.serialPort.once("disconnect", ()=> this._terminate(new ModemDisconnectedError()));
 
         this.serialPort.evtError.attachOnce(error => this._terminate(error));
 
