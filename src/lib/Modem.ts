@@ -90,6 +90,7 @@ export class Modem {
      * Note: if no log is passed then console.log is used.
      * If log is false no log.
      * throw InitializationError
+     * rebootFist default to false
      */
     public static create(
         params: {
@@ -97,8 +98,8 @@ export class Modem {
             unlock?: UnlockCode | UnlockCodeProvider,
             disableSmsFeatures?: boolean;
             disableContactsFeatures?: boolean;
+            rebootFirst?: boolean;
             log?: typeof console.log | false;
-
         }
     ) {
         return new Promise<Modem>(
@@ -121,6 +122,7 @@ export class Modem {
                     params.unlock,
                     enableSmsStack,
                     enableCardStorage,
+                    !!params.rebootFirst,
                     log,
                     result => (result instanceof Modem) ? resolve(result) : reject(result)
                 );
@@ -158,6 +160,7 @@ export class Modem {
         unlock: UnlockCodeProvider | UnlockCode | undefined,
         private readonly enableSmsStack: boolean,
         private readonly enableCardStorage: boolean,
+        rebootFirst: boolean,
         private readonly log: typeof console.log,
         private readonly resolveConstructor: (result: Modem | InitializationError) => void
     ) {
@@ -172,11 +175,21 @@ export class Modem {
             this.unlockCodeProvider = this.buildUnlockCodeProvider(unlock);
         }
 
+        if( !rebootFirst ){
+            
+            this.initAtStack();
+
+            return;
+
+        }
+
         if (!ConnectionMonitor.hasInstance) {
 
             this.debug("Connection monitor not used, skipping preliminary modem reboot");
 
             this.initAtStack();
+
+            return;
 
         }
 

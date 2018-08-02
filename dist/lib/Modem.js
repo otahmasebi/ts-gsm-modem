@@ -90,7 +90,7 @@ var InitializationError = /** @class */ (function (_super) {
 }(Error));
 exports.InitializationError = InitializationError;
 var Modem = /** @class */ (function () {
-    function Modem(dataIfPath, unlock, enableSmsStack, enableCardStorage, log, resolveConstructor) {
+    function Modem(dataIfPath, unlock, enableSmsStack, enableCardStorage, rebootFirst, log, resolveConstructor) {
         var _this = this;
         this.dataIfPath = dataIfPath;
         this.enableSmsStack = enableSmsStack;
@@ -183,9 +183,14 @@ var Modem = /** @class */ (function () {
         else if (unlock) {
             this.unlockCodeProvider = this.buildUnlockCodeProvider(unlock);
         }
+        if (!rebootFirst) {
+            this.initAtStack();
+            return;
+        }
         if (!gsm_modem_connection_1.Monitor.hasInstance) {
             this.debug("Connection monitor not used, skipping preliminary modem reboot");
             this.initAtStack();
+            return;
         }
         var cm = gsm_modem_connection_1.Monitor.getInstance();
         var accessPoint = Array.from(cm.connectedModems).find(function (_a) {
@@ -213,6 +218,7 @@ var Modem = /** @class */ (function () {
      * Note: if no log is passed then console.log is used.
      * If log is false no log.
      * throw InitializationError
+     * rebootFist default to false
      */
     Modem.create = function (params) {
         return new Promise(function (resolve, reject) {
@@ -225,7 +231,7 @@ var Modem = /** @class */ (function () {
                     default: return params.log;
                 }
             })();
-            new Modem(params.dataIfPath, params.unlock, enableSmsStack, enableCardStorage, log, function (result) { return (result instanceof Modem) ? resolve(result) : reject(result); });
+            new Modem(params.dataIfPath, params.unlock, enableSmsStack, enableCardStorage, !!params.rebootFirst, log, function (result) { return (result instanceof Modem) ? resolve(result) : reject(result); });
         });
     };
     Modem.prototype.initAtStack = function () {

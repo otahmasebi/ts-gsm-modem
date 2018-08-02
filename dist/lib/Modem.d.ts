@@ -74,12 +74,14 @@ export declare class Modem {
      * Note: if no log is passed then console.log is used.
      * If log is false no log.
      * throw InitializationError
+     * rebootFist default to false
      */
     static create(params: {
         dataIfPath: string;
         unlock?: UnlockCode | UnlockCodeProvider;
         disableSmsFeatures?: boolean;
         disableContactsFeatures?: boolean;
+        rebootFirst?: boolean;
         log?: typeof console.log | false;
     }): Promise<Modem>;
     private atStack;
