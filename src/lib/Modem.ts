@@ -48,12 +48,12 @@ export interface UnlockCode {
     pinSecondTry?: string;
 }
 
-//TODO: add full original error.
 export class InitializationError extends Error {
     constructor(
         public readonly srcError: Error,
         public readonly dataIfPath: string,
         public readonly modemInfos: Partial<{
+            haveFailedToReboot: true; //undefined if not...
             hasSim: boolean;
             imei: string;
             manufacturer: string;
@@ -151,9 +151,9 @@ export class Modem {
     private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
     private onInitializationCompleted!: (error?: Error) => void;
 
-    private hasSim: true | undefined = undefined;
+    private hasSim: boolean | undefined = undefined;
 
-    private readonly debug!: typeof console.log;
+    private debug!: typeof console.log;
 
     private constructor(
         private dataIfPath: string,
@@ -165,7 +165,11 @@ export class Modem {
         private readonly resolveConstructor: (result: Modem | InitializationError) => void
     ) {
 
-        this.debug = logger.debugFactory(`Modem ${dataIfPath}`, true, this.log);
+        const setDebug = () => this.debug = logger.debugFactory(
+            `Modem ${this.dataIfPath}`, true, this.log
+        );
+
+        setDebug();
 
         this.debug("Initializing GSM Modem");
 
@@ -175,8 +179,8 @@ export class Modem {
             this.unlockCodeProvider = this.buildUnlockCodeProvider(unlock);
         }
 
-        if( !rebootFirst ){
-            
+        if (!rebootFirst) {
+
             this.initAtStack();
 
             return;
@@ -195,7 +199,9 @@ export class Modem {
 
         const cm = ConnectionMonitor.getInstance();
 
-        const accessPoint = Array.from(cm.connectedModems).find(({ dataIfPath }) => dataIfPath === this.dataIfPath);
+        const accessPoint = Array.from(cm.connectedModems)
+            .find(({ dataIfPath }) => dataIfPath === this.dataIfPath)
+            ;
 
         if (!accessPoint) {
             this.resolveConstructor(new InitializationError(
@@ -206,27 +212,59 @@ export class Modem {
             return;
         }
 
-        this.debug("Performing preliminary modem reboot by issuing the AT command to restart MT");
+        this.debug(`Performing preliminary modem (${accessPoint.id}) reboot by issuing the AT command to restart MT`);
 
         (new AtStack(this.dataIfPath, () => { })).terminate("RESTART MT");
 
-        cm.evtModemDisconnect.attachOnceExtract(
-            ap => ap === accessPoint,
-            () => this.debug("Modem disconnected as expected caught ( event extracted from monitor )")
-        );
+        Promise.resolve()
+            .then(() => cm.evtModemDisconnect.attachOnceExtract(
+                ap => ap === accessPoint,
+                15000,
+                () => {
 
-        cm.evtModemConnect.attachOnceExtract(
-            ({ id }) => id === accessPoint.id,
-            ({ dataIfPath }) => {
+                    /*
+                    Unexplained issue, tagged as Node.js bug.
+                    Here Promises won't resolve until a timeout expire!?
+                    In consequence we set a define a dummy timeout as patch.
+                    To reproduce the issue try replacing the setTimeout by
+                    'Promise.resolve().then(()=> console.log("NOW"))'
+                    and see that sometimes the connect event is not extracted
+                    as the next 'then' is called only after the connection event 
+                    is posted by ConnectionMonitor.
+                    (test with test/testReboot.ts)
+                    Experienced with node 8 latest and node 6 latest
+                    */
 
-                this.dataIfPath = dataIfPath;
+                    setTimeout(() => { }, 0);
 
-                this.debug("Modem reconnected successfully ( event extracted from monitor )");
+                    this.debug(`Modem (${accessPoint.id}) disconnected as expected ( event extracted from monitor )`);
 
-                this.initAtStack();
+                }
+            ))
+            .then(() => cm.evtModemConnect.attachOnceExtract(
+                ({ id }) => id === accessPoint.id,
+                30000,
+                ({ dataIfPath }) => {
 
-            }
-        );
+                    this.dataIfPath = dataIfPath;
+
+                    setDebug();
+
+                    this.debug(`Modem (${accessPoint.id}) reconnected successfully ( event extracted from monitor )`);
+
+                    this.initAtStack();
+
+                }
+            ))
+            .catch(() => this.resolveConstructor(
+                new InitializationError(
+                    new Error("Modem reboot failed, physical disconnection and reconnecting of the device required."),
+                    dataIfPath,
+                    { "haveFailedToReboot": true }
+                )
+            )
+            )
+            ;
 
     }
 
@@ -333,16 +371,14 @@ export class Modem {
             logger.debugFactory(`SystemState ${this.dataIfPath}`, true, this.log)
         );
 
-        const hasSim = await this.systemState.evtReportSimPresence.waitFor();
+        this.hasSim = await this.systemState.evtReportSimPresence.waitFor();
 
-        this.debug(`SIM present: ${hasSim}`);
+        this.debug(`SIM present: ${this.hasSim}`);
 
-        if (!hasSim) {
+        if (!this.hasSim) {
             this.onInitializationCompleted(new Error("Modem has no SIM card"));
             return;
         }
-
-        this.hasSim = true;
 
         this.iccid = await this.readIccid();
 

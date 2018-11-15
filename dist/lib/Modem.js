@@ -67,7 +67,6 @@ var util = require("util");
 var logger = require("logger");
 var gsm_modem_connection_1 = require("gsm-modem-connection");
 require("colors");
-//TODO: add full original error.
 var InitializationError = /** @class */ (function (_super) {
     __extends(InitializationError, _super);
     function InitializationError(srcError, dataIfPath, modemInfos) {
@@ -175,7 +174,8 @@ var Modem = /** @class */ (function () {
             }
             return _this.cardStorage.writeNumber.apply(_this.cardStorage, inputs);
         };
-        this.debug = logger.debugFactory("Modem " + dataIfPath, true, this.log);
+        var setDebug = function () { return _this.debug = logger.debugFactory("Modem " + _this.dataIfPath, true, _this.log); };
+        setDebug();
         this.debug("Initializing GSM Modem");
         if (typeof unlock === "function") {
             this.unlockCodeProvider = unlock;
@@ -193,7 +193,8 @@ var Modem = /** @class */ (function () {
             return;
         }
         var cm = gsm_modem_connection_1.Monitor.getInstance();
-        var accessPoint = Array.from(cm.connectedModems).find(function (_a) {
+        var accessPoint = Array.from(cm.connectedModems)
+            .find(function (_a) {
             var dataIfPath = _a.dataIfPath;
             return dataIfPath === _this.dataIfPath;
         });
@@ -201,18 +202,36 @@ var Modem = /** @class */ (function () {
             this.resolveConstructor(new InitializationError(new Error("According to gsm-modem-connection modem does not seem to be connected on specified interface"), this.dataIfPath, {}));
             return;
         }
-        this.debug("Performing preliminary modem reboot by issuing the AT command to restart MT");
+        this.debug("Performing preliminary modem (" + accessPoint.id + ") reboot by issuing the AT command to restart MT");
         (new AtStack_1.AtStack(this.dataIfPath, function () { })).terminate("RESTART MT");
-        cm.evtModemDisconnect.attachOnceExtract(function (ap) { return ap === accessPoint; }, function () { return _this.debug("Modem disconnected as expected caught ( event extracted from monitor )"); });
-        cm.evtModemConnect.attachOnceExtract(function (_a) {
+        Promise.resolve()
+            .then(function () { return cm.evtModemDisconnect.attachOnceExtract(function (ap) { return ap === accessPoint; }, 15000, function () {
+            /*
+            Unexplained issue, tagged as Node.js bug.
+            Here Promises won't resolve until a timeout expire!?
+            In consequence we set a define a dummy timeout as patch.
+            To reproduce the issue try replacing the setTimeout by
+            'Promise.resolve().then(()=> console.log("NOW"))'
+            and see that sometimes the connect event is not extracted
+            as the next 'then' is called only after the connection event
+            is posted by ConnectionMonitor.
+            (test with test/testReboot.ts)
+            Experienced with node 8 latest and node 6 latest
+            */
+            setTimeout(function () { }, 0);
+            _this.debug("Modem (" + accessPoint.id + ") disconnected as expected ( event extracted from monitor )");
+        }); })
+            .then(function () { return cm.evtModemConnect.attachOnceExtract(function (_a) {
             var id = _a.id;
             return id === accessPoint.id;
-        }, function (_a) {
+        }, 30000, function (_a) {
             var dataIfPath = _a.dataIfPath;
             _this.dataIfPath = dataIfPath;
-            _this.debug("Modem reconnected successfully ( event extracted from monitor )");
+            setDebug();
+            _this.debug("Modem (" + accessPoint.id + ") reconnected successfully ( event extracted from monitor )");
             _this.initAtStack();
-        });
+        }); })
+            .catch(function () { return _this.resolveConstructor(new InitializationError(new Error("Modem reboot failed, physical disconnection and reconnecting of the device required."), dataIfPath, { "haveFailedToReboot": true })); });
     }
     /**
      * Note: if no log is passed then console.log is used.
@@ -236,10 +255,10 @@ var Modem = /** @class */ (function () {
     };
     Modem.prototype.initAtStack = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var hasSim, _a;
+            var _a, _b;
             var _this = this;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
                         this.atStack = new AtStack_1.AtStack(this.dataIfPath, logger.debugFactory("AtStack " + this.dataIfPath, true, this.log));
                         this.onInitializationCompleted = function (error) {
@@ -304,19 +323,19 @@ var Modem = /** @class */ (function () {
                             _this.debug("firmwareVersion: " + _this.firmwareVersion);
                         });
                         this.systemState = new SystemState_1.SystemState(this.atStack, logger.debugFactory("SystemState " + this.dataIfPath, true, this.log));
+                        _a = this;
                         return [4 /*yield*/, this.systemState.evtReportSimPresence.waitFor()];
                     case 1:
-                        hasSim = _b.sent();
-                        this.debug("SIM present: " + hasSim);
-                        if (!hasSim) {
+                        _a.hasSim = _c.sent();
+                        this.debug("SIM present: " + this.hasSim);
+                        if (!this.hasSim) {
                             this.onInitializationCompleted(new Error("Modem has no SIM card"));
                             return [2 /*return*/];
                         }
-                        this.hasSim = true;
-                        _a = this;
+                        _b = this;
                         return [4 /*yield*/, this.readIccid()];
                     case 2:
-                        _a.iccid = _b.sent();
+                        _b.iccid = _c.sent();
                         if (this.iccid) {
                             this.debug("ICCID: " + this.iccid);
                         }
