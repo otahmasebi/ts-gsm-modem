@@ -277,7 +277,12 @@ var SmsStack = /** @class */ (function () {
             return (urc instanceof at_messages_parser_1.AtMessage.P_CMTI_URC) || (urc instanceof at_messages_parser_1.AtMessage.P_CDSI_URC);
         }, function (_a) {
             var index = _a.index;
-            return _this.retrievePdu(index);
+            if (index < 0) {
+                _this.debug("SMS deliver with negative index (" + index + "), ignoring");
+            }
+            else {
+                _this.retrievePdu(index);
+            }
         });
         this.evtSmsStatusReport.attach(function (smsStatusReport) {
             var e_3, _a;

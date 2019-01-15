@@ -283,7 +283,15 @@ export class SmsStack {
         this.atStack.evtUnsolicitedMessage.attach(
             (urc: AtMessage): urc is (AtMessage.P_CMTI_URC | AtMessage.P_CDSI_URC) =>
                 (urc instanceof AtMessage.P_CMTI_URC) || (urc instanceof AtMessage.P_CDSI_URC),
-            ({ index }) => this.retrievePdu(index)
+            ({ index }) => {
+
+                if( index < 0 ){
+                    this.debug(`SMS deliver with negative index (${index}), ignoring`);
+                }else{
+                    this.retrievePdu(index);
+                }
+
+            }
         );
 
         this.evtSmsStatusReport.attach(smsStatusReport => {
