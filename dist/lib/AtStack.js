@@ -155,7 +155,7 @@ var AtStack = /** @class */ (function () {
         this.retryLeft = this.maxRetry;
         this.runCommandRetryTimer = undefined;
         this.maxRetryWrite = 3;
-        this.delayReWrite = 1000;
+        this.delayReWrite = 5000;
         this.retryLeftWrite = this.maxRetryWrite;
         this.debug("Initialization");
         //TODO: here any is sloppy

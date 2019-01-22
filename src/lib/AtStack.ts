@@ -440,7 +440,7 @@ export class AtStack {
 
 
     private readonly maxRetryWrite = 3;
-    private readonly delayReWrite = 1000;
+    private readonly delayReWrite = 5000;
     private retryLeftWrite = this.maxRetryWrite;
 
     private async runCommandBase(
