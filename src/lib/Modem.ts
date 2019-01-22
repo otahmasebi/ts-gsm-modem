@@ -262,8 +262,7 @@ export class Modem {
                     dataIfPath,
                     { "haveFailedToReboot": true }
                 )
-            )
-            )
+            ))
             ;
 
     }

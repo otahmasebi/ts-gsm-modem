@@ -212,15 +212,8 @@ var AtStack = /** @class */ (function () {
                         _a.sent();
                         return [3 /*break*/, 4];
                     case 2:
-                        this.runCommand("AT+CFUN=1,1\r", { "recoverable": false, "retryOnErrors": true }).then(function (_a) {
-                            var final = _a.final;
-                            if (!final.isError) {
-                                _this.debug("MT Restart command issued successfully");
-                            }
-                            else {
-                                _this.debug("Error issuing the MT restart command");
-                            }
-                        });
+                        this.debug("Issuing CFUN command to restart the MT");
+                        this.runCommand("AT+CFUN=1,1\r", { "retryOnErrors": true }).then(function () { return _this.debug("MT Restart command issued successfully"); });
                         return [4 /*yield*/, this._evtTerminate.waitFor()];
                     case 3:
                         _a.sent();

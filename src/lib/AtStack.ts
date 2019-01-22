@@ -177,18 +177,12 @@ export class AtStack {
 
             }else{
 
+                this.debug("Issuing CFUN command to restart the MT");
+
                 this.runCommand(
                     "AT+CFUN=1,1\r",
-                    { "recoverable": false, "retryOnErrors": true }
-                ).then(({ final })=> {
-
-                    if( !final.isError ){
-                        this.debug("MT Restart command issued successfully");
-                    }else{
-                        this.debug("Error issuing the MT restart command");
-                    }
-
-                });
+                    { "retryOnErrors": true }
+                ).then( () => this.debug("MT Restart command issued successfully") );
 
                 await this._evtTerminate.waitFor();
 
