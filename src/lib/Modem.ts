@@ -346,7 +346,28 @@ export class Modem {
         );
 
         this.atStack.runCommand("AT+CGSN\r").then(({ resp }) => {
-            this.imei = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
+            /*
+            NOTE: Here we perform this extra test because this is the first
+            command issued that expect an output. It turns out that 
+            we can have some leftover \r\nOK\r\n from previous command
+            interpreted as a response to CGSN ( see Alan Ho logs ).
+            Hopefully it will never happen as we increased the rewrite 
+            timeout but if despite that it still happen it should not crash 
+            the whole program.
+            */
+            try{
+                this.imei = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
+            }catch{
+                this.imei = "ERROR";
+            }
+
+            if( this.imei.match(/^[0-9]{15}$/) === null ){
+                this.onInitializationCompleted(
+                    new Error("Something went wrong at the very beginning of modem initialization")
+                );
+                return;
+            }
+
             this.debug(`IMEI: ${this.imei}`);
         });
 

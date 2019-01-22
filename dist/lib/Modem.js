@@ -304,7 +304,25 @@ var Modem = /** @class */ (function () {
                         this.atStack.evtTerminate.attachOnce(function (error) { return !!error; }, this, function (error) { return _this.onInitializationCompleted(error); });
                         this.atStack.runCommand("AT+CGSN\r").then(function (_a) {
                             var resp = _a.resp;
-                            _this.imei = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
+                            /*
+                            NOTE: Here we perform this extra test because this is the first
+                            command issued that expect an output. It turns out that
+                            we can have some leftover \r\nOK\r\n from previous command
+                            interpreted as a response to CGSN ( see Alan Ho logs ).
+                            Hopefully it will never happen as we increased the rewrite
+                            timeout but if despite that it still happen it should not crash
+                            the whole program.
+                            */
+                            try {
+                                _this.imei = resp.raw.match(/^\r\n(.*)\r\n$/)[1];
+                            }
+                            catch (_b) {
+                                _this.imei = "ERROR";
+                            }
+                            if (_this.imei.match(/^[0-9]{15}$/) === null) {
+                                _this.onInitializationCompleted(new Error("Something went wrong at the very beginning of modem initialization"));
+                                return;
+                            }
                             _this.debug("IMEI: " + _this.imei);
                         });
                         this.atStack.runCommand("AT+CGMI\r").then(function (_a) {
