@@ -53,12 +53,15 @@ var CardLockFacility = /** @class */ (function () {
             var resp_t = resp;
             _this.retrieving = false;
             _this.cx_CPIN_READ = resp_t;
-            if (_this.pinState === "READY")
-                return _this.evtPinStateReady.post();
-            _this.evtUnlockCodeRequest.post({
-                "pinState": _this.pinState,
-                "times": _this.times
-            });
+            if (_this.pinState === "READY") {
+                _this.evtPinStateReady.post();
+            }
+            else {
+                _this.evtUnlockCodeRequest.post({
+                    "pinState": _this.pinState,
+                    "times": _this.times
+                });
+            }
         });
     };
     CardLockFacility.prototype.__enterPin__ = function (pin) {

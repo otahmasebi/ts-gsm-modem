@@ -79,19 +79,24 @@ export class CardLockFacility {
             "AT^CPIN?\r"
         ).then(({ resp }) => {
 
-                const resp_t = resp as AtMessage.CX_CPIN_READ;
+            const resp_t = resp as AtMessage.CX_CPIN_READ;
 
-                this.retrieving = false;
+            this.retrieving = false;
 
-                this.cx_CPIN_READ = resp_t;
+            this.cx_CPIN_READ = resp_t;
 
-                if (this.pinState === "READY")
-                    return this.evtPinStateReady.post();
+            if (this.pinState === "READY") {
+
+                this.evtPinStateReady.post();
+
+            } else {
 
                 this.evtUnlockCodeRequest.post({
                     "pinState": this.pinState,
                     "times": this.times
                 });
+
+            }
 
         });
 
@@ -113,7 +118,7 @@ export class CardLockFacility {
 
             this.unlocking = false;
 
-            if (!final.isError){
+            if (!final.isError) {
                 return this.evtPinStateReady.post();
             }
 
