@@ -79,7 +79,7 @@ export declare class AtStack {
     private runCommandRetryTimer;
     private runCommandRetry;
     private readonly maxRetryWrite;
-    private readonly delayReWrite;
+    private readonly delayAfterDeemedNotResponding;
     private retryLeftWrite;
     private runCommandBase;
 }

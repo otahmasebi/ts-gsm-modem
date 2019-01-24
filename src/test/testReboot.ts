@@ -5,22 +5,7 @@ import { SyncEvent } from "ts-events-extended";
 import * as logger from "logger";
 
 
-/*
-(async ()=>{
-
-    while(true){
-
-        await new Promise(resolve=> setTimeout(resolve,1000));
-
-        console.log("tick");
-
-    }
-
-})();
-*/
-
 const debug = logger.debugFactory();
-
 
 const evtScheduleRetry = new SyncEvent<AccessPoint["id"]>();
 
@@ -32,15 +17,13 @@ async function launch() {
 
     monitor.evtModemConnect.attach(accessPoint => {
 
-        debug(`(Monitor) Connect: ${accessPoint}`);
+        debug(accessPoint);
 
         createModem(accessPoint)
 
     });
 
-    monitor.evtModemDisconnect.attach(
-        accessPoint=> debug(`(Monitor) Disconnect: ${accessPoint}`)
-    );
+    monitor.evtModemDisconnect.attach(accessPoint=> debug(accessPoint));
 
     evtScheduleRetry.attach(accessPointId => {
 
@@ -61,7 +44,7 @@ async function launch() {
 
 async function createModem(accessPoint: AccessPoint, reboot?: undefined | "REBOOT" ) {
 
-    debug("Create Modem");
+    debug(`Create modem ${!!reboot?" (reboot first)":""}}`);
 
     let modem: Modem;
 
@@ -70,7 +53,6 @@ async function createModem(accessPoint: AccessPoint, reboot?: undefined | "REBOO
         modem = await Modem.create({
             "dataIfPath": accessPoint.dataIfPath,
             "unlock": { "pinFirstTry": "0000", "pinSecondTry": "1234" },
-            //"log": logger.log,
             "log": console.log.bind(console),
             "rebootFirst": !!reboot
         });
@@ -79,7 +61,7 @@ async function createModem(accessPoint: AccessPoint, reboot?: undefined | "REBOO
 
         onModemInitializationFailed(
             accessPoint,
-            (error as InitializationError).modemInfos
+            error as InitializationError
         );
 
         return;
@@ -92,19 +74,19 @@ async function createModem(accessPoint: AccessPoint, reboot?: undefined | "REBOO
 
 function onModemInitializationFailed(
     accessPoint: AccessPoint,
-    modemInfos: InitializationError["modemInfos"]
+    initializationError: InitializationError
 ) {
 
-    if( !!modemInfos.haveFailedToReboot ){
+    if( initializationError instanceof InitializationError.DidNotTurnBackOnAfterReboot ){
 
         debug("Modem has been detected as failing to reboot, TEST SUCCESS");
 
         process.exit(0);
 
     }
-
     
-    if( modemInfos.hasSim === false ){
+    if( initializationError.modemInfos.hasSim === false ){
+        debug("Modem has no sim");
         return;
     }
 

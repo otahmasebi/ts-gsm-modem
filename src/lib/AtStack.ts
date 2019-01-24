@@ -440,7 +440,7 @@ export class AtStack {
 
 
     private readonly maxRetryWrite = 3;
-    private readonly delayReWrite = 5000;
+    private readonly delayAfterDeemedNotResponding = 7000;
     private retryLeftWrite = this.maxRetryWrite;
 
     private async runCommandBase(
@@ -453,34 +453,35 @@ export class AtStack {
 
         try {
 
-            atMessage = await this.evtResponseAtMessage.waitFor(this.delayReWrite);
+            atMessage = await this.evtResponseAtMessage.waitFor(
+                this.delayAfterDeemedNotResponding
+            );
 
         } catch (error) {
 
             if (error instanceof EvtError.Detached) {
 
-                await new Promise(resolve => { });
+                await new Promise(_resolve => { });
 
             }
 
             this.debug("Modem response timeout!".red);
 
-            let unparsed = this.serialPortAtParser.flush();
+            const unparsed = this.serialPortAtParser.flush();
 
-            if (unparsed) {
+            if (!!unparsed) {
                 (this.serialPort as any).emit("data", null, unparsed);
-                await new Promise(resolve => { });
+                await new Promise(_resolve => { });
             }
 
             if (!this.retryLeftWrite--) {
                 this._terminate(new ModemNotRespondingError(command));
-                await new Promise(resolve => { });
+                await new Promise(_resolve => { });
             }
 
             this.debug(`Retrying command ${JSON.stringify(command)}`);
 
             return await this.runCommandBase(command);
-
 
         }
 
@@ -497,16 +498,57 @@ export class AtStack {
                 echo += atMessage.raw;
             else resp = atMessage;
 
-            atMessage = await this.evtResponseAtMessage.waitFor();
+            try {
+
+                atMessage = await this.evtResponseAtMessage.waitFor(30000);
+
+            } catch (error) {
+
+                if (!(error instanceof EvtError.Detached)) {
+
+                    this._terminate(new ModemNotRespondingError(command));
+
+                }
+
+                await new Promise(_resolve => { });
+
+            }
 
         }
 
-        await writeAndDrainPromise;
+        {
 
-        let raw = `${this.hideEcho ? "" : echo}${resp ? resp.raw : ""}${final.raw}`;
+            let timer: NodeJS.Timer;
 
-        if (this.retryLeftWrite !== this.maxRetryWrite)
+            await Promise.race([
+                writeAndDrainPromise,
+                new Promise<"TIMEOUT">(resolve => timer = setTimeout(
+                    () => resolve("TIMEOUT"),
+                    this.delayAfterDeemedNotResponding
+                )),
+            ]).then(hasTimedOut => new Promise(resolve => {
+
+                if (!!hasTimedOut) {
+
+                    if (!!this.terminateState) {
+
+                        this._terminate(new ModemNotRespondingError(command));
+
+                    }
+
+                } else {
+                    clearTimeout(timer);
+                    resolve();
+                }
+            }));
+
+        }
+
+        const raw = `${this.hideEcho ? "" : echo}${resp ? resp.raw : ""}${final.raw}`;
+
+        if (this.retryLeftWrite !== this.maxRetryWrite) {
             this.debug("Rewrite success!".green);
+        }
 
         this.retryLeftWrite = this.maxRetryWrite;
 

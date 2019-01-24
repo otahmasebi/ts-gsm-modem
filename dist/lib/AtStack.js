@@ -155,7 +155,7 @@ var AtStack = /** @class */ (function () {
         this.retryLeft = this.maxRetry;
         this.runCommandRetryTimer = undefined;
         this.maxRetryWrite = 3;
-        this.delayReWrite = 5000;
+        this.delayAfterDeemedNotResponding = 7000;
         this.retryLeftWrite = this.maxRetryWrite;
         this.debug("Initialization");
         //TODO: here any is sloppy
@@ -443,7 +443,8 @@ var AtStack = /** @class */ (function () {
     };
     AtStack.prototype.runCommandBase = function (command) {
         return __awaiter(this, void 0, void 0, function () {
-            var writeAndDrainPromise, atMessage, error_1, unparsed, echo, resp, final, raw;
+            var writeAndDrainPromise, atMessage, error_1, unparsed, echo, resp, final, error_2, timer_1, raw;
+            var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -451,30 +452,30 @@ var AtStack = /** @class */ (function () {
                         _a.label = 1;
                     case 1:
                         _a.trys.push([1, 3, , 11]);
-                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor(this.delayReWrite)];
+                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor(this.delayAfterDeemedNotResponding)];
                     case 2:
                         atMessage = _a.sent();
                         return [3 /*break*/, 11];
                     case 3:
                         error_1 = _a.sent();
                         if (!(error_1 instanceof ts_events_extended_1.EvtError.Detached)) return [3 /*break*/, 5];
-                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                        return [4 /*yield*/, new Promise(function (_resolve) { })];
                     case 4:
                         _a.sent();
                         _a.label = 5;
                     case 5:
                         this.debug("Modem response timeout!".red);
                         unparsed = this.serialPortAtParser.flush();
-                        if (!unparsed) return [3 /*break*/, 7];
+                        if (!!!unparsed) return [3 /*break*/, 7];
                         this.serialPort.emit("data", null, unparsed);
-                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                        return [4 /*yield*/, new Promise(function (_resolve) { })];
                     case 6:
                         _a.sent();
                         _a.label = 7;
                     case 7:
                         if (!!this.retryLeftWrite--) return [3 /*break*/, 9];
                         this._terminate(new ModemNotRespondingError(command));
-                        return [4 /*yield*/, new Promise(function (resolve) { })];
+                        return [4 /*yield*/, new Promise(function (_resolve) { })];
                     case 8:
                         _a.sent();
                         _a.label = 9;
@@ -487,25 +488,52 @@ var AtStack = /** @class */ (function () {
                         resp = undefined;
                         _a.label = 12;
                     case 12:
-                        if (!true) return [3 /*break*/, 14];
+                        if (!true) return [3 /*break*/, 18];
                         if (atMessage.isFinal) {
                             final = atMessage;
-                            return [3 /*break*/, 14];
+                            return [3 /*break*/, 18];
                         }
                         else if (atMessage.id === at_messages_parser_1.AtMessage.idDict.ECHO)
                             echo += atMessage.raw;
                         else
                             resp = atMessage;
-                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor()];
+                        _a.label = 13;
                     case 13:
+                        _a.trys.push([13, 15, , 17]);
+                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor(30000)];
+                    case 14:
                         atMessage = _a.sent();
-                        return [3 /*break*/, 12];
-                    case 14: return [4 /*yield*/, writeAndDrainPromise];
+                        return [3 /*break*/, 17];
                     case 15:
+                        error_2 = _a.sent();
+                        if (!(error_2 instanceof ts_events_extended_1.EvtError.Detached)) {
+                            this._terminate(new ModemNotRespondingError(command));
+                        }
+                        return [4 /*yield*/, new Promise(function (_resolve) { })];
+                    case 16:
+                        _a.sent();
+                        return [3 /*break*/, 17];
+                    case 17: return [3 /*break*/, 12];
+                    case 18: return [4 /*yield*/, Promise.race([
+                            writeAndDrainPromise,
+                            new Promise(function (resolve) { return timer_1 = setTimeout(function () { return resolve("TIMEOUT"); }, _this.delayAfterDeemedNotResponding); }),
+                        ]).then(function (hasTimedOut) { return new Promise(function (resolve) {
+                            if (!!hasTimedOut) {
+                                if (!!_this.terminateState) {
+                                    _this._terminate(new ModemNotRespondingError(command));
+                                }
+                            }
+                            else {
+                                clearTimeout(timer_1);
+                                resolve();
+                            }
+                        }); })];
+                    case 19:
                         _a.sent();
                         raw = "" + (this.hideEcho ? "" : echo) + (resp ? resp.raw : "") + final.raw;
-                        if (this.retryLeftWrite !== this.maxRetryWrite)
+                        if (this.retryLeftWrite !== this.maxRetryWrite) {
                             this.debug("Rewrite success!".green);
+                        }
                         this.retryLeftWrite = this.maxRetryWrite;
                         return [2 /*return*/, { resp: resp, final: final, raw: raw }];
                 }

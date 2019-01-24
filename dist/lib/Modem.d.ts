@@ -35,7 +35,6 @@ export declare class InitializationError extends Error {
     readonly srcError: Error;
     readonly dataIfPath: string;
     readonly modemInfos: Partial<{
-        haveFailedToReboot: true;
         hasSim: boolean;
         imei: string;
         manufacturer: string;
@@ -50,7 +49,6 @@ export declare class InitializationError extends Error {
         isVoiceEnabled: boolean;
     }>;
     constructor(srcError: Error, dataIfPath: string, modemInfos: Partial<{
-        haveFailedToReboot: true;
         hasSim: boolean;
         imei: string;
         manufacturer: string;
@@ -65,6 +63,11 @@ export declare class InitializationError extends Error {
         isVoiceEnabled: boolean;
     }>);
     toString(): string;
+}
+export declare namespace InitializationError {
+    class DidNotTurnBackOnAfterReboot extends InitializationError {
+        constructor(dataIfPath: string);
+    }
 }
 export declare class Modem {
     private dataIfPath;

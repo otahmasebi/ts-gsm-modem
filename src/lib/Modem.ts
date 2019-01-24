@@ -53,20 +53,19 @@ export class InitializationError extends Error {
         public readonly srcError: Error,
         public readonly dataIfPath: string,
         public readonly modemInfos: Partial<{
-            haveFailedToReboot: true; //undefined if not...
-            hasSim: boolean;
-            imei: string;
-            manufacturer: string;
-            model: string;
-            firmwareVersion: string;
-            iccid: string;
-            iccidAvailableBeforeUnlock: boolean;
-            validSimPin: string;
-            lastPinTried: string;
-            imsi: string;
-            serviceProviderName: string;
-            isVoiceEnabled: boolean;
-        }>
+        hasSim: boolean;
+        imei: string;
+        manufacturer: string;
+        model: string;
+        firmwareVersion: string;
+        iccid: string;
+        iccidAvailableBeforeUnlock: boolean;
+        validSimPin: string;
+        lastPinTried: string;
+        imsi: string;
+        serviceProviderName: string;
+        isVoiceEnabled: boolean;
+    }>
     ) {
         super(`Failed to initialize modem on ${dataIfPath}`);
         Object.setPrototypeOf(this, new.target.prototype);
@@ -81,6 +80,19 @@ export class InitializationError extends Error {
         ].join("\n");
 
     }
+}
+
+export namespace InitializationError {
+
+    export class DidNotTurnBackOnAfterReboot extends InitializationError {
+        constructor(dataIfPath: string) {
+            super(
+                new Error("Modem did not turned back on after issuing reboot AT command"),
+                dataIfPath,
+                {}
+            );
+        }
+    };
 
 }
 
@@ -149,7 +161,7 @@ export class Modem {
     public readonly evtTerminate = new SyncEvent<Error | null>();
 
     private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
-    private onInitializationCompleted!: (error?: Error) => void;
+    private onInitializationCompleted!: (error?: Error ) => void;
 
     private hasSim: boolean | undefined = undefined;
 
@@ -216,54 +228,42 @@ export class Modem {
 
         (new AtStack(this.dataIfPath, () => { })).terminate("RESTART MT");
 
-        Promise.resolve()
-            .then(() => cm.evtModemDisconnect.attachOnceExtract(
-                ap => ap === accessPoint,
-                15000,
-                () => {
+        cm.evtModemDisconnect.attachOnceExtract(
+            ap => ap === accessPoint,
+            15000,
+            () => {
 
-                    /*
-                    Unexplained issue, tagged as Node.js bug.
-                    Here Promises won't resolve until a timeout expire!?
-                    In consequence we set a define a dummy timeout as patch.
-                    To reproduce the issue try replacing the setTimeout by
-                    'Promise.resolve().then(()=> console.log("NOW"))'
-                    and see that sometimes the connect event is not extracted
-                    as the next 'then' is called only after the connection event 
-                    is posted by ConnectionMonitor.
-                    (test with test/testReboot.ts)
-                    Experienced with node 8 latest and node 6 latest
-                    */
+                this.debug(`Modem (${accessPoint.id}) shutdown as expected ( evtModemDisconnect extracted )`);
 
-                    setTimeout(() => { }, 0);
+                cm.evtModemConnect.attachOnceExtract(
+                    ({ id }) => id === accessPoint.id,
+                    30000,
+                    ({ dataIfPath }) => {
 
-                    this.debug(`Modem (${accessPoint.id}) disconnected as expected ( event extracted from monitor )`);
+                        this.dataIfPath = dataIfPath;
 
-                }
-            ))
-            .then(() => cm.evtModemConnect.attachOnceExtract(
-                ({ id }) => id === accessPoint.id,
-                30000,
-                ({ dataIfPath }) => {
+                        setDebug();
 
-                    this.dataIfPath = dataIfPath;
+                        this.debug(`Modem (${accessPoint.id}) turned back on successfully ( evtModemConnect extracted )`);
 
-                    setDebug();
+                        this.initAtStack();
 
-                    this.debug(`Modem (${accessPoint.id}) reconnected successfully ( event extracted from monitor )`);
+                    }
+                ).catch(() => this.resolveConstructor(
+                    new InitializationError.DidNotTurnBackOnAfterReboot(
+                        dataIfPath
+                    )
+                ));
 
-                    this.initAtStack();
 
-                }
-            ))
-            .catch(() => this.resolveConstructor(
-                new InitializationError(
-                    new Error("Modem reboot failed, physical disconnection and reconnecting of the device required."),
-                    dataIfPath,
-                    { "haveFailedToReboot": true }
-                )
-            ))
-            ;
+            }
+        ).catch(() => this.resolveConstructor(
+            new InitializationError(
+                new Error("Modem reboot unsuccessful, timeout waiting for Modem to shutdown"),
+                dataIfPath,
+                {}
+            )
+        ));
 
     }
 
@@ -284,18 +284,18 @@ export class Modem {
                     error,
                     this.dataIfPath,
                     {
-                        "hasSim": this.hasSim,
-                        "imei": this.imei,
-                        "manufacturer": this.manufacturer,
-                        "model": this.model,
-                        "firmwareVersion": this.firmwareVersion,
-                        "iccid": this.iccid,
-                        "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
-                        "validSimPin": this.validSimPin,
-                        "lastPinTried": this.lastPinTried,
-                        "imsi": this.imsi,
-                        "serviceProviderName": this.serviceProviderName,
-                        "isVoiceEnabled": this.isVoiceEnabled
+                    "hasSim": this.hasSim,
+                    "imei": this.imei,
+                    "manufacturer": this.manufacturer,
+                    "model": this.model,
+                    "firmwareVersion": this.firmwareVersion,
+                    "iccid": this.iccid,
+                    "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
+                    "validSimPin": this.validSimPin,
+                    "lastPinTried": this.lastPinTried,
+                    "imsi": this.imsi,
+                    "serviceProviderName": this.serviceProviderName,
+                    "isVoiceEnabled": this.isVoiceEnabled
                     }
                 );
 
@@ -307,11 +307,9 @@ export class Modem {
 
                 }
 
-                //TODO: restart here?
                 this.atStack.terminate().then(
                     () => this.resolveConstructor(initializationError)
                 );
-
 
             } else {
 
@@ -355,13 +353,13 @@ export class Modem {
             timeout but if despite that it still happen it should not crash 
             the whole program.
             */
-            try{
+            try {
                 this.imei = resp!.raw.match(/^\r\n(.*)\r\n$/)![1];
-            }catch{
+            } catch{
                 this.imei = "ERROR";
             }
 
-            if( this.imei.match(/^[0-9]{15}$/) === null ){
+            if (this.imei.match(/^[0-9]{15}$/) === null) {
                 this.onInitializationCompleted(
                     new Error("Something went wrong at the very beginning of modem initialization")
                 );
@@ -665,8 +663,26 @@ export class Modem {
 
         this.debug("SIM unlocked");
 
-        if (!this.systemState.isValidSim)
-            await this.systemState.evtValidSim.waitFor();
+        if (!this.systemState.isValidSim) {
+
+            try{
+
+                await this.systemState.evtValidSim.waitFor(45000);
+
+            }catch{
+
+                this.onInitializationCompleted(
+                    new Error([
+                        `timeout waiting for event VALID_SIM, `,
+                        `current SIM state: ${AtMessage.SimState[this.systemState.simState]}`
+                    ].join(" "))
+                );
+
+                await new Promise(_resolve=> {});
+
+            }
+
+        }
 
         this.debug("SIM valid");
 
@@ -689,11 +705,15 @@ export class Modem {
 
         }
 
-        const { resp } = await this.atStack.runCommand("AT+CIMI\r");
+        {
 
-        this.imsi = resp!.raw.split("\r\n")[1];
+            const { resp } = await this.atStack.runCommand("AT+CIMI\r");
 
-        this.debug(`IMSI: ${this.imsi}`);
+            this.imsi = resp!.raw.split("\r\n")[1];
+
+            this.debug(`IMSI: ${this.imsi}`);
+
+        }
 
         let resp_CX_CVOICE_SET = await this.atStack.runCommand(
             "AT^CVOICE=0\r",

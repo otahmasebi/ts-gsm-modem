@@ -56,6 +56,7 @@ var __values = (this && this.__values) || function (o) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var AtStack_1 = require("./AtStack");
+var at_messages_parser_1 = require("at-messages-parser");
 var SystemState_1 = require("./SystemState");
 var CardLockFacility_1 = require("./CardLockFacility");
 //@ts-ignore: Contact need to be imported as it is used as return type.
@@ -87,6 +88,18 @@ var InitializationError = /** @class */ (function (_super) {
     };
     return InitializationError;
 }(Error));
+exports.InitializationError = InitializationError;
+(function (InitializationError) {
+    var DidNotTurnBackOnAfterReboot = /** @class */ (function (_super) {
+        __extends(DidNotTurnBackOnAfterReboot, _super);
+        function DidNotTurnBackOnAfterReboot(dataIfPath) {
+            return _super.call(this, new Error("Modem did not turned back on after issuing reboot AT command"), dataIfPath, {}) || this;
+        }
+        return DidNotTurnBackOnAfterReboot;
+    }(InitializationError));
+    InitializationError.DidNotTurnBackOnAfterReboot = DidNotTurnBackOnAfterReboot;
+    ;
+})(InitializationError = exports.InitializationError || (exports.InitializationError = {}));
 exports.InitializationError = InitializationError;
 var Modem = /** @class */ (function () {
     function Modem(dataIfPath, unlock, enableSmsStack, enableCardStorage, rebootFirst, log, resolveConstructor) {
@@ -204,34 +217,19 @@ var Modem = /** @class */ (function () {
         }
         this.debug("Performing preliminary modem (" + accessPoint.id + ") reboot by issuing the AT command to restart MT");
         (new AtStack_1.AtStack(this.dataIfPath, function () { })).terminate("RESTART MT");
-        Promise.resolve()
-            .then(function () { return cm.evtModemDisconnect.attachOnceExtract(function (ap) { return ap === accessPoint; }, 15000, function () {
-            /*
-            Unexplained issue, tagged as Node.js bug.
-            Here Promises won't resolve until a timeout expire!?
-            In consequence we set a define a dummy timeout as patch.
-            To reproduce the issue try replacing the setTimeout by
-            'Promise.resolve().then(()=> console.log("NOW"))'
-            and see that sometimes the connect event is not extracted
-            as the next 'then' is called only after the connection event
-            is posted by ConnectionMonitor.
-            (test with test/testReboot.ts)
-            Experienced with node 8 latest and node 6 latest
-            */
-            setTimeout(function () { }, 0);
-            _this.debug("Modem (" + accessPoint.id + ") disconnected as expected ( event extracted from monitor )");
-        }); })
-            .then(function () { return cm.evtModemConnect.attachOnceExtract(function (_a) {
-            var id = _a.id;
-            return id === accessPoint.id;
-        }, 30000, function (_a) {
-            var dataIfPath = _a.dataIfPath;
-            _this.dataIfPath = dataIfPath;
-            setDebug();
-            _this.debug("Modem (" + accessPoint.id + ") reconnected successfully ( event extracted from monitor )");
-            _this.initAtStack();
-        }); })
-            .catch(function () { return _this.resolveConstructor(new InitializationError(new Error("Modem reboot failed, physical disconnection and reconnecting of the device required."), dataIfPath, { "haveFailedToReboot": true })); });
+        cm.evtModemDisconnect.attachOnceExtract(function (ap) { return ap === accessPoint; }, 15000, function () {
+            _this.debug("Modem (" + accessPoint.id + ") shutdown as expected ( evtModemDisconnect extracted )");
+            cm.evtModemConnect.attachOnceExtract(function (_a) {
+                var id = _a.id;
+                return id === accessPoint.id;
+            }, 30000, function (_a) {
+                var dataIfPath = _a.dataIfPath;
+                _this.dataIfPath = dataIfPath;
+                setDebug();
+                _this.debug("Modem (" + accessPoint.id + ") turned back on successfully ( evtModemConnect extracted )");
+                _this.initAtStack();
+            }).catch(function () { return _this.resolveConstructor(new InitializationError.DidNotTurnBackOnAfterReboot(dataIfPath)); });
+        }).catch(function () { return _this.resolveConstructor(new InitializationError(new Error("Modem reboot unsuccessful, timeout waiting for Modem to shutdown"), dataIfPath, {})); });
     }
     /**
      * Note: if no log is passed then console.log is used.
@@ -282,7 +280,6 @@ var Modem = /** @class */ (function () {
                                 if (!!_this.smsStack) {
                                     _this.smsStack.clearAllTimers();
                                 }
-                                //TODO: restart here?
                                 _this.atStack.terminate().then(function () { return _this.resolveConstructor(initializationError_1); });
                             }
                             else {
@@ -493,10 +490,10 @@ var Modem = /** @class */ (function () {
     });
     Modem.prototype.initCardLockFacility = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var cardLockFacility, cx_SPN_SET, _a, resp, resp_CX_CVOICE_SET, cx_CVOICE_READ;
+            var cardLockFacility, _a, cx_SPN_SET, _b, resp, resp_CX_CVOICE_SET, cx_CVOICE_READ;
             var _this = this;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
                         cardLockFacility = new CardLockFacility_1.CardLockFacility(this.atStack, logger.debugFactory("CardLockFacility " + this.dataIfPath, true, this.log));
                         cardLockFacility.evtUnlockCodeRequest.attachOnce(function (_a) {
@@ -577,48 +574,61 @@ var Modem = /** @class */ (function () {
                         });
                         return [4 /*yield*/, cardLockFacility.evtPinStateReady.waitFor()];
                     case 1:
-                        _b.sent();
+                        _c.sent();
                         if (this.lastPinTried) {
                             this.validSimPin = this.lastPinTried;
                         }
                         this.debug("SIM unlocked");
-                        if (!!this.systemState.isValidSim) return [3 /*break*/, 3];
-                        return [4 /*yield*/, this.systemState.evtValidSim.waitFor()];
+                        if (!!this.systemState.isValidSim) return [3 /*break*/, 6];
+                        _c.label = 2;
                     case 2:
-                        _b.sent();
-                        _b.label = 3;
+                        _c.trys.push([2, 4, , 6]);
+                        return [4 /*yield*/, this.systemState.evtValidSim.waitFor(45000)];
                     case 3:
+                        _c.sent();
+                        return [3 /*break*/, 6];
+                    case 4:
+                        _a = _c.sent();
+                        this.onInitializationCompleted(new Error([
+                            "timeout waiting for event VALID_SIM, ",
+                            "current SIM state: " + at_messages_parser_1.AtMessage.SimState[this.systemState.simState]
+                        ].join(" ")));
+                        return [4 /*yield*/, new Promise(function (_resolve) { })];
+                    case 5:
+                        _c.sent();
+                        return [3 /*break*/, 6];
+                    case 6:
                         this.debug("SIM valid");
                         return [4 /*yield*/, this.atStack.runCommand("AT^SPN=0\r", { "recoverable": true })];
-                    case 4:
-                        cx_SPN_SET = (_b.sent()).resp;
+                    case 7:
+                        cx_SPN_SET = (_c.sent()).resp;
                         if (cx_SPN_SET)
                             this.serviceProviderName = cx_SPN_SET.serviceProviderName;
                         this.debug("Service Provider name: " + this.serviceProviderName);
-                        if (!!this.iccidAvailableBeforeUnlock) return [3 /*break*/, 6];
-                        _a = this;
+                        if (!!this.iccidAvailableBeforeUnlock) return [3 /*break*/, 9];
+                        _b = this;
                         return [4 /*yield*/, this.readIccid()];
-                    case 5:
-                        _a.iccid = _b.sent();
+                    case 8:
+                        _b.iccid = _c.sent();
                         this.debug("ICCID ( read after unlock ): " + this.iccid);
-                        _b.label = 6;
-                    case 6: return [4 /*yield*/, this.atStack.runCommand("AT+CIMI\r")];
-                    case 7:
-                        resp = (_b.sent()).resp;
+                        _c.label = 9;
+                    case 9: return [4 /*yield*/, this.atStack.runCommand("AT+CIMI\r")];
+                    case 10:
+                        resp = (_c.sent()).resp;
                         this.imsi = resp.raw.split("\r\n")[1];
                         this.debug("IMSI: " + this.imsi);
                         return [4 /*yield*/, this.atStack.runCommand("AT^CVOICE=0\r", { "recoverable": true })];
-                    case 8:
-                        resp_CX_CVOICE_SET = _b.sent();
-                        if (!!resp_CX_CVOICE_SET.final.isError) return [3 /*break*/, 10];
+                    case 11:
+                        resp_CX_CVOICE_SET = _c.sent();
+                        if (!!resp_CX_CVOICE_SET.final.isError) return [3 /*break*/, 13];
                         return [4 /*yield*/, this.atStack.runCommand("AT^CVOICE?\r", { "recoverable": true })];
-                    case 9:
-                        cx_CVOICE_READ = (_b.sent()).resp;
+                    case 12:
+                        cx_CVOICE_READ = (_c.sent()).resp;
                         if (cx_CVOICE_READ) {
                             this.isVoiceEnabled = cx_CVOICE_READ.isEnabled;
                         }
-                        _b.label = 10;
-                    case 10:
+                        _c.label = 13;
+                    case 13:
                         this.debug("VOICE ENABLED: ", this.isVoiceEnabled);
                         if (this.enableSmsStack)
                             this.initSmsStack();

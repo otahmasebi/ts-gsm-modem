@@ -1,12 +1,11 @@
 {
   "name": "ts-gsm-modem",
-  "version": "0.22.2",
+  "version": "0.23.0",
   "description": "GSM Modem manager",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
   "scripts": {
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
-    "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
     "test": "node ./dist/test/main"
   },
   "repository": {
