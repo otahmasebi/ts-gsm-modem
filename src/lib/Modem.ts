@@ -53,19 +53,20 @@ export class InitializationError extends Error {
         public readonly srcError: Error,
         public readonly dataIfPath: string,
         public readonly modemInfos: Partial<{
-        hasSim: boolean;
-        imei: string;
-        manufacturer: string;
-        model: string;
-        firmwareVersion: string;
-        iccid: string;
-        iccidAvailableBeforeUnlock: boolean;
-        validSimPin: string;
-        lastPinTried: string;
-        imsi: string;
-        serviceProviderName: string;
-        isVoiceEnabled: boolean;
-    }>
+            successfullyRebooted: true,
+            hasSim: boolean;
+            imei: string;
+            manufacturer: string;
+            model: string;
+            firmwareVersion: string;
+            iccid: string;
+            iccidAvailableBeforeUnlock: boolean;
+            validSimPin: string;
+            lastPinTried: string;
+            imsi: string;
+            serviceProviderName: string;
+            isVoiceEnabled: boolean;
+        }>
     ) {
         super(`Failed to initialize modem on ${dataIfPath}`);
         Object.setPrototypeOf(this, new.target.prototype);
@@ -147,6 +148,8 @@ export class Modem {
     private atStack!: AtStack;
     private systemState!: SystemState;
 
+    public successfullyRebooted: undefined | true= undefined;
+
     public imei!: string;
     public manufacturer!: string;
     public model!: string;
@@ -161,7 +164,7 @@ export class Modem {
     public readonly evtTerminate = new SyncEvent<Error | null>();
 
     private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
-    private onInitializationCompleted!: (error?: Error ) => void;
+    private onInitializationCompleted!: (error?: Error) => void;
 
     private hasSim: boolean | undefined = undefined;
 
@@ -246,6 +249,8 @@ export class Modem {
 
                         this.debug(`Modem (${accessPoint.id}) turned back on successfully ( evtModemConnect extracted )`);
 
+                        this.successfullyRebooted= true;
+
                         this.initAtStack();
 
                     }
@@ -284,18 +289,19 @@ export class Modem {
                     error,
                     this.dataIfPath,
                     {
-                    "hasSim": this.hasSim,
-                    "imei": this.imei,
-                    "manufacturer": this.manufacturer,
-                    "model": this.model,
-                    "firmwareVersion": this.firmwareVersion,
-                    "iccid": this.iccid,
-                    "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
-                    "validSimPin": this.validSimPin,
-                    "lastPinTried": this.lastPinTried,
-                    "imsi": this.imsi,
-                    "serviceProviderName": this.serviceProviderName,
-                    "isVoiceEnabled": this.isVoiceEnabled
+                        "successfullyRebooted": this.successfullyRebooted,
+                        "hasSim": this.hasSim,
+                        "imei": this.imei,
+                        "manufacturer": this.manufacturer,
+                        "model": this.model,
+                        "firmwareVersion": this.firmwareVersion,
+                        "iccid": this.iccid,
+                        "iccidAvailableBeforeUnlock": this.iccidAvailableBeforeUnlock,
+                        "validSimPin": this.validSimPin,
+                        "lastPinTried": this.lastPinTried,
+                        "imsi": this.imsi,
+                        "serviceProviderName": this.serviceProviderName,
+                        "isVoiceEnabled": this.isVoiceEnabled
                     }
                 );
 
@@ -665,11 +671,11 @@ export class Modem {
 
         if (!this.systemState.isValidSim) {
 
-            try{
+            try {
 
                 await this.systemState.evtValidSim.waitFor(45000);
 
-            }catch{
+            } catch{
 
                 this.onInitializationCompleted(
                     new Error([
@@ -678,7 +684,7 @@ export class Modem {
                     ].join(" "))
                 );
 
-                await new Promise(_resolve=> {});
+                await new Promise(_resolve => { });
 
             }
 

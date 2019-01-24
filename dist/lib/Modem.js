@@ -109,6 +109,7 @@ var Modem = /** @class */ (function () {
         this.enableCardStorage = enableCardStorage;
         this.log = log;
         this.resolveConstructor = resolveConstructor;
+        this.successfullyRebooted = undefined;
         this.iccidAvailableBeforeUnlock = undefined;
         this.serviceProviderName = undefined;
         this.isVoiceEnabled = undefined;
@@ -227,6 +228,7 @@ var Modem = /** @class */ (function () {
                 _this.dataIfPath = dataIfPath;
                 setDebug();
                 _this.debug("Modem (" + accessPoint.id + ") turned back on successfully ( evtModemConnect extracted )");
+                _this.successfullyRebooted = true;
                 _this.initAtStack();
             }).catch(function () { return _this.resolveConstructor(new InitializationError.DidNotTurnBackOnAfterReboot(dataIfPath)); });
         }).catch(function () { return _this.resolveConstructor(new InitializationError(new Error("Modem reboot unsuccessful, timeout waiting for Modem to shutdown"), dataIfPath, {})); });
@@ -263,6 +265,7 @@ var Modem = /** @class */ (function () {
                             _this.atStack.evtTerminate.detach(_this);
                             if (!!error) {
                                 var initializationError_1 = new InitializationError(error, _this.dataIfPath, {
+                                    "successfullyRebooted": _this.successfullyRebooted,
                                     "hasSim": _this.hasSim,
                                     "imei": _this.imei,
                                     "manufacturer": _this.manufacturer,
