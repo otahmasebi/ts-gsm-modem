@@ -85,7 +85,7 @@ export class SerialPortExt extends SerialPort {
 
             }
 
-            await (async () => {
+            {
 
                 const error = await new Promise<string | Error | null>(
                     resolve => this.write(buffer, error => resolve(error))
@@ -97,13 +97,13 @@ export class SerialPortExt extends SerialPort {
                         new SerialPortError(error, this.writeHistory, "ERROR CALLING WRITE")
                     );
 
-                    await new Promise(resolve => { });
+                    await new Promise(_resolve => { });
 
                 }
 
-            })();
+            }
 
-            await (async () => {
+            {
 
                 const error = await new Promise<string | Error | null>(
                     resolve => this.drain(error => resolve(error))
@@ -115,11 +115,11 @@ export class SerialPortExt extends SerialPort {
                         new SerialPortError(error, this.writeHistory, "ERROR CALLING DRAIN")
                     );
 
-                    await new Promise(resolve => { });
+                    await new Promise(_resolve => { });
 
                 }
 
-            })();
+            }
 
 
         }

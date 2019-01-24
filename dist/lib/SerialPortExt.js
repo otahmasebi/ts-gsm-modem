@@ -67,7 +67,7 @@ var SerialPortExt = /** @class */ (function (_super) {
          * Assert is not called after close as we have no way to test if closed.
          */
         _this.writeAndDrain = runExclusive.buildMethod(function (buffer) { return __awaiter(_this, void 0, void 0, function () {
-            var timer_1, onceOpen_1, onceClose_1, onceError_1, result, _a;
+            var timer_1, onceOpen_1, onceClose_1, onceError_1, result, _a, error, error;
             var _this = this;
             return __generator(this, function (_b) {
                 switch (_b.label) {
@@ -118,47 +118,25 @@ var SerialPortExt = /** @class */ (function (_super) {
                     case 6:
                         _b.sent();
                         _b.label = 7;
-                    case 7: return [4 /*yield*/, (function () { return __awaiter(_this, void 0, void 0, function () {
-                            var error;
-                            var _this = this;
-                            return __generator(this, function (_a) {
-                                switch (_a.label) {
-                                    case 0: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
-                                    case 1:
-                                        error = _a.sent();
-                                        if (!!!error) return [3 /*break*/, 3];
-                                        this.evtError.post(new SerialPortError(error, this.writeHistory, "ERROR CALLING WRITE"));
-                                        return [4 /*yield*/, new Promise(function (resolve) { })];
-                                    case 2:
-                                        _a.sent();
-                                        _a.label = 3;
-                                    case 3: return [2 /*return*/];
-                                }
-                            });
-                        }); })()];
+                    case 7: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
                     case 8:
-                        _b.sent();
-                        return [4 /*yield*/, (function () { return __awaiter(_this, void 0, void 0, function () {
-                                var error;
-                                var _this = this;
-                                return __generator(this, function (_a) {
-                                    switch (_a.label) {
-                                        case 0: return [4 /*yield*/, new Promise(function (resolve) { return _this.drain(function (error) { return resolve(error); }); })];
-                                        case 1:
-                                            error = _a.sent();
-                                            if (!!!error) return [3 /*break*/, 3];
-                                            this.evtError.post(new SerialPortError(error, this.writeHistory, "ERROR CALLING DRAIN"));
-                                            return [4 /*yield*/, new Promise(function (resolve) { })];
-                                        case 2:
-                                            _a.sent();
-                                            _a.label = 3;
-                                        case 3: return [2 /*return*/];
-                                    }
-                                });
-                            }); })()];
+                        error = _b.sent();
+                        if (!!!error) return [3 /*break*/, 10];
+                        this.evtError.post(new SerialPortError(error, this.writeHistory, "ERROR CALLING WRITE"));
+                        return [4 /*yield*/, new Promise(function (_resolve) { })];
                     case 9:
                         _b.sent();
-                        return [2 /*return*/];
+                        _b.label = 10;
+                    case 10: return [4 /*yield*/, new Promise(function (resolve) { return _this.drain(function (error) { return resolve(error); }); })];
+                    case 11:
+                        error = _b.sent();
+                        if (!!!error) return [3 /*break*/, 13];
+                        this.evtError.post(new SerialPortError(error, this.writeHistory, "ERROR CALLING DRAIN"));
+                        return [4 /*yield*/, new Promise(function (_resolve) { })];
+                    case 12:
+                        _b.sent();
+                        _b.label = 13;
+                    case 13: return [2 /*return*/];
                 }
             });
         }); });
