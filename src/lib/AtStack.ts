@@ -440,7 +440,7 @@ export class AtStack {
 
 
     private readonly maxRetryWrite = 3;
-    private readonly delayAfterDeemedNotResponding = 7000;
+    private readonly delayAfterDeemedNotResponding = 25000;
     private retryLeftWrite = this.maxRetryWrite;
 
     private async runCommandBase(
@@ -454,7 +454,9 @@ export class AtStack {
         try {
 
             atMessage = await this.evtResponseAtMessage.waitFor(
-                this.delayAfterDeemedNotResponding
+                this.serialPort.isOpen() ?
+                this.delayAfterDeemedNotResponding :
+                undefined
             );
 
         } catch (error) {

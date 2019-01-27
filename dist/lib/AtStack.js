@@ -155,7 +155,7 @@ var AtStack = /** @class */ (function () {
         this.retryLeft = this.maxRetry;
         this.runCommandRetryTimer = undefined;
         this.maxRetryWrite = 3;
-        this.delayAfterDeemedNotResponding = 7000;
+        this.delayAfterDeemedNotResponding = 25000;
         this.retryLeftWrite = this.maxRetryWrite;
         this.debug("Initialization");
         //TODO: here any is sloppy
@@ -452,7 +452,9 @@ var AtStack = /** @class */ (function () {
                         _a.label = 1;
                     case 1:
                         _a.trys.push([1, 3, , 11]);
-                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor(this.delayAfterDeemedNotResponding)];
+                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor(this.serialPort.isOpen() ?
+                                this.delayAfterDeemedNotResponding :
+                                undefined)];
                     case 2:
                         atMessage = _a.sent();
                         return [3 /*break*/, 11];

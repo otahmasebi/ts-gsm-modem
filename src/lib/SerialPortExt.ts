@@ -4,7 +4,7 @@ import * as runExclusive from "run-exclusive";
 import { SyncEvent } from "ts-events-extended";
 
 
-const openTimeOut = 5000;
+const openTimeOut = 45000;
 
 /** Do not use on("error",) use evtError otherwise use as SerialPort */
 export class SerialPortExt extends SerialPort {

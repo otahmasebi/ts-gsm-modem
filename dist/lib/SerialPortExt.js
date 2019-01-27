@@ -49,7 +49,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var SerialPort = require("serialport");
 var runExclusive = require("run-exclusive");
 var ts_events_extended_1 = require("ts-events-extended");
-var openTimeOut = 5000;
+var openTimeOut = 45000;
 /** Do not use on("error",) use evtError otherwise use as SerialPort */
 var SerialPortExt = /** @class */ (function (_super) {
     __extends(SerialPortExt, _super);
