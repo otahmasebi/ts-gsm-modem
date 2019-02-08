@@ -60,7 +60,7 @@ export class ParseError extends Error {
 export class ModemNotRespondingError extends Error {
 
     constructor(public readonly lastCommandSent: string) {
-        super("Modem stopped responding to at commands ( No data received for a while )");
+        super("Modem stopped responding to at commands");
         Object.setPrototypeOf(this, new.target.prototype);
     }
 
@@ -467,7 +467,7 @@ export class AtStack {
 
             }
 
-            this.debug("Modem response timeout!".red);
+            this.debug("Modem response timeout".red);
 
             const unparsed = this.serialPortAtParser.flush();
 
@@ -508,6 +508,8 @@ export class AtStack {
 
                 if (!(error instanceof EvtError.Detached)) {
 
+                    this.debug("Timeout while waiting for followup response");
+
                     this._terminate(new ModemNotRespondingError(command));
 
                 }
@@ -532,7 +534,9 @@ export class AtStack {
 
                 if (!!hasTimedOut) {
 
-                    if (!!this.terminateState) {
+                    if (!this.terminateState) {
+
+                        this.debug("Timeout while waiting for drain");
 
                         this._terminate(new ModemNotRespondingError(command));
 

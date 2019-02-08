@@ -102,7 +102,7 @@ var ModemNotRespondingError = /** @class */ (function (_super) {
     __extends(ModemNotRespondingError, _super);
     function ModemNotRespondingError(lastCommandSent) {
         var _newTarget = this.constructor;
-        var _this = _super.call(this, "Modem stopped responding to at commands ( No data received for a while )") || this;
+        var _this = _super.call(this, "Modem stopped responding to at commands") || this;
         _this.lastCommandSent = lastCommandSent;
         Object.setPrototypeOf(_this, _newTarget.prototype);
         return _this;
@@ -466,7 +466,7 @@ var AtStack = /** @class */ (function () {
                         _a.sent();
                         _a.label = 5;
                     case 5:
-                        this.debug("Modem response timeout!".red);
+                        this.debug("Modem response timeout".red);
                         unparsed = this.serialPortAtParser.flush();
                         if (!!!unparsed) return [3 /*break*/, 7];
                         this.serialPort.emit("data", null, unparsed);
@@ -509,6 +509,7 @@ var AtStack = /** @class */ (function () {
                     case 15:
                         error_2 = _a.sent();
                         if (!(error_2 instanceof ts_events_extended_1.EvtError.Detached)) {
+                            this.debug("Timeout while waiting for followup response");
                             this._terminate(new ModemNotRespondingError(command));
                         }
                         return [4 /*yield*/, new Promise(function (_resolve) { })];
@@ -521,7 +522,8 @@ var AtStack = /** @class */ (function () {
                             new Promise(function (resolve) { return timer_1 = setTimeout(function () { return resolve("TIMEOUT"); }, _this.delayAfterDeemedNotResponding); }),
                         ]).then(function (hasTimedOut) { return new Promise(function (resolve) {
                             if (!!hasTimedOut) {
-                                if (!!_this.terminateState) {
+                                if (!_this.terminateState) {
+                                    _this.debug("Timeout while waiting for drain");
                                     _this._terminate(new ModemNotRespondingError(command));
                                 }
                             }
