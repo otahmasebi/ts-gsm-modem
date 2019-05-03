@@ -284,15 +284,22 @@ export class CardStorage {
 
         this.atStack.runCommand(`AT+CSCS="UCS2"\r`);
 
-        let { resp } = await this.atStack.runCommand("AT+CNUM\r");
+        let { resp, final } = await this.atStack.runCommand(
+            "AT+CNUM\r", 
+            { "recoverable": true }
+        );
 
-        const atMessageList = resp as (AtMessage.LIST | undefined);
+        if (!final.isError) {
 
-        if (!!atMessageList && atMessageList.atMessages.length) {
+            const atMessageList = resp as (AtMessage.LIST | undefined);
 
-            let p_CNUM_EXEC = atMessageList.atMessages[0] as AtMessage.P_CNUM_EXEC;
+            if (!!atMessageList && atMessageList.atMessages.length) {
 
-            this.number = p_CNUM_EXEC.number;
+                let p_CNUM_EXEC = atMessageList.atMessages[0] as AtMessage.P_CNUM_EXEC;
+
+                this.number = p_CNUM_EXEC.number;
+
+            }
 
         }
 

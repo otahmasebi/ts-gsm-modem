@@ -276,32 +276,34 @@ var CardStorage = /** @class */ (function () {
     };
     CardStorage.prototype.init = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var resp, atMessageList, p_CNUM_EXEC, _a, minIndex, maxIndex, contactLeft, index, _b, resp_1, final, name, number, p_CPBR_EXEC, resp_2, p_CPBR_EXEC, nameAsUcs2;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            var _a, resp, final, atMessageList, p_CNUM_EXEC, _b, minIndex, maxIndex, contactLeft, index, _c, resp_1, final_1, name, number, p_CPBR_EXEC, resp_2, p_CPBR_EXEC, nameAsUcs2;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
                     case 0:
                         this.atStack.runCommand("AT+CSCS=\"UCS2\"\r");
-                        return [4 /*yield*/, this.atStack.runCommand("AT+CNUM\r")];
+                        return [4 /*yield*/, this.atStack.runCommand("AT+CNUM\r", { "recoverable": true })];
                     case 1:
-                        resp = (_c.sent()).resp;
-                        atMessageList = resp;
-                        if (!!atMessageList && atMessageList.atMessages.length) {
-                            p_CNUM_EXEC = atMessageList.atMessages[0];
-                            this.number = p_CNUM_EXEC.number;
+                        _a = _d.sent(), resp = _a.resp, final = _a.final;
+                        if (!final.isError) {
+                            atMessageList = resp;
+                            if (!!atMessageList && atMessageList.atMessages.length) {
+                                p_CNUM_EXEC = atMessageList.atMessages[0];
+                                this.number = p_CNUM_EXEC.number;
+                            }
                         }
                         this.debug("number: " + this.number);
                         this.atStack.runCommand("AT+CPBS=\"SM\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=?\r")];
                     case 2:
-                        resp = (_c.sent()).resp;
+                        resp = (_d.sent()).resp;
                         this.p_CPBR_TEST = resp;
-                        _a = __read(this.p_CPBR_TEST.range, 2), minIndex = _a[0], maxIndex = _a[1];
+                        _b = __read(this.p_CPBR_TEST.range, 2), minIndex = _b[0], maxIndex = _b[1];
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBS?\r")];
                     case 3:
-                        resp = (_c.sent()).resp;
+                        resp = (_d.sent()).resp;
                         contactLeft = resp.used;
                         index = minIndex;
-                        _c.label = 4;
+                        _d.label = 4;
                     case 4:
                         if (!(index <= maxIndex)) return [3 /*break*/, 9];
                         if (!contactLeft)
@@ -309,8 +311,8 @@ var CardStorage = /** @class */ (function () {
                         this.atStack.runCommand("AT+CSCS=\"IRA\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=" + index + "\r", { "recoverable": true })];
                     case 5:
-                        _b = _c.sent(), resp_1 = _b.resp, final = _b.final;
-                        if (final.isError && final.code === 22)
+                        _c = _d.sent(), resp_1 = _c.resp, final_1 = _c.final;
+                        if (final_1.isError && final_1.code === 22)
                             return [3 /*break*/, 8];
                         contactLeft--;
                         name = "\uFFFD";
@@ -324,7 +326,7 @@ var CardStorage = /** @class */ (function () {
                         this.atStack.runCommand("AT+CSCS=\"UCS2\"\r");
                         return [4 /*yield*/, this.atStack.runCommand("AT+CPBR=" + index + "\r", { "recoverable": true })];
                     case 6:
-                        resp_2 = (_c.sent()).resp;
+                        resp_2 = (_d.sent()).resp;
                         if (!resp_2 && !number) {
                             return [3 /*break*/, 8];
                         }
@@ -336,11 +338,11 @@ var CardStorage = /** @class */ (function () {
                             if (CardStorage.printableLength(nameAsUcs2) > CardStorage.printableLength(name))
                                 name = nameAsUcs2;
                         }
-                        _c.label = 7;
+                        _d.label = 7;
                     case 7:
                         this.debug("phonebook entry: " + index + " " + name + " " + number);
                         this.contactByIndex[index] = { index: index, number: number, name: name };
-                        _c.label = 8;
+                        _d.label = 8;
                     case 8:
                         index++;
                         return [3 /*break*/, 4];
