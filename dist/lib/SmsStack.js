@@ -193,7 +193,7 @@ var SmsStack = /** @class */ (function () {
     }
     SmsStack.prototype.retrieveUnreadSms = function (used, capacity) {
         return __awaiter(this, void 0, void 0, function () {
-            var messageLeft, index, resp, p_CMGR_SET, sms, error_2;
+            var messageLeft, index, resp, p_CMGR_SET, sms, pdu, error_2;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -224,7 +224,9 @@ var SmsStack = /** @class */ (function () {
                         _a.label = 3;
                     case 3:
                         _a.trys.push([3, 5, , 6]);
-                        return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
+                        pdu = p_CMGR_SET.pdu;
+                        this.debug("Decoding sim memory pdu: '" + pdu + "'");
+                        return [4 /*yield*/, node_python_messaging_1.decodePdu(pdu)];
                     case 4:
                         sms = _a.sent();
                         return [3 /*break*/, 6];
@@ -400,7 +402,7 @@ var SmsStack = /** @class */ (function () {
     };
     SmsStack.prototype.retrievePdu = function (index) {
         return __awaiter(this, void 0, void 0, function () {
-            var resp, p_CMGR_SET, sms, error_3;
+            var resp, p_CMGR_SET, sms, pdu, error_3;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this.atStack.runCommand("AT+CMGR=" + index + "\r")];
@@ -414,7 +416,9 @@ var SmsStack = /** @class */ (function () {
                         _a.label = 2;
                     case 2:
                         _a.trys.push([2, 4, , 5]);
-                        return [4 /*yield*/, node_python_messaging_1.decodePdu(p_CMGR_SET.pdu)];
+                        pdu = p_CMGR_SET.pdu;
+                        this.debug("Decoding pdu: '" + pdu + "'");
+                        return [4 /*yield*/, node_python_messaging_1.decodePdu(pdu)];
                     case 3:
                         sms = _a.sent();
                         return [3 /*break*/, 5];

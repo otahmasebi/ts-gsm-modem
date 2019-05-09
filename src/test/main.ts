@@ -90,6 +90,10 @@ const debug= logger.debugFactory();
 
     console.assert( modem.getContact(contact.index) === undefined );
 
+    modem.evtMessage.attach(
+        message => console.log(JSON.stringify(message,null,2))
+    );
+
     await new Promise(resolve => setTimeout(resolve, 35000));
 
     debug("Manual termination of the modem");

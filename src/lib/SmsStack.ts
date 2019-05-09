@@ -119,7 +119,11 @@ export class SmsStack {
 
             try {
 
-                sms = await decodePdu(p_CMGR_SET.pdu);
+                const { pdu } = p_CMGR_SET;
+
+                this.debug(`Decoding sim memory pdu: '${pdu}'`);
+
+                sms = await decodePdu(pdu);
 
             } catch (error) {
 
@@ -446,7 +450,11 @@ export class SmsStack {
 
         try {
 
-            sms = await decodePdu(p_CMGR_SET.pdu);
+            const { pdu } = p_CMGR_SET;
+
+            this.debug(`Decoding pdu: '${pdu}'`);
+
+            sms = await decodePdu(pdu);
 
         } catch (error) {
 
