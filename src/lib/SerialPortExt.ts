@@ -71,6 +71,7 @@ export class SerialPortExt extends SerialPort {
 
                 switch(result){
                     case "OPEN": 
+                        await new Promise(resolve => setTimeout(resolve, 500));
                         break;
                     case "TERMINATED": 
                         await new Promise(resolve=> {});
@@ -84,6 +85,7 @@ export class SerialPortExt extends SerialPort {
                 }
 
             }
+
 
             {
 

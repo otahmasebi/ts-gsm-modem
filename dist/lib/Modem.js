@@ -99,6 +99,15 @@ exports.InitializationError = InitializationError;
     }(InitializationError));
     InitializationError.DidNotTurnBackOnAfterReboot = DidNotTurnBackOnAfterReboot;
     ;
+    var WontShutdownForReboot = /** @class */ (function (_super) {
+        __extends(WontShutdownForReboot, _super);
+        function WontShutdownForReboot(dataIfPath) {
+            return _super.call(this, new Error("Modem reboot unsuccessful, timeout waiting for Modem to shutdown"), dataIfPath, {}) || this;
+        }
+        return WontShutdownForReboot;
+    }(InitializationError));
+    InitializationError.WontShutdownForReboot = WontShutdownForReboot;
+    ;
 })(InitializationError = exports.InitializationError || (exports.InitializationError = {}));
 exports.InitializationError = InitializationError;
 var Modem = /** @class */ (function () {
@@ -231,7 +240,7 @@ var Modem = /** @class */ (function () {
                 _this.successfullyRebooted = true;
                 _this.initAtStack();
             }).catch(function () { return _this.resolveConstructor(new InitializationError.DidNotTurnBackOnAfterReboot(dataIfPath)); });
-        }).catch(function () { return _this.resolveConstructor(new InitializationError(new Error("Modem reboot unsuccessful, timeout waiting for Modem to shutdown"), dataIfPath, {})); });
+        }).catch(function () { return _this.resolveConstructor(new InitializationError.WontShutdownForReboot(dataIfPath)); });
     }
     /**
      * Note: if no log is passed then console.log is used.

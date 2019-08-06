@@ -451,73 +451,76 @@ var AtStack = /** @class */ (function () {
                         writeAndDrainPromise = this.serialPort.writeAndDrain(command);
                         _a.label = 1;
                     case 1:
-                        _a.trys.push([1, 3, , 11]);
-                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor(this.serialPort.isOpen() ?
-                                this.delayAfterDeemedNotResponding :
-                                undefined)];
+                        _a.trys.push([1, 5, , 13]);
+                        if (!!this.serialPort.isOpen()) return [3 /*break*/, 3];
+                        return [4 /*yield*/, new Promise(function (resolve) { return _this.serialPort.once("open", function () { return resolve(); }); })];
                     case 2:
-                        atMessage = _a.sent();
-                        return [3 /*break*/, 11];
-                    case 3:
-                        error_1 = _a.sent();
-                        if (!(error_1 instanceof ts_events_extended_1.EvtError.Detached)) return [3 /*break*/, 5];
-                        return [4 /*yield*/, new Promise(function (_resolve) { })];
-                    case 4:
                         _a.sent();
-                        _a.label = 5;
+                        _a.label = 3;
+                    case 3: return [4 /*yield*/, this.evtResponseAtMessage.waitFor(this.delayAfterDeemedNotResponding)];
+                    case 4:
+                        atMessage = _a.sent();
+                        return [3 /*break*/, 13];
                     case 5:
-                        this.debug("Modem response timeout".red);
-                        unparsed = this.serialPortAtParser.flush();
-                        if (!!!unparsed) return [3 /*break*/, 7];
-                        this.serialPort.emit("data", null, unparsed);
+                        error_1 = _a.sent();
+                        if (!(error_1 instanceof ts_events_extended_1.EvtError.Detached)) return [3 /*break*/, 7];
                         return [4 /*yield*/, new Promise(function (_resolve) { })];
                     case 6:
                         _a.sent();
                         _a.label = 7;
                     case 7:
-                        if (!!this.retryLeftWrite--) return [3 /*break*/, 9];
-                        this._terminate(new ModemNotRespondingError(command));
+                        this.debug("Modem response timeout".red);
+                        unparsed = this.serialPortAtParser.flush();
+                        if (!!!unparsed) return [3 /*break*/, 9];
+                        this.serialPort.emit("data", null, unparsed);
                         return [4 /*yield*/, new Promise(function (_resolve) { })];
                     case 8:
                         _a.sent();
                         _a.label = 9;
                     case 9:
+                        if (!!this.retryLeftWrite--) return [3 /*break*/, 11];
+                        this._terminate(new ModemNotRespondingError(command));
+                        return [4 /*yield*/, new Promise(function (_resolve) { })];
+                    case 10:
+                        _a.sent();
+                        _a.label = 11;
+                    case 11:
                         this.debug("Retrying command " + JSON.stringify(command));
                         return [4 /*yield*/, this.runCommandBase(command)];
-                    case 10: return [2 /*return*/, _a.sent()];
-                    case 11:
+                    case 12: return [2 /*return*/, _a.sent()];
+                    case 13:
                         echo = "";
                         resp = undefined;
-                        _a.label = 12;
-                    case 12:
-                        if (!true) return [3 /*break*/, 18];
+                        _a.label = 14;
+                    case 14:
+                        if (!true) return [3 /*break*/, 20];
                         if (atMessage.isFinal) {
                             final = atMessage;
-                            return [3 /*break*/, 18];
+                            return [3 /*break*/, 20];
                         }
                         else if (atMessage.id === at_messages_parser_1.AtMessage.idDict.ECHO)
                             echo += atMessage.raw;
                         else
                             resp = atMessage;
-                        _a.label = 13;
-                    case 13:
-                        _a.trys.push([13, 15, , 17]);
-                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor(30000)];
-                    case 14:
-                        atMessage = _a.sent();
-                        return [3 /*break*/, 17];
+                        _a.label = 15;
                     case 15:
+                        _a.trys.push([15, 17, , 19]);
+                        return [4 /*yield*/, this.evtResponseAtMessage.waitFor(30000)];
+                    case 16:
+                        atMessage = _a.sent();
+                        return [3 /*break*/, 19];
+                    case 17:
                         error_2 = _a.sent();
                         if (!(error_2 instanceof ts_events_extended_1.EvtError.Detached)) {
                             this.debug("Timeout while waiting for followup response");
                             this._terminate(new ModemNotRespondingError(command));
                         }
                         return [4 /*yield*/, new Promise(function (_resolve) { })];
-                    case 16:
+                    case 18:
                         _a.sent();
-                        return [3 /*break*/, 17];
-                    case 17: return [3 /*break*/, 12];
-                    case 18: return [4 /*yield*/, Promise.race([
+                        return [3 /*break*/, 19];
+                    case 19: return [3 /*break*/, 14];
+                    case 20: return [4 /*yield*/, Promise.race([
                             writeAndDrainPromise,
                             new Promise(function (resolve) { return timer_1 = setTimeout(function () { return resolve("TIMEOUT"); }, _this.delayAfterDeemedNotResponding); }),
                         ]).then(function (hasTimedOut) { return new Promise(function (resolve) {
@@ -532,7 +535,7 @@ var AtStack = /** @class */ (function () {
                                 resolve();
                             }
                         }); })];
-                    case 19:
+                    case 21:
                         _a.sent();
                         raw = "" + (this.hideEcho ? "" : echo) + (resp ? resp.raw : "") + final.raw;
                         if (this.retryLeftWrite !== this.maxRetryWrite) {

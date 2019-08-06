@@ -453,10 +453,14 @@ export class AtStack {
 
         try {
 
+            if( !this.serialPort.isOpen() ){
+
+                await new Promise(resolve=> this.serialPort.once("open", ()=> resolve()));
+                
+            }
+
             atMessage = await this.evtResponseAtMessage.waitFor(
-                this.serialPort.isOpen() ?
-                this.delayAfterDeemedNotResponding :
-                undefined
+                this.delayAfterDeemedNotResponding 
             );
 
         } catch (error) {

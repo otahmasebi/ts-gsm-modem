@@ -70,6 +70,9 @@ export declare namespace InitializationError {
     class DidNotTurnBackOnAfterReboot extends InitializationError {
         constructor(dataIfPath: string);
     }
+    class WontShutdownForReboot extends InitializationError {
+        constructor(dataIfPath: string);
+    }
 }
 export declare class Modem {
     private dataIfPath;

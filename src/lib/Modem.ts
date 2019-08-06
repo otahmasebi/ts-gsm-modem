@@ -95,6 +95,16 @@ export namespace InitializationError {
         }
     };
 
+    export class WontShutdownForReboot extends InitializationError {
+        constructor(dataIfPath: string) {
+            super(
+                new Error("Modem reboot unsuccessful, timeout waiting for Modem to shutdown"),
+                dataIfPath,
+                {}
+            );
+        }
+    };
+
 }
 
 export class Modem {
@@ -255,19 +265,13 @@ export class Modem {
 
                     }
                 ).catch(() => this.resolveConstructor(
-                    new InitializationError.DidNotTurnBackOnAfterReboot(
-                        dataIfPath
-                    )
+                    new InitializationError.DidNotTurnBackOnAfterReboot(dataIfPath)
                 ));
 
 
             }
         ).catch(() => this.resolveConstructor(
-            new InitializationError(
-                new Error("Modem reboot unsuccessful, timeout waiting for Modem to shutdown"),
-                dataIfPath,
-                {}
-            )
+            new InitializationError.WontShutdownForReboot(dataIfPath)
         ));
 
     }

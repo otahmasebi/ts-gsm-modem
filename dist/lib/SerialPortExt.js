@@ -76,7 +76,7 @@ var SerialPortExt = /** @class */ (function (_super) {
                             this.writeHistory.shift();
                         }
                         this.writeHistory.push(buffer);
-                        if (!!this.isOpen()) return [3 /*break*/, 7];
+                        if (!!this.isOpen()) return [3 /*break*/, 8];
                         return [4 /*yield*/, Promise.race([
                                 new Promise(function (resolve) {
                                     onceOpen_1 = function () { return resolve("OPEN"); };
@@ -103,40 +103,43 @@ var SerialPortExt = /** @class */ (function (_super) {
                         _a = result;
                         switch (_a) {
                             case "OPEN": return [3 /*break*/, 2];
-                            case "TERMINATED": return [3 /*break*/, 3];
-                            case "TIMEOUT": return [3 /*break*/, 5];
+                            case "TERMINATED": return [3 /*break*/, 4];
+                            case "TIMEOUT": return [3 /*break*/, 6];
                         }
-                        return [3 /*break*/, 7];
-                    case 2: return [3 /*break*/, 7];
-                    case 3: return [4 /*yield*/, new Promise(function (resolve) { })];
-                    case 4:
+                        return [3 /*break*/, 8];
+                    case 2: return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 500); })];
+                    case 3:
                         _b.sent();
-                        _b.label = 5;
+                        return [3 /*break*/, 8];
+                    case 4: return [4 /*yield*/, new Promise(function (resolve) { })];
                     case 5:
+                        _b.sent();
+                        _b.label = 6;
+                    case 6:
                         this.evtError.post(new SerialPortError("Serial port took too much time to open", this.writeHistory, "OPEN TIMEOUT"));
                         return [4 /*yield*/, new Promise(function (resolve) { })];
-                    case 6:
+                    case 7:
                         _b.sent();
-                        _b.label = 7;
-                    case 7: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
-                    case 8:
+                        _b.label = 8;
+                    case 8: return [4 /*yield*/, new Promise(function (resolve) { return _this.write(buffer, function (error) { return resolve(error); }); })];
+                    case 9:
                         error = _b.sent();
-                        if (!!!error) return [3 /*break*/, 10];
+                        if (!!!error) return [3 /*break*/, 11];
                         this.evtError.post(new SerialPortError(error, this.writeHistory, "ERROR CALLING WRITE"));
                         return [4 /*yield*/, new Promise(function (_resolve) { })];
-                    case 9:
+                    case 10:
                         _b.sent();
-                        _b.label = 10;
-                    case 10: return [4 /*yield*/, new Promise(function (resolve) { return _this.drain(function (error) { return resolve(error); }); })];
-                    case 11:
+                        _b.label = 11;
+                    case 11: return [4 /*yield*/, new Promise(function (resolve) { return _this.drain(function (error) { return resolve(error); }); })];
+                    case 12:
                         error = _b.sent();
-                        if (!!!error) return [3 /*break*/, 13];
+                        if (!!!error) return [3 /*break*/, 14];
                         this.evtError.post(new SerialPortError(error, this.writeHistory, "ERROR CALLING DRAIN"));
                         return [4 /*yield*/, new Promise(function (_resolve) { })];
-                    case 12:
+                    case 13:
                         _b.sent();
-                        _b.label = 13;
-                    case 13: return [2 /*return*/];
+                        _b.label = 14;
+                    case 14: return [2 /*return*/];
                 }
             });
         }); });
