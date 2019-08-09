@@ -276,6 +276,26 @@ export class Modem {
 
     }
 
+    public get evtGsmConnectivityChange(): typeof SystemState.prototype.evtGsmConnectivityChange {
+        return this.systemState.evtGsmConnectivityChange;
+    }
+
+    public get evtCellSignalStrengthTierChange(): typeof SystemState.prototype.evtCellSignalStrengthTierChange {
+        return this.systemState.evtCellSignalStrengthTierChange;
+    }
+
+    public isGsmConnectivityOk() {
+        return this.systemState.isGsmConnectivityOk();
+    }
+
+    public getCurrentGsmConnectivityState(){
+        return this.systemState.getCurrentState();
+    }
+
+    public getCurrentGsmConnectivityStateHumanReadable(){
+        return this.systemState.getCurrentStateHumanlyReadable();
+    }
+
     private async initAtStack(): Promise<void> {
 
         this.atStack = new AtStack(
@@ -399,7 +419,7 @@ export class Modem {
             logger.debugFactory(`SystemState ${this.dataIfPath}`, true, this.log)
         );
 
-        this.hasSim = await this.systemState.evtReportSimPresence.waitFor();
+        this.hasSim = await this.systemState.prHasSim;
 
         this.debug(`SIM present: ${this.hasSim}`);
 
@@ -673,29 +693,33 @@ export class Modem {
 
         this.debug("SIM unlocked");
 
-        if (!this.systemState.isValidSim) {
+        try {
 
-            try {
+            let timer: NodeJS.Timer;
 
-                await this.systemState.evtValidSim.waitFor(45000);
+            await Promise.race([
+                new Promise(
+                    (_resolver, reject) => timer = setTimeout(
+                        () => reject(new Error("timeout")), 45000)
+                ),
+                this.systemState.prValidSim.then(() => clearTimeout(timer))
+            ]);
 
-            } catch{
+        } catch{
 
-                this.onInitializationCompleted(
-                    new Error([
-                        `timeout waiting for event VALID_SIM, `,
-                        `current SIM state: ${AtMessage.SimState[this.systemState.simState]}`
-                    ].join(" "))
-                );
+            this.onInitializationCompleted(
+                new Error([
+                    `timeout waiting for the sim to be deemed valid, `,
+                    `current SIM state: ${AtMessage.SimState[this.systemState.getCurrentState().simState]}`
+                ].join(" "))
+            );
 
-                await new Promise(_resolve => { });
-
-            }
+            await new Promise(_resolve => { });
 
         }
 
-        this.debug("SIM valid");
 
+        this.debug("SIM valid");
 
         const { resp: cx_SPN_SET } = await this.atStack.runCommand(
             "AT^SPN=0\r",
@@ -793,8 +817,8 @@ export class Modem {
     public sendMessage = runExclusive.buildMethod(
         (async (...inputs) => {
 
-            if (!this.systemState.isNetworkReady) {
-                await this.systemState.evtNetworkReady.waitFor();
+            if (!this.systemState.isGsmConnectivityOk()) {
+                await this.systemState.evtGsmConnectivityChange.waitFor();
             }
 
             return this.smsStack.sendMessage.apply(this.smsStack, inputs);

@@ -39,6 +39,24 @@ const debug= logger.debugFactory();
 
     });
 
+    debug("Current GSM connectivity state: ", modem.getCurrentGsmConnectivityStateHumanReadable());
+
+    modem.evtGsmConnectivityChange.attach(()=> {
+
+        debug("event GSM connectivity change");
+
+        debug("Current GSM connectivity state: ", modem.getCurrentGsmConnectivityStateHumanReadable());
+
+    });
+
+    modem.evtCellSignalStrengthTierChange.attach(()=>{
+
+        debug("event cell signal strength tier change");
+
+        debug("Current GSM connectivity state: ", modem.getCurrentGsmConnectivityStateHumanReadable());
+
+    });
+
     //let messageText= "foo bar";
 
     // cSpell:disable

@@ -1,5 +1,6 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
+import { SystemState } from "./SystemState";
 import { CardStorage } from "./CardStorage";
 import { Message, StatusReport } from "./SmsStack";
 import { SyncEvent } from "ts-events-extended";
@@ -112,6 +113,28 @@ export declare class Modem {
     private hasSim;
     private debug;
     private constructor();
+    readonly evtGsmConnectivityChange: typeof SystemState.prototype.evtGsmConnectivityChange;
+    readonly evtCellSignalStrengthTierChange: typeof SystemState.prototype.evtCellSignalStrengthTierChange;
+    isGsmConnectivityOk(): boolean;
+    getCurrentGsmConnectivityState(): {
+        "isRoaming": boolean;
+        "serviceStatus": AtMessage.ServiceStatus;
+        "sysMode": AtMessage.SysMode;
+        "simState": AtMessage.SimState;
+        "networkRegistrationState": AtMessage.NetworkRegistrationState;
+        "cellSignalStrength": {
+            "rssi": number;
+            "tier": AtMessage.GsmOrUtranCellSignalStrengthTier;
+        };
+    };
+    getCurrentGsmConnectivityStateHumanReadable(): {
+        "isRoaming": boolean;
+        "serviceStatus": string;
+        "sysMode": string;
+        "simState": string;
+        "networkRegistrationState": string;
+        "cellSignalStrength": string;
+    };
     private initAtStack;
     private buildUnlockCodeProvider;
     private readIccid;

@@ -145,8 +145,8 @@ var Modem = /** @class */ (function () {
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
-                            if (!!this.systemState.isNetworkReady) return [3 /*break*/, 2];
-                            return [4 /*yield*/, this.systemState.evtNetworkReady.waitFor()];
+                            if (!!this.systemState.isGsmConnectivityOk()) return [3 /*break*/, 2];
+                            return [4 /*yield*/, this.systemState.evtGsmConnectivityChange.waitFor()];
                         case 1:
                             _a.sent();
                             _a.label = 2;
@@ -262,6 +262,29 @@ var Modem = /** @class */ (function () {
             new Modem(params.dataIfPath, params.unlock, enableSmsStack, enableCardStorage, !!params.rebootFirst, log, function (result) { return (result instanceof Modem) ? resolve(result) : reject(result); });
         });
     };
+    Object.defineProperty(Modem.prototype, "evtGsmConnectivityChange", {
+        get: function () {
+            return this.systemState.evtGsmConnectivityChange;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Modem.prototype, "evtCellSignalStrengthTierChange", {
+        get: function () {
+            return this.systemState.evtCellSignalStrengthTierChange;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Modem.prototype.isGsmConnectivityOk = function () {
+        return this.systemState.isGsmConnectivityOk();
+    };
+    Modem.prototype.getCurrentGsmConnectivityState = function () {
+        return this.systemState.getCurrentState();
+    };
+    Modem.prototype.getCurrentGsmConnectivityStateHumanReadable = function () {
+        return this.systemState.getCurrentStateHumanlyReadable();
+    };
     Modem.prototype.initAtStack = function () {
         return __awaiter(this, void 0, void 0, function () {
             var _a, _b;
@@ -351,7 +374,7 @@ var Modem = /** @class */ (function () {
                         });
                         this.systemState = new SystemState_1.SystemState(this.atStack, logger.debugFactory("SystemState " + this.dataIfPath, true, this.log));
                         _a = this;
-                        return [4 /*yield*/, this.systemState.evtReportSimPresence.waitFor()];
+                        return [4 /*yield*/, this.systemState.prHasSim];
                     case 1:
                         _a.hasSim = _c.sent();
                         this.debug("SIM present: " + this.hasSim);
@@ -502,7 +525,7 @@ var Modem = /** @class */ (function () {
     });
     Modem.prototype.initCardLockFacility = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var cardLockFacility, _a, cx_SPN_SET, _b, resp, resp_CX_CVOICE_SET, cx_CVOICE_READ;
+            var cardLockFacility, timer_1, _a, cx_SPN_SET, _b, resp, resp_CX_CVOICE_SET, cx_CVOICE_READ;
             var _this = this;
             return __generator(this, function (_c) {
                 switch (_c.label) {
@@ -591,19 +614,21 @@ var Modem = /** @class */ (function () {
                             this.validSimPin = this.lastPinTried;
                         }
                         this.debug("SIM unlocked");
-                        if (!!this.systemState.isValidSim) return [3 /*break*/, 6];
                         _c.label = 2;
                     case 2:
                         _c.trys.push([2, 4, , 6]);
-                        return [4 /*yield*/, this.systemState.evtValidSim.waitFor(45000)];
+                        return [4 /*yield*/, Promise.race([
+                                new Promise(function (_resolver, reject) { return timer_1 = setTimeout(function () { return reject(new Error("timeout")); }, 45000); }),
+                                this.systemState.prValidSim.then(function () { return clearTimeout(timer_1); })
+                            ])];
                     case 3:
                         _c.sent();
                         return [3 /*break*/, 6];
                     case 4:
                         _a = _c.sent();
                         this.onInitializationCompleted(new Error([
-                            "timeout waiting for event VALID_SIM, ",
-                            "current SIM state: " + at_messages_parser_1.AtMessage.SimState[this.systemState.simState]
+                            "timeout waiting for the sim to be deemed valid, ",
+                            "current SIM state: " + at_messages_parser_1.AtMessage.SimState[this.systemState.getCurrentState().simState]
                         ].join(" ")));
                         return [4 /*yield*/, new Promise(function (_resolve) { })];
                     case 5:
