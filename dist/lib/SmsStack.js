@@ -91,7 +91,8 @@ var SmsStack = /** @class */ (function () {
         //TODO: More test for when message fail to send
         /** Return sendDate or undefined if send fail */
         this.sendMessage = runExclusive.buildMethod(function (number, text) { return __awaiter(_this, void 0, void 0, function () {
-            var e_1, _a, e_2, _b, pdus, error_1, messageId, i, pdus_1, pdus_1_1, _c, length, pdu, mr, error, tryLeft, result, _d, _e, mr_1, e_1_1;
+            var pdus, error_1, messageId, i, pdus_1, pdus_1_1, _a, length, pdu, mr, error, tryLeft, result, _b, _c, mr_1, e_1_1;
+            var e_1, _d, e_2, _e;
             return __generator(this, function (_f) {
                 switch (_f.label) {
                     case 0:
@@ -124,7 +125,7 @@ var SmsStack = /** @class */ (function () {
                         _f.label = 5;
                     case 5:
                         if (!!pdus_1_1.done) return [3 /*break*/, 10];
-                        _c = pdus_1_1.value, length = _c.length, pdu = _c.pdu;
+                        _a = pdus_1_1.value, length = _a.length, pdu = _a.pdu;
                         this.debug("Sending Message part " + i++ + "/" + pdus.length + " of message id: " + messageId);
                         mr = NaN;
                         error = null;
@@ -146,8 +147,8 @@ var SmsStack = /** @class */ (function () {
                             //TODO: use debug!
                             this.debug(("Send Message Error after " + this.maxTrySendPdu + ", attempt: " + error.verbose).red);
                             try {
-                                for (_d = __values(Object.keys(this.mrMessageIdMap)), _e = _d.next(); !_e.done; _e = _d.next()) {
-                                    mr_1 = _e.value;
+                                for (_b = (e_2 = void 0, __values(Object.keys(this.mrMessageIdMap))), _c = _b.next(); !_c.done; _c = _b.next()) {
+                                    mr_1 = _c.value;
                                     if (this.mrMessageIdMap[mr_1] === messageId)
                                         delete this.mrMessageIdMap[mr_1];
                                 }
@@ -155,7 +156,7 @@ var SmsStack = /** @class */ (function () {
                             catch (e_2_1) { e_2 = { error: e_2_1 }; }
                             finally {
                                 try {
-                                    if (_e && !_e.done && (_b = _d.return)) _b.call(_d);
+                                    if (_c && !_c.done && (_e = _b.return)) _e.call(_b);
                                 }
                                 finally { if (e_2) throw e_2.error; }
                             }
@@ -173,7 +174,7 @@ var SmsStack = /** @class */ (function () {
                         return [3 /*break*/, 13];
                     case 12:
                         try {
-                            if (pdus_1_1 && !pdus_1_1.done && (_a = pdus_1.return)) _a.call(pdus_1);
+                            if (pdus_1_1 && !pdus_1_1.done && (_d = pdus_1.return)) _d.call(pdus_1);
                         }
                         finally { if (e_1) throw e_1.error; }
                         return [7 /*endfinally*/];

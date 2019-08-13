@@ -341,36 +341,39 @@ export class Modem {
                     () => this.resolveConstructor(initializationError)
                 );
 
-            } else {
-
-                this.atStack.evtTerminate.attach(async error => {
-
-                    this.debug(
-                        !!error ?
-                            `terminate with error: ${error}`.red :
-                            `terminate without error`
-                    );
-
-                    if (!!this.smsStack) {
-
-                        this.smsStack.clearAllTimers();
-
-                    }
-
-                    this.evtTerminate.post(error);
-
-                });
-
-                this.resolveConstructor(this);
+                return;
 
             }
 
+            this.atStack.evtTerminate.attach(async error => {
+
+                this.debug(
+                    !!error ?
+                        `terminate with error: ${error}`.red :
+                        `terminate without error`
+                );
+
+                if (!!this.smsStack) {
+
+                    this.smsStack.clearAllTimers();
+
+                }
+
+                this.evtTerminate.post(error);
+
+            });
+
+            this.resolveConstructor(this);
+
+
         };
 
+        //NOTE: A locked modem can be terminated by the user ( via the unlock code provider )
+        //and if so the error object is null. But we don't want to throw an error in this case.
         this.atStack.evtTerminate.attachOnce(
             error => !!error,
             this,
-            error => this.onInitializationCompleted(error!)
+            error => this.onInitializationCompleted(error!) 
         );
 
         this.atStack.runCommand("AT+CGSN\r").then(({ resp }) => {
@@ -672,7 +675,10 @@ export class Modem {
 
                             case "TERMINATE":
 
-                                throw _result.error || new Error("Terminate have been called on locked modem");
+                                throw (
+                                    _result.error ||
+                                    new Error("Terminate have been called while the modem was being unlocked")
+                                );
 
                         }
 
@@ -693,41 +699,49 @@ export class Modem {
 
         this.debug("SIM unlocked");
 
-        try {
+        switch (await Promise.race((() => {
 
-            let timer: NodeJS.Timer;
+            const boundTo = {};
 
-            await Promise.race([
-                new Promise(
-                    (_resolver, reject) => timer = setTimeout(
-                        () => reject(new Error("timeout")), 45000)
-                ),
-                this.systemState.prValidSim.then(() => clearTimeout(timer))
-            ]);
+            return [
+                this.atStack.evtTerminate.attachOnce(boundTo, 45000, () => { })
+                    .then(() => "TERMINATED" as const)
+                    .catch(() => "TIMEOUT" as const),
+                this.systemState.prValidSim
+                    .then(() => {
+                        this.atStack.evtTerminate.detach(boundTo);
+                        return "VALID SIM" as const;
+                    })
 
-        } catch{
+            ];
 
-            this.onInitializationCompleted(
-                new Error([
-                    `timeout waiting for the sim to be deemed valid, `,
-                    `current SIM state: ${AtMessage.SimState[this.systemState.getCurrentState().simState]}`
-                ].join(" "))
-            );
-
-            await new Promise(_resolve => { });
-
+        })())) {
+            case "TIMEOUT":
+                this.onInitializationCompleted(
+                    new Error([
+                        `timeout waiting for the sim to be deemed valid, `,
+                        `current SIM state: ${AtMessage.SimState[this.systemState.getCurrentState().simState]}`
+                    ].join(" "))
+                );
+            case "TERMINATED":
+                await new Promise(() => { });
+            case "VALID SIM": break;
         }
-
 
         this.debug("SIM valid");
 
-        const { resp: cx_SPN_SET } = await this.atStack.runCommand(
-            "AT^SPN=0\r",
-            { "recoverable": true }
-        );
+        {
 
-        if (cx_SPN_SET)
-            this.serviceProviderName = (cx_SPN_SET as AtMessage.CX_SPN_SET).serviceProviderName;
+            const { resp: cx_SPN_SET } = await this.atStack.runCommand(
+                "AT^SPN=0\r",
+                { "recoverable": true }
+            );
+
+            if (cx_SPN_SET) {
+                this.serviceProviderName = (cx_SPN_SET as AtMessage.CX_SPN_SET).serviceProviderName;
+            }
+
+        }
 
         this.debug(`Service Provider name: ${this.serviceProviderName}`);
 

@@ -81,7 +81,7 @@ export class SystemState {
             "simState": AtMessage.SimState[state.simState],
             "networkRegistrationState": AtMessage.NetworkRegistrationState[state.networkRegistrationState],
             "cellSignalStrength": (() => {
-                const rssi= state.cellSignalStrength.rssi;
+                const rssi = state.cellSignalStrength.rssi;
                 switch (AtMessage.GsmOrUtranCellSignalStrengthTier.getForRssi(state.cellSignalStrength.rssi)) {
                     case "<=-113 dBm": return `${rssi}, Very weak`;
                     case "-111 dBm": return `${rssi}, Weak`;
@@ -117,6 +117,17 @@ export class SystemState {
         this.prHasSim = new Promise(resolve => resolvePrHasSim = resolve);
 
         (async () => {
+
+            await this.atStack.runCommand(
+                "AT^SYSCFG=2,0,3FFFFFFF,2,4\r",
+                { "recoverable": true }
+            ).then(({ final }) => {
+                if (!!final.isError) {
+                    debug("AT^SYSCFG command failed".red);
+                } else {
+                    debug("AT^SYSCFG success, dongle can connect to either 2G or 3G network");
+                }
+            });
 
             {
 
@@ -197,7 +208,11 @@ export class SystemState {
 
             if (this.isValidSim()) {
 
+
+
                 (async () => {
+
+                    await this.atStack.runCommand("AT+CREG=2\r");
 
                     const cx_CREG_READ = (await this.atStack.runCommand("AT+CREG?\r"))
                         .resp as AtMessage.P_CREG_READ

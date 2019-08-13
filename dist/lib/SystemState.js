@@ -65,8 +65,19 @@ var SystemState = /** @class */ (function () {
             var cx_SYSINFO_EXEC;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.atStack.runCommand("AT^SYSINFO\r")];
+                    case 0: return [4 /*yield*/, this.atStack.runCommand("AT^SYSCFG=2,0,3FFFFFFF,2,4\r", { "recoverable": true }).then(function (_a) {
+                            var final = _a.final;
+                            if (!!final.isError) {
+                                debug("AT^SYSCFG command failed".red);
+                            }
+                            else {
+                                debug("AT^SYSCFG success, dongle can connect to either 2G or 3G network");
+                            }
+                        })];
                     case 1:
+                        _a.sent();
+                        return [4 /*yield*/, this.atStack.runCommand("AT^SYSINFO\r")];
+                    case 2:
                         cx_SYSINFO_EXEC = (_a.sent())
                             .resp;
                         this.isRoaming = cx_SYSINFO_EXEC.isRoaming;
@@ -119,12 +130,13 @@ var SystemState = /** @class */ (function () {
             "simState": at_messages_parser_1.AtMessage.SimState[state.simState],
             "networkRegistrationState": at_messages_parser_1.AtMessage.NetworkRegistrationState[state.networkRegistrationState],
             "cellSignalStrength": (function () {
+                var rssi = state.cellSignalStrength.rssi;
                 switch (at_messages_parser_1.AtMessage.GsmOrUtranCellSignalStrengthTier.getForRssi(state.cellSignalStrength.rssi)) {
-                    case "<=-113 dBm": return "Very weak";
-                    case "-111 dBm": return "Weak";
-                    case "–109 dBm to –53 dBm": return "Good";
-                    case "≥ –51 dBm": return "Excellent";
-                    case "Unknown or undetectable": return "Unknown or undetectable";
+                    case "<=-113 dBm": return rssi + ", Very weak";
+                    case "-111 dBm": return rssi + ", Weak";
+                    case "–109 dBm to –53 dBm": return rssi + ", Good";
+                    case "≥ –51 dBm": return rssi + " Excellent";
+                    case "Unknown or undetectable": return rssi + " Unknown or undetectable";
                 }
             })()
         };
@@ -155,8 +167,11 @@ var SystemState = /** @class */ (function () {
                     var cx_CREG_READ;
                     return __generator(this, function (_a) {
                         switch (_a.label) {
-                            case 0: return [4 /*yield*/, this.atStack.runCommand("AT+CREG?\r")];
+                            case 0: return [4 /*yield*/, this.atStack.runCommand("AT+CREG=2\r")];
                             case 1:
+                                _a.sent();
+                                return [4 /*yield*/, this.atStack.runCommand("AT+CREG?\r")];
+                            case 2:
                                 cx_CREG_READ = (_a.sent())
                                     .resp;
                                 this.update(new at_messages_parser_1.AtMessage.P_CREG_URC("", cx_CREG_READ.stat));

@@ -1,4 +1,5 @@
 /// <reference path="../../src/lib/ambient/serialport.d.ts" />
+/// <reference types="node" />
 import * as SerialPort from "serialport";
 import { SyncEvent } from "ts-events-extended";
 /** Do not use on("error",) use evtError otherwise use as SerialPort */

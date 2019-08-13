@@ -1,8 +1,11 @@
 "use strict";
 var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -316,23 +319,24 @@ var Modem = /** @class */ (function () {
                                     _this.smsStack.clearAllTimers();
                                 }
                                 _this.atStack.terminate().then(function () { return _this.resolveConstructor(initializationError_1); });
+                                return;
                             }
-                            else {
-                                _this.atStack.evtTerminate.attach(function (error) { return __awaiter(_this, void 0, void 0, function () {
-                                    return __generator(this, function (_a) {
-                                        this.debug(!!error ?
-                                            ("terminate with error: " + error).red :
-                                            "terminate without error");
-                                        if (!!this.smsStack) {
-                                            this.smsStack.clearAllTimers();
-                                        }
-                                        this.evtTerminate.post(error);
-                                        return [2 /*return*/];
-                                    });
-                                }); });
-                                _this.resolveConstructor(_this);
-                            }
+                            _this.atStack.evtTerminate.attach(function (error) { return __awaiter(_this, void 0, void 0, function () {
+                                return __generator(this, function (_a) {
+                                    this.debug(!!error ?
+                                        ("terminate with error: " + error).red :
+                                        "terminate without error");
+                                    if (!!this.smsStack) {
+                                        this.smsStack.clearAllTimers();
+                                    }
+                                    this.evtTerminate.post(error);
+                                    return [2 /*return*/];
+                                });
+                            }); });
+                            _this.resolveConstructor(_this);
                         };
+                        //NOTE: A locked modem can be terminated by the user ( via the unlock code provider )
+                        //and if so the error object is null. But we don't want to throw an error in this case.
                         this.atStack.evtTerminate.attachOnce(function (error) { return !!error; }, this, function (error) { return _this.onInitializationCompleted(error); });
                         this.atStack.runCommand("AT+CGSN\r").then(function (_a) {
                             var resp = _a.resp;
@@ -398,7 +402,8 @@ var Modem = /** @class */ (function () {
     Modem.prototype.buildUnlockCodeProvider = function (unlockCode) {
         var _this = this;
         return function (_modemInfos, _iccid, pinState, tryLeft, performUnlock) { return __awaiter(_this, void 0, void 0, function () {
-            var e_1, _a, _b, _c, pin, unlockResult, e_1_1;
+            var _a, _b, pin, unlockResult, e_1_1;
+            var e_1, _c;
             return __generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
@@ -406,11 +411,11 @@ var Modem = /** @class */ (function () {
                         _d.label = 1;
                     case 1:
                         _d.trys.push([1, 6, 7, 8]);
-                        _b = __values([unlockCode.pinFirstTry, unlockCode.pinSecondTry, undefined]), _c = _b.next();
+                        _a = __values([unlockCode.pinFirstTry, unlockCode.pinSecondTry, undefined]), _b = _a.next();
                         _d.label = 2;
                     case 2:
-                        if (!!_c.done) return [3 /*break*/, 5];
-                        pin = _c.value;
+                        if (!!_b.done) return [3 /*break*/, 5];
+                        pin = _b.value;
                         if (!pin || pinState !== "SIM PIN") {
                             this.onInitializationCompleted(new Error("Unlock failed " + pinState + ", " + tryLeft));
                             return [2 /*return*/];
@@ -432,7 +437,7 @@ var Modem = /** @class */ (function () {
                         this.debug("Unlock attempt failed " + pinState + ", " + tryLeft);
                         _d.label = 4;
                     case 4:
-                        _c = _b.next();
+                        _b = _a.next();
                         return [3 /*break*/, 2];
                     case 5: return [3 /*break*/, 8];
                     case 6:
@@ -441,7 +446,7 @@ var Modem = /** @class */ (function () {
                         return [3 /*break*/, 8];
                     case 7:
                         try {
-                            if (_c && !_c.done && (_a = _b.return)) _a.call(_b);
+                            if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                         }
                         finally { if (e_1) throw e_1.error; }
                         return [7 /*endfinally*/];
@@ -525,7 +530,7 @@ var Modem = /** @class */ (function () {
     });
     Modem.prototype.initCardLockFacility = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var cardLockFacility, timer_1, _a, cx_SPN_SET, _b, resp, resp_CX_CVOICE_SET, cx_CVOICE_READ;
+            var cardLockFacility, _a, cx_SPN_SET, _b, resp, resp_CX_CVOICE_SET, cx_CVOICE_READ;
             var _this = this;
             return __generator(this, function (_c) {
                 switch (_c.label) {
@@ -599,7 +604,8 @@ var Modem = /** @class */ (function () {
                                                         };
                                                         return [2 /*return*/, resultFailed];
                                                     case "TERMINATE":
-                                                        throw _result.error || new Error("Terminate have been called on locked modem");
+                                                        throw (_result.error ||
+                                                            new Error("Terminate have been called while the modem was being unlocked"));
                                                 }
                                                 return [2 /*return*/];
                                         }
@@ -614,58 +620,71 @@ var Modem = /** @class */ (function () {
                             this.validSimPin = this.lastPinTried;
                         }
                         this.debug("SIM unlocked");
-                        _c.label = 2;
+                        return [4 /*yield*/, Promise.race((function () {
+                                var boundTo = {};
+                                return [
+                                    _this.atStack.evtTerminate.attachOnce(boundTo, 45000, function () { })
+                                        .then(function () { return "TERMINATED"; })
+                                        .catch(function () { return "TIMEOUT"; }),
+                                    _this.systemState.prValidSim
+                                        .then(function () {
+                                        _this.atStack.evtTerminate.detach(boundTo);
+                                        return "VALID SIM";
+                                    })
+                                ];
+                            })())];
                     case 2:
-                        _c.trys.push([2, 4, , 6]);
-                        return [4 /*yield*/, Promise.race([
-                                new Promise(function (_resolver, reject) { return timer_1 = setTimeout(function () { return reject(new Error("timeout")); }, 45000); }),
-                                this.systemState.prValidSim.then(function () { return clearTimeout(timer_1); })
-                            ])];
-                    case 3:
-                        _c.sent();
-                        return [3 /*break*/, 6];
-                    case 4:
                         _a = _c.sent();
+                        switch (_a) {
+                            case "TIMEOUT": return [3 /*break*/, 3];
+                            case "TERMINATED": return [3 /*break*/, 4];
+                            case "VALID SIM": return [3 /*break*/, 6];
+                        }
+                        return [3 /*break*/, 7];
+                    case 3:
                         this.onInitializationCompleted(new Error([
                             "timeout waiting for the sim to be deemed valid, ",
                             "current SIM state: " + at_messages_parser_1.AtMessage.SimState[this.systemState.getCurrentState().simState]
                         ].join(" ")));
-                        return [4 /*yield*/, new Promise(function (_resolve) { })];
+                        _c.label = 4;
+                    case 4: return [4 /*yield*/, new Promise(function () { })];
                     case 5:
                         _c.sent();
-                        return [3 /*break*/, 6];
-                    case 6:
+                        _c.label = 6;
+                    case 6: return [3 /*break*/, 7];
+                    case 7:
                         this.debug("SIM valid");
                         return [4 /*yield*/, this.atStack.runCommand("AT^SPN=0\r", { "recoverable": true })];
-                    case 7:
+                    case 8:
                         cx_SPN_SET = (_c.sent()).resp;
-                        if (cx_SPN_SET)
+                        if (cx_SPN_SET) {
                             this.serviceProviderName = cx_SPN_SET.serviceProviderName;
+                        }
                         this.debug("Service Provider name: " + this.serviceProviderName);
-                        if (!!this.iccidAvailableBeforeUnlock) return [3 /*break*/, 9];
+                        if (!!this.iccidAvailableBeforeUnlock) return [3 /*break*/, 10];
                         _b = this;
                         return [4 /*yield*/, this.readIccid()];
-                    case 8:
+                    case 9:
                         _b.iccid = _c.sent();
                         this.debug("ICCID ( read after unlock ): " + this.iccid);
-                        _c.label = 9;
-                    case 9: return [4 /*yield*/, this.atStack.runCommand("AT+CIMI\r")];
-                    case 10:
+                        _c.label = 10;
+                    case 10: return [4 /*yield*/, this.atStack.runCommand("AT+CIMI\r")];
+                    case 11:
                         resp = (_c.sent()).resp;
                         this.imsi = resp.raw.split("\r\n")[1];
                         this.debug("IMSI: " + this.imsi);
                         return [4 /*yield*/, this.atStack.runCommand("AT^CVOICE=0\r", { "recoverable": true })];
-                    case 11:
-                        resp_CX_CVOICE_SET = _c.sent();
-                        if (!!resp_CX_CVOICE_SET.final.isError) return [3 /*break*/, 13];
-                        return [4 /*yield*/, this.atStack.runCommand("AT^CVOICE?\r", { "recoverable": true })];
                     case 12:
+                        resp_CX_CVOICE_SET = _c.sent();
+                        if (!!resp_CX_CVOICE_SET.final.isError) return [3 /*break*/, 14];
+                        return [4 /*yield*/, this.atStack.runCommand("AT^CVOICE?\r", { "recoverable": true })];
+                    case 13:
                         cx_CVOICE_READ = (_c.sent()).resp;
                         if (cx_CVOICE_READ) {
                             this.isVoiceEnabled = cx_CVOICE_READ.isEnabled;
                         }
-                        _c.label = 13;
-                    case 13:
+                        _c.label = 14;
+                    case 14:
                         this.debug("VOICE ENABLED: ", this.isVoiceEnabled);
                         if (this.enableSmsStack)
                             this.initSmsStack();
