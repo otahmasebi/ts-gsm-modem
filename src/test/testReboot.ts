@@ -1,13 +1,13 @@
 import {
     Modem, InitializationError, AccessPoint, ConnectionMonitor 
 } from "../lib/index";
-import { SyncEvent } from "ts-events-extended";
+import { Evt } from "ts-evt";
 import * as logger from "logger";
 
 
 const debug = logger.debugFactory();
 
-const evtScheduleRetry = new SyncEvent<AccessPoint["id"]>();
+const evtScheduleRetry = new Evt<AccessPoint["id"]>();
 
 async function launch() {
 

@@ -5,7 +5,7 @@ import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 //@ts-ignore: Contact need to be imported as it is used as return type.
 import { CardStorage, Contact } from "./CardStorage";
 import { SmsStack, Message, StatusReport } from "./SmsStack";
-import { SyncEvent } from "ts-events-extended";
+import { Evt } from "ts-evt";
 import * as runExclusive from "run-exclusive";
 import * as util from "util";
 import * as logger from "logger";
@@ -171,7 +171,7 @@ export class Modem {
     public serviceProviderName: string | undefined = undefined;
     public isVoiceEnabled: boolean | undefined = undefined;
 
-    public readonly evtTerminate = new SyncEvent<Error | null>();
+    public readonly evtTerminate = new Evt<Error | null>();
 
     private readonly unlockCodeProvider: UnlockCodeProvider | undefined = undefined;
     private onInitializationCompleted!: (error?: Error) => void;
@@ -642,7 +642,7 @@ export class Modem {
                                     unlockCodeRequest => resolve({ "type": "FAILED", unlockCodeRequest })
                                 )
                             ),
-                            new Promise<{ type: "TERMINATE"; error: SyncEvent.Type<typeof AtStack.prototype.evtTerminate>; }>(
+                            new Promise<{ type: "TERMINATE"; error: Evt.Unpack<typeof AtStack.prototype.evtTerminate>; }>(
                                 resolve => this.atStack.evtTerminate.attachOnce(
                                     context,
                                     error => resolve({ "type": "TERMINATE", error })
@@ -792,8 +792,8 @@ export class Modem {
 
     private smsStack!: SmsStack;
 
-    public readonly evtMessage = new SyncEvent<Message>();
-    public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
+    public readonly evtMessage = new Evt<Message>();
+    public readonly evtMessageStatusReport = new Evt<StatusReport>();
 
     private initSmsStack(): void {
 

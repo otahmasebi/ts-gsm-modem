@@ -36,7 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var at_messages_parser_1 = require("at-messages-parser");
-var ts_events_extended_1 = require("ts-events-extended");
+var ts_evt_1 = require("ts-evt");
 require("colors");
 var SystemState = /** @class */ (function () {
     function SystemState(atStack, debug) {
@@ -45,8 +45,8 @@ var SystemState = /** @class */ (function () {
         this.debug = debug;
         this.prValidSim = new Promise(function (resolve) { return _this.resolvePrValidSim = resolve; });
         /** Posted when isGsmConnectivityOk() change value */
-        this.evtGsmConnectivityChange = new ts_events_extended_1.VoidSyncEvent();
-        this.evtCellSignalStrengthTierChange = new ts_events_extended_1.SyncEvent();
+        this.evtGsmConnectivityChange = new ts_evt_1.VoidEvt();
+        this.evtCellSignalStrengthTierChange = new ts_evt_1.Evt();
         this.isRoaming = undefined;
         this.serviceStatus = undefined;
         this.sysMode = undefined;

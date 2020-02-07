@@ -1,10 +1,10 @@
 /// <reference path="../../src/lib/ambient/serialport.d.ts" />
 /// <reference types="node" />
 import * as SerialPort from "serialport";
-import { SyncEvent } from "ts-events-extended";
+import { Evt } from "ts-evt";
 /** Do not use on("error",) use evtError otherwise use as SerialPort */
 export declare class SerialPortExt extends SerialPort {
-    readonly evtError: SyncEvent<SerialPortError>;
+    readonly evtError: Evt<SerialPortError>;
     readonly writeHistory: (Buffer | string)[];
     /**
      * Never throw, never resolve if error ( an evtError will be posted )

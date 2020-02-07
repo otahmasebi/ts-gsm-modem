@@ -1,7 +1,7 @@
 /// <reference path="./ambient/serialport.d.ts"/>
 import * as SerialPort from "serialport";
 import * as runExclusive from "run-exclusive";
-import { SyncEvent } from "ts-events-extended";
+import { Evt } from "ts-evt";
 
 
 const openTimeOut = 45000;
@@ -13,7 +13,7 @@ export class SerialPortExt extends SerialPort {
 
     public readonly evtError = (()=>{
 
-        const evt= new SyncEvent<SerialPortError>();
+        const evt= new Evt<SerialPortError>();
 
         this.once("error", error => evt.post( 
             new SerialPortError(error, this.writeHistory, "EMITTED BY SERIAL PORT INSTANCE"))

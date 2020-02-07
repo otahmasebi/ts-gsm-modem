@@ -1,5 +1,5 @@
 import { SerialPortError } from "./SerialPortExt";
-import { SyncEvent } from "ts-events-extended";
+import { Evt } from "ts-evt";
 import { AtMessage } from "at-messages-parser";
 import "colors";
 export declare type RunOutputs = {
@@ -42,13 +42,13 @@ export declare class ModemDisconnectedError extends Error {
 export declare class AtStack {
     readonly dataIfPath: string;
     private readonly debug;
-    readonly evtUnsolicitedMessage: SyncEvent<AtMessage>;
+    readonly evtUnsolicitedMessage: Evt<AtMessage>;
     private readonly serialPort;
     private readonly serialPortAtParser;
     constructor(dataIfPath: string, debug: typeof console.log);
     private readonly _evtTerminate;
     /** A public clone of _evtTerminate ( so user can't detach the internal handler of _evtTerminate ) */
-    readonly evtTerminate: SyncEvent<SerialPortError | RunCommandError | ParseError | ModemNotRespondingError | ModemDisconnectedError | null>;
+    readonly evtTerminate: Evt<SerialPortError | RunCommandError | ParseError | ModemNotRespondingError | ModemDisconnectedError | null>;
     readonly terminateState: undefined | "TERMINATING" | "TERMINATED";
     /**
      * If RESTART MT is set evtTerminate will post a disconnect.

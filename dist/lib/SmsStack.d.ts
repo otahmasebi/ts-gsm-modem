@@ -1,5 +1,5 @@
 import { AtStack } from "./AtStack";
-import { SyncEvent } from "ts-events-extended";
+import { Evt } from "ts-evt";
 import "colors";
 export interface Message {
     number: string;
@@ -16,8 +16,8 @@ export interface StatusReport {
 export declare class SmsStack {
     private readonly atStack;
     private readonly debug;
-    readonly evtMessage: SyncEvent<Message>;
-    readonly evtMessageStatusReport: SyncEvent<StatusReport>;
+    readonly evtMessage: Evt<Message>;
+    readonly evtMessageStatusReport: Evt<StatusReport>;
     private evtSmsDeliver;
     private evtSmsStatusReport;
     private readonly uncompletedMultipartSms;

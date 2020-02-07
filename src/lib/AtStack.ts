@@ -1,5 +1,5 @@
 import { SerialPortExt, SerialPortError } from "./SerialPortExt";
-import { SyncEvent, EvtError } from "ts-events-extended";
+import { Evt, EvtError } from "ts-evt";
 import * as runExclusive from "run-exclusive";
 
 import { getSerialPortParser, AtMessage } from "at-messages-parser";
@@ -89,7 +89,7 @@ export class ModemDisconnectedError extends Error {
 
 export class AtStack {
 
-    public readonly evtUnsolicitedMessage = new SyncEvent<AtMessage>();
+    public readonly evtUnsolicitedMessage = new Evt<AtMessage>();
 
     private readonly serialPort: SerialPortExt;
 
@@ -138,12 +138,12 @@ export class AtStack {
     }
 
 
-    private readonly _evtTerminate = new SyncEvent<SerialPortError | RunCommandError | ParseError | ModemNotRespondingError | ModemDisconnectedError | null>();
+    private readonly _evtTerminate = new Evt<SerialPortError | RunCommandError | ParseError | ModemNotRespondingError | ModemDisconnectedError | null>();
 
     /** A public clone of _evtTerminate ( so user can't detach the internal handler of _evtTerminate ) */
     public readonly evtTerminate= (()=>{
 
-        const evt: typeof AtStack.prototype._evtTerminate= new SyncEvent();
+        const evt: typeof AtStack.prototype._evtTerminate= new Evt();
 
         this._evtTerminate.attach(error=> evt.post(error));
 
@@ -205,7 +205,7 @@ export class AtStack {
     private haveTerminateFunctionBeenCalled = false;
 
     private async _terminate(
-        error: SyncEvent.Type<typeof AtStack.prototype._evtTerminate>
+        error: Evt.Unpack<typeof AtStack.prototype._evtTerminate>
     ): Promise<void> {
 
         //_terminate can not be called more than once.
@@ -240,7 +240,7 @@ export class AtStack {
 
     }
 
-    private readonly evtResponseAtMessage = new SyncEvent<AtMessage>();
+    private readonly evtResponseAtMessage = new Evt<AtMessage>();
 
     private static generateSafeRunParams(
         params: RunParams['userProvided'] | undefined

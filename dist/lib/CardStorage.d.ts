@@ -1,5 +1,5 @@
 import { AtStack } from "./AtStack";
-import { VoidSyncEvent } from "ts-events-extended";
+import { VoidEvt } from "ts-evt";
 export declare type Encoding = "IRA" | "GSM" | "UCS2";
 export interface Contact {
     index: number;
@@ -9,7 +9,7 @@ export interface Contact {
 export declare class CardStorage {
     private readonly atStack;
     private readonly debug;
-    readonly evtReady: VoidSyncEvent;
+    readonly evtReady: VoidEvt;
     readonly isReady: boolean;
     readonly contacts: Contact[];
     getContact(index: number): Contact | undefined;

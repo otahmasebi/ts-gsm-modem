@@ -11,7 +11,7 @@ import {
     buildSmsSubmitPdus 
 } from "node-python-messaging";
 import * as runExclusive from "run-exclusive";
-import { SyncEvent } from "ts-events-extended";
+import { Evt } from "ts-evt";
 import { Timer, Timers } from "timer-extended";
 import { TrackableMap } from "trackable-map"
 
@@ -44,11 +44,11 @@ const uniqNow= (()=>{
 export class SmsStack {
 
 
-    public readonly evtMessage = new SyncEvent<Message>();
-    public readonly evtMessageStatusReport = new SyncEvent<StatusReport>();
+    public readonly evtMessage = new Evt<Message>();
+    public readonly evtMessageStatusReport = new Evt<StatusReport>();
 
-    private evtSmsDeliver = new SyncEvent<[number, SmsDeliver | SmsDeliverPart]>();
-    private evtSmsStatusReport = new SyncEvent<SmsStatusReport>();
+    private evtSmsDeliver = new Evt<[number, SmsDeliver | SmsDeliverPart]>();
+    private evtSmsStatusReport = new Evt<SmsStatusReport>();
     private readonly uncompletedMultipartSms: {
         [messageRef: number]: {
             timer: Timer<void>;

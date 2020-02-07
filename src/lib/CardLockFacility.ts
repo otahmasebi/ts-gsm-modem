@@ -1,4 +1,4 @@
-import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import { Evt, VoidEvt } from "ts-evt";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 
@@ -14,9 +14,9 @@ export interface UnlockCodeRequest {
 export class CardLockFacility {
 
 
-    public readonly evtUnlockCodeRequest = new SyncEvent<UnlockCodeRequest>();
+    public readonly evtUnlockCodeRequest = new Evt<UnlockCodeRequest>();
 
-    public readonly evtPinStateReady= new VoidSyncEvent();
+    public readonly evtPinStateReady= new VoidEvt();
 
     constructor(
         private readonly atStack: AtStack,

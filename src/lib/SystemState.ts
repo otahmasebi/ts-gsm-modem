@@ -1,6 +1,6 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
-import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import { Evt, VoidEvt } from "ts-evt";
 
 import "colors";
 
@@ -20,9 +20,9 @@ export class SystemState {
     public readonly prValidSim = new Promise<void>(resolve => this.resolvePrValidSim = resolve);
 
     /** Posted when isGsmConnectivityOk() change value */
-    public readonly evtGsmConnectivityChange = new VoidSyncEvent();
+    public readonly evtGsmConnectivityChange = new VoidEvt();
 
-    public readonly evtCellSignalStrengthTierChange = new SyncEvent<{ previousRssi: number; }>();
+    public readonly evtCellSignalStrengthTierChange = new Evt<{ previousRssi: number; }>();
 
     private isRoaming: boolean | undefined = undefined;
 

@@ -51,7 +51,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 /// <reference path="./ambient/serialport.d.ts"/>
 var SerialPort = require("serialport");
 var runExclusive = require("run-exclusive");
-var ts_events_extended_1 = require("ts-events-extended");
+var ts_evt_1 = require("ts-evt");
 var openTimeOut = 45000;
 /** Do not use on("error",) use evtError otherwise use as SerialPort */
 var SerialPortExt = /** @class */ (function (_super) {
@@ -60,7 +60,7 @@ var SerialPortExt = /** @class */ (function (_super) {
         //Todo test if when terminate still running because of evtError
         var _this = _super !== null && _super.apply(this, arguments) || this;
         _this.evtError = (function () {
-            var evt = new ts_events_extended_1.SyncEvent();
+            var evt = new ts_evt_1.Evt();
             _this.once("error", function (error) { return evt.post(new SerialPortError(error, _this.writeHistory, "EMITTED BY SERIAL PORT INSTANCE")); });
             return evt;
         })();
