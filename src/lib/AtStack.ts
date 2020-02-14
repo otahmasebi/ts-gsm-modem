@@ -1,5 +1,6 @@
 import { SerialPortExt, SerialPortError } from "./SerialPortExt";
 import { Evt, EvtError } from "ts-evt";
+import { UnpackEvt } from "ts-evt/dist/lib/UnpackEvt";
 import * as runExclusive from "run-exclusive";
 
 import { getSerialPortParser, AtMessage } from "at-messages-parser";
@@ -205,7 +206,7 @@ export class AtStack {
     private haveTerminateFunctionBeenCalled = false;
 
     private async _terminate(
-        error: Evt.Unpack<typeof AtStack.prototype._evtTerminate>
+        error: UnpackEvt<typeof AtStack.prototype._evtTerminate>
     ): Promise<void> {
 
         //_terminate can not be called more than once.

@@ -23,17 +23,17 @@
   "author": "Joseph Garrone",
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
-    "at-messages-parser": "git+https://206e4c24cb9a1e4a8d42b7ac86e4a026b02cee42:x-oauth-basic@github.com/garronej/at-messages-parser.git",
+    "at-messages-parser": "github:garronej/at-messages-parser",
     "colors": "^1.1.2",
-    "gsm-modem-connection": "git+https://206e4c24cb9a1e4a8d42b7ac86e4a026b02cee42:x-oauth-basic@github.com/garronej/gsm-modem-connection.git",
+    "gsm-modem-connection": "github:garronej/gsm-modem-connection",
     "legacy-encoding": "^3.0.0",
     "logger": "github:garronej/logger",
-    "node-python-messaging": "git+https://206e4c24cb9a1e4a8d42b7ac86e4a026b02cee42:x-oauth-basic@github.com/garronej/node-python-messaging.git",
-    "run-exclusive": "github:garronej/run-exclusive",
-    "serialport": "EmergingTechnologyAdvisors/node-serialport#4.0.7",
-    "timer-extended": "garronej/timer-extended",
+    "node-python-messaging": "github:garronej/node-python-messaging",
+    "run-exclusive": "^2.1.5",
+    "serialport": "github:EmergingTechnologyAdvisors/node-serialport#4.0.7",
+    "timer-extended": "github:garronej/timer-extended",
     "trackable-map": "github:garronej/trackable-map",
-    "ts-evt": "^4.3.3"
+    "ts-evt": "^5.0.2"
   },
   "devDependencies": {
     "@types/chai": "^3.4.34",

@@ -6,6 +6,7 @@ import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 import { CardStorage, Contact } from "./CardStorage";
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { Evt } from "ts-evt";
+import { UnpackEvt } from "ts-evt/dist/lib/UnpackEvt";
 import * as runExclusive from "run-exclusive";
 import * as util from "util";
 import * as logger from "logger";
@@ -642,7 +643,7 @@ export class Modem {
                                     unlockCodeRequest => resolve({ "type": "FAILED", unlockCodeRequest })
                                 )
                             ),
-                            new Promise<{ type: "TERMINATE"; error: Evt.Unpack<typeof AtStack.prototype.evtTerminate>; }>(
+                            new Promise<{ type: "TERMINATE"; error: UnpackEvt<typeof AtStack.prototype.evtTerminate>; }>(
                                 resolve => this.atStack.evtTerminate.attachOnce(
                                     context,
                                     error => resolve({ "type": "TERMINATE", error })

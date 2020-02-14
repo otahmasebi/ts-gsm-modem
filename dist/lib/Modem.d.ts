@@ -113,8 +113,8 @@ export declare class Modem {
     private hasSim;
     private debug;
     private constructor();
-    readonly evtGsmConnectivityChange: typeof SystemState.prototype.evtGsmConnectivityChange;
-    readonly evtCellSignalStrengthTierChange: typeof SystemState.prototype.evtCellSignalStrengthTierChange;
+    get evtGsmConnectivityChange(): typeof SystemState.prototype.evtGsmConnectivityChange;
+    get evtCellSignalStrengthTierChange(): typeof SystemState.prototype.evtCellSignalStrengthTierChange;
     isGsmConnectivityOk(): boolean;
     getCurrentGsmConnectivityState(): {
         "isRoaming": boolean;
@@ -146,12 +146,12 @@ export declare class Modem {
             retryOnErrors?: boolean | number[] | undefined;
         }): Promise<import("./AtStack").RunOutputs>;
     };
-    readonly runCommand_isRunning: boolean;
-    readonly runCommand_queuedCallCount: number;
+    get runCommand_isRunning(): boolean;
+    get runCommand_queuedCallCount(): number;
     runCommand_cancelAllQueuedCalls(): number;
     terminate(): Promise<void>;
-    readonly terminateState: "TERMINATED" | "TERMINATING" | undefined;
-    readonly evtUnsolicitedAtMessage: typeof AtStack.prototype.evtUnsolicitedMessage;
+    get terminateState(): "TERMINATED" | "TERMINATING" | undefined;
+    get evtUnsolicitedAtMessage(): typeof AtStack.prototype.evtUnsolicitedMessage;
     lastPinTried: string | undefined;
     validSimPin: string | undefined;
     private initCardLockFacility;
@@ -162,11 +162,11 @@ export declare class Modem {
     sendMessage: (number: string, text: string) => Promise<Date | undefined>;
     private cardStorage;
     private initCardStorage;
-    readonly number: typeof CardStorage.prototype.number;
-    readonly contacts: typeof CardStorage.prototype.contacts;
-    readonly contactNameMaxLength: typeof CardStorage.prototype.contactNameMaxLength;
-    readonly numberMaxLength: typeof CardStorage.prototype.contactNameMaxLength;
-    readonly storageLeft: typeof CardStorage.prototype.storageLeft;
+    get number(): typeof CardStorage.prototype.number;
+    get contacts(): typeof CardStorage.prototype.contacts;
+    get contactNameMaxLength(): typeof CardStorage.prototype.contactNameMaxLength;
+    get numberMaxLength(): typeof CardStorage.prototype.contactNameMaxLength;
+    get storageLeft(): typeof CardStorage.prototype.storageLeft;
     generateSafeContactName: typeof CardStorage.prototype.generateSafeContactName;
     getContact: typeof CardStorage.prototype.getContact;
     createContact: typeof CardStorage.prototype.createContact;

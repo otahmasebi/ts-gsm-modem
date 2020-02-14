@@ -17,8 +17,8 @@ export declare class CardLockFacility {
     enterPuk(puk: string, newPin: string): void;
     enterPuk2(puk: string, newPin2: string): void;
     private cx_CPIN_READ;
-    private readonly pinState;
-    private readonly times;
+    private get pinState();
+    private get times();
     private retrieving;
     private retrieveCX_CPIN_READ;
     private unlocking;

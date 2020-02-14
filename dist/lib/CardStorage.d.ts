@@ -10,12 +10,12 @@ export declare class CardStorage {
     private readonly atStack;
     private readonly debug;
     readonly evtReady: VoidEvt;
-    readonly isReady: boolean;
-    readonly contacts: Contact[];
+    get isReady(): boolean;
+    get contacts(): Contact[];
     getContact(index: number): Contact | undefined;
-    readonly contactNameMaxLength: number;
-    readonly numberMaxLength: number;
-    readonly storageLeft: number;
+    get contactNameMaxLength(): number;
+    get numberMaxLength(): number;
+    get storageLeft(): number;
     generateSafeContactName(contactName: string): string;
     constructor(atStack: AtStack, debug: typeof console.log);
     private p_CPBR_TEST;

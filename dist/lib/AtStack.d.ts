@@ -49,7 +49,7 @@ export declare class AtStack {
     private readonly _evtTerminate;
     /** A public clone of _evtTerminate ( so user can't detach the internal handler of _evtTerminate ) */
     readonly evtTerminate: Evt<SerialPortError | RunCommandError | ParseError | ModemNotRespondingError | ModemDisconnectedError | null>;
-    readonly terminateState: undefined | "TERMINATING" | "TERMINATED";
+    get terminateState(): undefined | "TERMINATING" | "TERMINATED";
     /**
      * If RESTART MT is set evtTerminate will post a disconnect.
      * Else it will post null.
