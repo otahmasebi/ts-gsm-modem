@@ -6,7 +6,7 @@ import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 import { CardStorage, Contact } from "./CardStorage";
 import { SmsStack, Message, StatusReport } from "./SmsStack";
 import { Evt } from "ts-evt";
-import { UnpackEvt } from "ts-evt/dist/lib/UnpackEvt";
+import { UnpackEvt } from "ts-evt/dist/lib/helperTypes";
 import * as runExclusive from "run-exclusive";
 import * as util from "util";
 import * as logger from "logger";

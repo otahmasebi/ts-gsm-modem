@@ -33,7 +33,7 @@
     "serialport": "github:EmergingTechnologyAdvisors/node-serialport#4.0.7",
     "timer-extended": "github:garronej/timer-extended",
     "trackable-map": "github:garronej/trackable-map",
-    "ts-evt": "^5.0.2"
+    "ts-evt": "^6.0.0"
   },
   "devDependencies": {
     "@types/chai": "^3.4.34",
