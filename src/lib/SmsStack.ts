@@ -11,7 +11,7 @@ import {
     buildSmsSubmitPdus 
 } from "node-python-messaging";
 import * as runExclusive from "run-exclusive";
-import { Evt } from "ts-evt";
+import { Evt } from "evt";
 import { Timer, Timers } from "timer-extended";
 import { TrackableMap } from "trackable-map"
 

@@ -1,6 +1,6 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
-import { VoidEvt } from "ts-evt";
+import { VoidEvt } from "evt";
 import * as runExclusive from "run-exclusive";
 
 import * as encoding from "legacy-encoding";

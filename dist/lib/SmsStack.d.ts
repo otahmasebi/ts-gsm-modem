@@ -1,5 +1,5 @@
 import { AtStack } from "./AtStack";
-import { Evt } from "ts-evt";
+import { Evt } from "evt";
 import "colors";
 export interface Message {
     number: string;

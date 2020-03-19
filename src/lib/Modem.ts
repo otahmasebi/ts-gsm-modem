@@ -5,8 +5,7 @@ import { CardLockFacility, UnlockCodeRequest } from "./CardLockFacility";
 //@ts-ignore: Contact need to be imported as it is used as return type.
 import { CardStorage, Contact } from "./CardStorage";
 import { SmsStack, Message, StatusReport } from "./SmsStack";
-import { Evt } from "ts-evt";
-import { UnpackEvt } from "ts-evt/dist/lib/helperTypes";
+import { Evt, UnpackEvt } from "evt";
 import * as runExclusive from "run-exclusive";
 import * as util from "util";
 import * as logger from "logger";
@@ -306,7 +305,7 @@ export class Modem {
 
         this.onInitializationCompleted = error => {
 
-            this.atStack.evtTerminate.detach(this);
+            this.atStack.evtTerminate.detach(Evt.getCtx(this));
 
             if (!!error) {
 
@@ -373,7 +372,7 @@ export class Modem {
         //and if so the error object is null. But we don't want to throw an error in this case.
         this.atStack.evtTerminate.attachOnce(
             error => !!error,
-            this,
+            Evt.getCtx(this),
             error => this.onInitializationCompleted(error!) 
         );
 
@@ -628,32 +627,31 @@ export class Modem {
                                 break;
                         }
 
-                        const context = {};
+                        const ctx= Evt.newCtx();
 
                         const _result = await Promise.race([
                             new Promise<{ type: "SUCCESS"; }>(
                                 resolve => cardLockFacility.evtPinStateReady.attachOnce(
-                                    context,
+                                    ctx,
                                     () => resolve({ "type": "SUCCESS" })
                                 )
                             ),
                             new Promise<{ type: "FAILED"; unlockCodeRequest: UnlockCodeRequest }>(
                                 resolve => cardLockFacility.evtUnlockCodeRequest.attachOnce(
-                                    context,
+                                    ctx,
                                     unlockCodeRequest => resolve({ "type": "FAILED", unlockCodeRequest })
                                 )
                             ),
                             new Promise<{ type: "TERMINATE"; error: UnpackEvt<typeof AtStack.prototype.evtTerminate>; }>(
                                 resolve => this.atStack.evtTerminate.attachOnce(
-                                    context,
+                                    ctx,
                                     error => resolve({ "type": "TERMINATE", error })
                                 )
                             )
                         ]);
 
-                        cardLockFacility.evtPinStateReady.detach(context);
-                        cardLockFacility.evtUnlockCodeRequest.detach(context);
-                        this.atStack.evtTerminate.detach(context);
+                        ctx.done();
+
 
                         switch (_result.type) {
                             case "SUCCESS":
@@ -702,15 +700,19 @@ export class Modem {
 
         switch (await Promise.race((() => {
 
-            const boundTo = {};
+            const ctx = Evt.newCtx();
 
             return [
-                this.atStack.evtTerminate.attachOnce(boundTo, 45000, () => { })
+                this.atStack.evtTerminate.attachOnce(
+                    ctx,
+                    45000,
+                    () => { }
+                )
                     .then(() => "TERMINATED" as const)
                     .catch(() => "TIMEOUT" as const),
                 this.systemState.prValidSim
                     .then(() => {
-                        this.atStack.evtTerminate.detach(boundTo);
+                        ctx.done();
                         return "VALID SIM" as const;
                     })
 
@@ -807,8 +809,8 @@ export class Modem {
 
             this.debug("MESSAGE RECEIVED", message);
 
-            if (!this.evtMessage.evtAttach.postCount) {
-                await this.evtMessage.evtAttach.waitFor();
+            if (!this.evtMessage.getEvtAttach().postCount) {
+                await this.evtMessage.getEvtAttach().waitFor();
             }
 
             this.evtMessage.post(message);
@@ -819,8 +821,8 @@ export class Modem {
 
             this.debug("STATUS REPORT RECEIVED", statusReport);
 
-            if (!this.evtMessageStatusReport.evtAttach.postCount) {
-                await this.evtMessageStatusReport.evtAttach.waitFor();
+            if (!this.evtMessageStatusReport.getEvtAttach().postCount) {
+                await this.evtMessageStatusReport.getEvtAttach().waitFor();
             }
 
             this.evtMessageStatusReport.post(statusReport);

@@ -1,4 +1,4 @@
-import { Evt, VoidEvt } from "ts-evt";
+import { Evt, VoidEvt } from "evt";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import "colors";

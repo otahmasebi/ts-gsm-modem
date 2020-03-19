@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var ts_evt_1 = require("ts-evt");
+var evt_1 = require("evt");
 require("colors");
 var CardLockFacility = /** @class */ (function () {
     function CardLockFacility(atStack, debug) {
         this.atStack = atStack;
         this.debug = debug;
-        this.evtUnlockCodeRequest = new ts_evt_1.Evt();
-        this.evtPinStateReady = new ts_evt_1.VoidEvt();
+        this.evtUnlockCodeRequest = new evt_1.Evt();
+        this.evtPinStateReady = new evt_1.VoidEvt();
         this.retrieving = true;
         this.unlocking = false;
         this.debug("Initialization");

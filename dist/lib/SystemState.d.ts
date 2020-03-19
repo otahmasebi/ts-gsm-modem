@@ -1,6 +1,6 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
-import { Evt, VoidEvt } from "ts-evt";
+import { Evt, VoidEvt } from "evt";
 import "colors";
 export declare class SystemState {
     private readonly atStack;
@@ -23,23 +23,23 @@ export declare class SystemState {
     private isValidSim;
     /** Assert prValidSim has resolved */
     getCurrentState(): {
-        "isRoaming": boolean;
-        "serviceStatus": AtMessage.ServiceStatus;
-        "sysMode": AtMessage.SysMode;
-        "simState": AtMessage.SimState;
-        "networkRegistrationState": AtMessage.NetworkRegistrationState;
-        "cellSignalStrength": {
-            "rssi": number;
-            "tier": AtMessage.GsmOrUtranCellSignalStrengthTier;
+        isRoaming: boolean;
+        serviceStatus: AtMessage.ServiceStatus;
+        sysMode: AtMessage.SysMode;
+        simState: AtMessage.SimState;
+        networkRegistrationState: AtMessage.NetworkRegistrationState;
+        cellSignalStrength: {
+            rssi: number;
+            tier: AtMessage.GsmOrUtranCellSignalStrengthTier;
         };
     };
     getCurrentStateHumanlyReadable(): {
-        "isRoaming": boolean;
-        "serviceStatus": string;
-        "sysMode": string;
-        "simState": string;
-        "networkRegistrationState": string;
-        "cellSignalStrength": string;
+        isRoaming: boolean;
+        serviceStatus: string;
+        sysMode: string;
+        simState: string;
+        networkRegistrationState: string;
+        cellSignalStrength: string;
     };
     constructor(atStack: AtStack, debug: typeof console.log);
     private update;

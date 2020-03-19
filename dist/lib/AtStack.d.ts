@@ -1,5 +1,5 @@
 import { SerialPortError } from "./SerialPortExt";
-import { Evt } from "ts-evt";
+import { Evt } from "evt";
 import { AtMessage } from "at-messages-parser";
 import "colors";
 export declare type RunOutputs = {

@@ -61,7 +61,7 @@ var __values = (this && this.__values) || function(o) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var SerialPortExt_1 = require("./SerialPortExt");
-var ts_evt_1 = require("ts-evt");
+var evt_1 = require("evt");
 var runExclusive = require("run-exclusive");
 var at_messages_parser_1 = require("at-messages-parser");
 require("colors");
@@ -140,17 +140,17 @@ var AtStack = /** @class */ (function () {
         var _this = this;
         this.dataIfPath = dataIfPath;
         this.debug = debug;
-        this.evtUnsolicitedMessage = new ts_evt_1.Evt();
+        this.evtUnsolicitedMessage = new evt_1.Evt();
         this.serialPortAtParser = at_messages_parser_1.getSerialPortParser(30000);
-        this._evtTerminate = new ts_evt_1.Evt();
+        this._evtTerminate = new evt_1.Evt();
         /** A public clone of _evtTerminate ( so user can't detach the internal handler of _evtTerminate ) */
         this.evtTerminate = (function () {
-            var evt = new ts_evt_1.Evt();
+            var evt = new evt_1.Evt();
             _this._evtTerminate.attach(function (error) { return evt.post(error); });
             return evt;
         })();
         this.haveTerminateFunctionBeenCalled = false;
-        this.evtResponseAtMessage = new ts_evt_1.Evt();
+        this.evtResponseAtMessage = new evt_1.Evt();
         this.runCommand = runExclusive.buildMethod(this.runCommandManageParams);
         this.reportMode = undefined;
         this.isEchoEnable = undefined;
@@ -469,7 +469,7 @@ var AtStack = /** @class */ (function () {
                         return [3 /*break*/, 13];
                     case 5:
                         error_1 = _a.sent();
-                        if (!(error_1 instanceof ts_evt_1.EvtError.Detached)) return [3 /*break*/, 7];
+                        if (!(error_1 instanceof evt_1.EvtError.Detached)) return [3 /*break*/, 7];
                         return [4 /*yield*/, new Promise(function (_resolve) { })];
                     case 6:
                         _a.sent();
@@ -517,7 +517,7 @@ var AtStack = /** @class */ (function () {
                         return [3 /*break*/, 19];
                     case 17:
                         error_2 = _a.sent();
-                        if (!(error_2 instanceof ts_evt_1.EvtError.Detached)) {
+                        if (!(error_2 instanceof evt_1.EvtError.Detached)) {
                             this.debug("Timeout while waiting for followup response");
                             this._terminate(new ModemNotRespondingError(command));
                         }

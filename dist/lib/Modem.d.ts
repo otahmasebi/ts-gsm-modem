@@ -3,7 +3,7 @@ import { AtMessage } from "at-messages-parser";
 import { SystemState } from "./SystemState";
 import { CardStorage } from "./CardStorage";
 import { Message, StatusReport } from "./SmsStack";
-import { Evt } from "ts-evt";
+import { Evt } from "evt";
 import "colors";
 export declare type UnlockResult = UnlockResult.Success | UnlockResult.Failed;
 export declare namespace UnlockResult {
@@ -117,23 +117,23 @@ export declare class Modem {
     get evtCellSignalStrengthTierChange(): typeof SystemState.prototype.evtCellSignalStrengthTierChange;
     isGsmConnectivityOk(): boolean;
     getCurrentGsmConnectivityState(): {
-        "isRoaming": boolean;
-        "serviceStatus": AtMessage.ServiceStatus;
-        "sysMode": AtMessage.SysMode;
-        "simState": AtMessage.SimState;
-        "networkRegistrationState": AtMessage.NetworkRegistrationState;
-        "cellSignalStrength": {
-            "rssi": number;
-            "tier": AtMessage.GsmOrUtranCellSignalStrengthTier;
+        isRoaming: boolean;
+        serviceStatus: AtMessage.ServiceStatus;
+        sysMode: AtMessage.SysMode;
+        simState: AtMessage.SimState;
+        networkRegistrationState: AtMessage.NetworkRegistrationState;
+        cellSignalStrength: {
+            rssi: number;
+            tier: AtMessage.GsmOrUtranCellSignalStrengthTier;
         };
     };
     getCurrentGsmConnectivityStateHumanReadable(): {
-        "isRoaming": boolean;
-        "serviceStatus": string;
-        "sysMode": string;
-        "simState": string;
-        "networkRegistrationState": string;
-        "cellSignalStrength": string;
+        isRoaming: boolean;
+        serviceStatus: string;
+        sysMode: string;
+        simState: string;
+        networkRegistrationState: string;
+        cellSignalStrength: string;
     };
     private initAtStack;
     private buildUnlockCodeProvider;

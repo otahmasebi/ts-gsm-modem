@@ -1,7 +1,7 @@
 import {
     Modem, InitializationError, AccessPoint, ConnectionMonitor 
 } from "../lib/index";
-import { Evt } from "ts-evt";
+import { Evt } from "evt";
 import * as logger from "logger";
 
 

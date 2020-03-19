@@ -1,7 +1,7 @@
 /// <reference path="../../src/lib/ambient/serialport.d.ts" />
 /// <reference types="node" />
 import * as SerialPort from "serialport";
-import { Evt } from "ts-evt";
+import { Evt } from "evt";
 /** Do not use on("error",) use evtError otherwise use as SerialPort */
 export declare class SerialPortExt extends SerialPort {
     readonly evtError: Evt<SerialPortError>;

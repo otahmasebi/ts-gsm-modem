@@ -74,7 +74,7 @@ var __read = (this && this.__read) || function (o, n) {
     return ar;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var ts_evt_1 = require("ts-evt");
+var evt_1 = require("evt");
 var runExclusive = require("run-exclusive");
 var encoding = require("legacy-encoding");
 // cSpell:disable
@@ -107,7 +107,7 @@ var CardStorage = /** @class */ (function () {
         var _this = this;
         this.atStack = atStack;
         this.debug = debug;
-        this.evtReady = new ts_evt_1.VoidEvt();
+        this.evtReady = new evt_1.VoidEvt();
         this.createContact = runExclusive.buildMethod(storageAccessGroupRef, function (number, name) { return new Promise(function (resolve) {
             var contact = {
                 "index": _this.getFreeIndex(),

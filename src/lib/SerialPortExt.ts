@@ -1,7 +1,7 @@
 /// <reference path="./ambient/serialport.d.ts"/>
 import * as SerialPort from "serialport";
 import * as runExclusive from "run-exclusive";
-import { Evt } from "ts-evt";
+import { Evt } from "evt";
 
 
 const openTimeOut = 45000;

@@ -67,7 +67,7 @@ var CardLockFacility_1 = require("./CardLockFacility");
 //@ts-ignore: Contact need to be imported as it is used as return type.
 var CardStorage_1 = require("./CardStorage");
 var SmsStack_1 = require("./SmsStack");
-var ts_evt_1 = require("ts-evt");
+var evt_1 = require("evt");
 var runExclusive = require("run-exclusive");
 var util = require("util");
 var logger = require("logger");
@@ -127,7 +127,7 @@ var Modem = /** @class */ (function () {
         this.iccidAvailableBeforeUnlock = undefined;
         this.serviceProviderName = undefined;
         this.isVoiceEnabled = undefined;
-        this.evtTerminate = new ts_evt_1.Evt();
+        this.evtTerminate = new evt_1.Evt();
         this.unlockCodeProvider = undefined;
         this.hasSim = undefined;
         this.runCommand = runExclusive.buildMethod((function () {
@@ -139,8 +139,8 @@ var Modem = /** @class */ (function () {
         }));
         this.lastPinTried = undefined;
         this.validSimPin = undefined;
-        this.evtMessage = new ts_evt_1.Evt();
-        this.evtMessageStatusReport = new ts_evt_1.Evt();
+        this.evtMessage = new evt_1.Evt();
+        this.evtMessageStatusReport = new evt_1.Evt();
         this.sendMessage = runExclusive.buildMethod((function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
@@ -299,7 +299,7 @@ var Modem = /** @class */ (function () {
                     case 0:
                         this.atStack = new AtStack_1.AtStack(this.dataIfPath, logger.debugFactory("AtStack " + this.dataIfPath, true, this.log));
                         this.onInitializationCompleted = function (error) {
-                            _this.atStack.evtTerminate.detach(_this);
+                            _this.atStack.evtTerminate.detach(evt_1.Evt.getCtx(_this));
                             if (!!error) {
                                 var initializationError_1 = new InitializationError(error, _this.dataIfPath, {
                                     "successfullyRebooted": _this.successfullyRebooted,
@@ -339,7 +339,7 @@ var Modem = /** @class */ (function () {
                         };
                         //NOTE: A locked modem can be terminated by the user ( via the unlock code provider )
                         //and if so the error object is null. But we don't want to throw an error in this case.
-                        this.atStack.evtTerminate.attachOnce(function (error) { return !!error; }, this, function (error) { return _this.onInitializationCompleted(error); });
+                        this.atStack.evtTerminate.attachOnce(function (error) { return !!error; }, evt_1.Evt.getCtx(this), function (error) { return _this.onInitializationCompleted(error); });
                         this.atStack.runCommand("AT+CGSN\r").then(function (_a) {
                             var resp = _a.resp;
                             /*
@@ -557,7 +557,7 @@ var Modem = /** @class */ (function () {
                                     inputs[_i] = arguments[_i];
                                 }
                                 return __awaiter(_this, void 0, void 0, function () {
-                                    var context, _result, resultSuccess, resultFailed;
+                                    var ctx, _result, resultSuccess, resultFailed;
                                     var _this = this;
                                     return __generator(this, function (_a) {
                                         switch (_a.label) {
@@ -581,17 +581,15 @@ var Modem = /** @class */ (function () {
                                                         cardLockFacility.enterPuk2(inputs[0], inputs[1]);
                                                         break;
                                                 }
-                                                context = {};
+                                                ctx = evt_1.Evt.newCtx();
                                                 return [4 /*yield*/, Promise.race([
-                                                        new Promise(function (resolve) { return cardLockFacility.evtPinStateReady.attachOnce(context, function () { return resolve({ "type": "SUCCESS" }); }); }),
-                                                        new Promise(function (resolve) { return cardLockFacility.evtUnlockCodeRequest.attachOnce(context, function (unlockCodeRequest) { return resolve({ "type": "FAILED", unlockCodeRequest: unlockCodeRequest }); }); }),
-                                                        new Promise(function (resolve) { return _this.atStack.evtTerminate.attachOnce(context, function (error) { return resolve({ "type": "TERMINATE", error: error }); }); })
+                                                        new Promise(function (resolve) { return cardLockFacility.evtPinStateReady.attachOnce(ctx, function () { return resolve({ "type": "SUCCESS" }); }); }),
+                                                        new Promise(function (resolve) { return cardLockFacility.evtUnlockCodeRequest.attachOnce(ctx, function (unlockCodeRequest) { return resolve({ "type": "FAILED", unlockCodeRequest: unlockCodeRequest }); }); }),
+                                                        new Promise(function (resolve) { return _this.atStack.evtTerminate.attachOnce(ctx, function (error) { return resolve({ "type": "TERMINATE", error: error }); }); })
                                                     ])];
                                             case 1:
                                                 _result = _a.sent();
-                                                cardLockFacility.evtPinStateReady.detach(context);
-                                                cardLockFacility.evtUnlockCodeRequest.detach(context);
-                                                this.atStack.evtTerminate.detach(context);
+                                                ctx.done();
                                                 switch (_result.type) {
                                                     case "SUCCESS":
                                                         resultSuccess = {
@@ -623,14 +621,14 @@ var Modem = /** @class */ (function () {
                         }
                         this.debug("SIM unlocked");
                         return [4 /*yield*/, Promise.race((function () {
-                                var boundTo = {};
+                                var ctx = evt_1.Evt.newCtx();
                                 return [
-                                    _this.atStack.evtTerminate.attachOnce(boundTo, 45000, function () { })
+                                    _this.atStack.evtTerminate.attachOnce(ctx, 45000, function () { })
                                         .then(function () { return "TERMINATED"; })
                                         .catch(function () { return "TIMEOUT"; }),
                                     _this.systemState.prValidSim
                                         .then(function () {
-                                        _this.atStack.evtTerminate.detach(boundTo);
+                                        ctx.done();
                                         return "VALID SIM";
                                     })
                                 ];
@@ -707,8 +705,8 @@ var Modem = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         this.debug("MESSAGE RECEIVED", message);
-                        if (!!this.evtMessage.evtAttach.postCount) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this.evtMessage.evtAttach.waitFor()];
+                        if (!!this.evtMessage.getEvtAttach().postCount) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this.evtMessage.getEvtAttach().waitFor()];
                     case 1:
                         _a.sent();
                         _a.label = 2;
@@ -723,8 +721,8 @@ var Modem = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         this.debug("STATUS REPORT RECEIVED", statusReport);
-                        if (!!this.evtMessageStatusReport.evtAttach.postCount) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this.evtMessageStatusReport.evtAttach.waitFor()];
+                        if (!!this.evtMessageStatusReport.getEvtAttach().postCount) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this.evtMessageStatusReport.getEvtAttach().waitFor()];
                     case 1:
                         _a.sent();
                         _a.label = 2;

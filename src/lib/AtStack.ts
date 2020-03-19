@@ -1,6 +1,5 @@
 import { SerialPortExt, SerialPortError } from "./SerialPortExt";
-import { Evt, EvtError } from "ts-evt";
-import { UnpackEvt } from "ts-evt/dist/lib/helperTypes";
+import { Evt, EvtError, UnpackEvt } from "evt";
 import * as runExclusive from "run-exclusive";
 
 import { getSerialPortParser, AtMessage } from "at-messages-parser";

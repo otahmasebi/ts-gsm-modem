@@ -1,5 +1,5 @@
 import { AtStack } from "./AtStack";
-import { VoidEvt } from "ts-evt";
+import { VoidEvt } from "evt";
 export declare type Encoding = "IRA" | "GSM" | "UCS2";
 export interface Contact {
     index: number;
