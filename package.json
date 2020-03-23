@@ -25,6 +25,7 @@
   "dependencies": {
     "at-messages-parser": "github:garronej/at-messages-parser",
     "colors": "^1.1.2",
+    "evt": "^1.0.16",
     "gsm-modem-connection": "github:garronej/gsm-modem-connection",
     "legacy-encoding": "^3.0.0",
     "logger": "github:garronej/logger",
@@ -32,8 +33,7 @@
     "run-exclusive": "^2.1.5",
     "serialport": "github:EmergingTechnologyAdvisors/node-serialport#4.0.7",
     "timer-extended": "github:garronej/timer-extended",
-    "trackable-map": "github:garronej/trackable-map",
-    "evt": "~1.0.0"
+    "trackable-map": "github:garronej/trackable-map"
   },
   "devDependencies": {
     "@types/chai": "^3.4.34",
