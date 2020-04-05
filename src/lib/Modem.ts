@@ -809,8 +809,8 @@ export class Modem {
 
             this.debug("MESSAGE RECEIVED", message);
 
-            if (!this.evtMessage.getEvtAttach().postCount) {
-                await this.evtMessage.getEvtAttach().waitFor();
+            if (!this.evtMessage.evtAttach.postCount) {
+                await this.evtMessage.evtAttach.waitFor();
             }
 
             this.evtMessage.post(message);
@@ -821,8 +821,8 @@ export class Modem {
 
             this.debug("STATUS REPORT RECEIVED", statusReport);
 
-            if (!this.evtMessageStatusReport.getEvtAttach().postCount) {
-                await this.evtMessageStatusReport.getEvtAttach().waitFor();
+            if (!this.evtMessageStatusReport.evtAttach.postCount) {
+                await this.evtMessageStatusReport.evtAttach.waitFor();
             }
 
             this.evtMessageStatusReport.post(statusReport);

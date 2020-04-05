@@ -705,8 +705,8 @@ var Modem = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         this.debug("MESSAGE RECEIVED", message);
-                        if (!!this.evtMessage.getEvtAttach().postCount) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this.evtMessage.getEvtAttach().waitFor()];
+                        if (!!this.evtMessage.evtAttach.postCount) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this.evtMessage.evtAttach.waitFor()];
                     case 1:
                         _a.sent();
                         _a.label = 2;
@@ -721,8 +721,8 @@ var Modem = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         this.debug("STATUS REPORT RECEIVED", statusReport);
-                        if (!!this.evtMessageStatusReport.getEvtAttach().postCount) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this.evtMessageStatusReport.getEvtAttach().waitFor()];
+                        if (!!this.evtMessageStatusReport.evtAttach.postCount) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this.evtMessageStatusReport.evtAttach.waitFor()];
                     case 1:
                         _a.sent();
                         _a.label = 2;
