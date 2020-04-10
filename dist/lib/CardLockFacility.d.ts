@@ -1,4 +1,3 @@
-import { Evt, VoidEvt } from "evt";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 import "colors";
@@ -9,8 +8,8 @@ export interface UnlockCodeRequest {
 export declare class CardLockFacility {
     private readonly atStack;
     private readonly debug;
-    readonly evtUnlockCodeRequest: Evt<UnlockCodeRequest>;
-    readonly evtPinStateReady: VoidEvt;
+    readonly evtUnlockCodeRequest: import("evt/dist/lib/types").Evt<UnlockCodeRequest>;
+    readonly evtPinStateReady: import("evt").VoidEvt;
     constructor(atStack: AtStack, debug: typeof console.log);
     enterPin(pin: string): void;
     enterPin2(pin2: string): void;

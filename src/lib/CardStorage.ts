@@ -1,6 +1,6 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
-import { VoidEvt } from "evt";
+import { Evt } from "evt";
 import * as runExclusive from "run-exclusive";
 
 import * as encoding from "legacy-encoding";
@@ -43,7 +43,7 @@ const storageAccessGroupRef = runExclusive.createGroupRef();
 
 export class CardStorage {
 
-    public readonly evtReady = new VoidEvt();
+    public readonly evtReady = Evt.create();
 
     public get isReady(): boolean {
         return this.evtReady.postCount === 1;

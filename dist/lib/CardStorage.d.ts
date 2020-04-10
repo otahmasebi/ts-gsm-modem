@@ -1,5 +1,4 @@
 import { AtStack } from "./AtStack";
-import { VoidEvt } from "evt";
 export declare type Encoding = "IRA" | "GSM" | "UCS2";
 export interface Contact {
     index: number;
@@ -9,7 +8,7 @@ export interface Contact {
 export declare class CardStorage {
     private readonly atStack;
     private readonly debug;
-    readonly evtReady: VoidEvt;
+    readonly evtReady: import("evt").VoidEvt;
     get isReady(): boolean;
     get contacts(): Contact[];
     getContact(index: number): Contact | undefined;

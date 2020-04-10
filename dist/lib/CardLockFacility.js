@@ -7,7 +7,7 @@ var CardLockFacility = /** @class */ (function () {
         this.atStack = atStack;
         this.debug = debug;
         this.evtUnlockCodeRequest = new evt_1.Evt();
-        this.evtPinStateReady = new evt_1.VoidEvt();
+        this.evtPinStateReady = evt_1.Evt.create();
         this.retrieving = true;
         this.unlocking = false;
         this.debug("Initialization");

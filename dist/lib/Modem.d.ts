@@ -3,7 +3,6 @@ import { AtMessage } from "at-messages-parser";
 import { SystemState } from "./SystemState";
 import { CardStorage } from "./CardStorage";
 import { Message, StatusReport } from "./SmsStack";
-import { Evt } from "evt";
 import "colors";
 export declare type UnlockResult = UnlockResult.Success | UnlockResult.Failed;
 export declare namespace UnlockResult {
@@ -107,7 +106,7 @@ export declare class Modem {
     imsi: string;
     serviceProviderName: string | undefined;
     isVoiceEnabled: boolean | undefined;
-    readonly evtTerminate: Evt<Error | null>;
+    readonly evtTerminate: import("evt/dist/lib/types").Evt<Error | null>;
     private readonly unlockCodeProvider;
     private onInitializationCompleted;
     private hasSim;
@@ -156,8 +155,8 @@ export declare class Modem {
     validSimPin: string | undefined;
     private initCardLockFacility;
     private smsStack;
-    readonly evtMessage: Evt<Message>;
-    readonly evtMessageStatusReport: Evt<StatusReport>;
+    readonly evtMessage: import("evt/dist/lib/types").Evt<Message>;
+    readonly evtMessageStatusReport: import("evt/dist/lib/types").Evt<StatusReport>;
     private initSmsStack;
     sendMessage: (number: string, text: string) => Promise<Date | undefined>;
     private cardStorage;

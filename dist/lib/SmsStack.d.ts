@@ -1,5 +1,4 @@
 import { AtStack } from "./AtStack";
-import { Evt } from "evt";
 import "colors";
 export interface Message {
     number: string;
@@ -16,8 +15,8 @@ export interface StatusReport {
 export declare class SmsStack {
     private readonly atStack;
     private readonly debug;
-    readonly evtMessage: Evt<Message>;
-    readonly evtMessageStatusReport: Evt<StatusReport>;
+    readonly evtMessage: import("evt/dist/lib/types").Evt<Message>;
+    readonly evtMessageStatusReport: import("evt/dist/lib/types").Evt<StatusReport>;
     private evtSmsDeliver;
     private evtSmsStatusReport;
     private readonly uncompletedMultipartSms;

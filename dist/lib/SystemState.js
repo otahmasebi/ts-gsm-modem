@@ -46,7 +46,7 @@ var SystemState = /** @class */ (function () {
         this.debug = debug;
         this.prValidSim = new Promise(function (resolve) { return _this.resolvePrValidSim = resolve; });
         /** Posted when isGsmConnectivityOk() change value */
-        this.evtGsmConnectivityChange = new evt_1.VoidEvt();
+        this.evtGsmConnectivityChange = evt_1.Evt.create();
         this.evtCellSignalStrengthTierChange = new evt_1.Evt();
         this.isRoaming = undefined;
         this.serviceStatus = undefined;

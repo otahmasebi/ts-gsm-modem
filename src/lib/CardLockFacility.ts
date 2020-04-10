@@ -1,4 +1,4 @@
-import { Evt, VoidEvt } from "evt";
+import { Evt } from "evt";
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
 
@@ -16,7 +16,7 @@ export class CardLockFacility {
 
     public readonly evtUnlockCodeRequest = new Evt<UnlockCodeRequest>();
 
-    public readonly evtPinStateReady= new VoidEvt();
+    public readonly evtPinStateReady= Evt.create();
 
     constructor(
         private readonly atStack: AtStack,

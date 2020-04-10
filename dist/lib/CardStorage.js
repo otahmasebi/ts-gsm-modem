@@ -107,7 +107,7 @@ var CardStorage = /** @class */ (function () {
         var _this = this;
         this.atStack = atStack;
         this.debug = debug;
-        this.evtReady = new evt_1.VoidEvt();
+        this.evtReady = evt_1.Evt.create();
         this.createContact = runExclusive.buildMethod(storageAccessGroupRef, function (number, name) { return new Promise(function (resolve) {
             var contact = {
                 "index": _this.getFreeIndex(),

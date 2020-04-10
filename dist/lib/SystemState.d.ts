@@ -1,6 +1,5 @@
 import { AtStack } from "./AtStack";
 import { AtMessage } from "at-messages-parser";
-import { Evt, VoidEvt } from "evt";
 import "colors";
 export declare class SystemState {
     private readonly atStack;
@@ -9,8 +8,8 @@ export declare class SystemState {
     private resolvePrValidSim;
     readonly prValidSim: Promise<void>;
     /** Posted when isGsmConnectivityOk() change value */
-    readonly evtGsmConnectivityChange: VoidEvt;
-    readonly evtCellSignalStrengthTierChange: Evt<{
+    readonly evtGsmConnectivityChange: import("evt").VoidEvt;
+    readonly evtCellSignalStrengthTierChange: import("evt/dist/lib/types").Evt<{
         previousRssi: number;
     }>;
     private isRoaming;
