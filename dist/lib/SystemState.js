@@ -36,6 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.SystemState = void 0;
 var at_messages_parser_1 = require("at-messages-parser");
 var evt_1 = require("evt");
 require("colors");

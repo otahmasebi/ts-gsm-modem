@@ -21,8 +21,8 @@ export declare class CardStorage {
     private getFreeIndex;
     createContact: (number: string, name: string) => Promise<Contact>;
     updateContact: (index: number, params: {
-        number?: string | undefined;
-        name?: string | undefined;
+        number?: string;
+        name?: string;
     }) => Promise<Contact>;
     deleteContact: (index: number) => Promise<void>;
     number: string | undefined;

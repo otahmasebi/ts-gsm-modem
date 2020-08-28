@@ -74,6 +74,7 @@ var __read = (this && this.__read) || function (o, n) {
     return ar;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.CardStorage = void 0;
 var evt_1 = require("evt");
 var runExclusive = require("run-exclusive");
 var encoding = require("legacy-encoding");
@@ -197,7 +198,7 @@ var CardStorage = /** @class */ (function () {
         get: function () {
             return this.evtReady.postCount === 1;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(CardStorage.prototype, "contacts", {
@@ -221,7 +222,7 @@ var CardStorage = /** @class */ (function () {
             }
             return out;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     CardStorage.prototype.getContact = function (index) {
@@ -232,14 +233,14 @@ var CardStorage = /** @class */ (function () {
         get: function () {
             return this.p_CPBR_TEST.tLength;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(CardStorage.prototype, "numberMaxLength", {
         get: function () {
             return this.p_CPBR_TEST.nLength;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(CardStorage.prototype, "storageLeft", {
@@ -248,7 +249,7 @@ var CardStorage = /** @class */ (function () {
             var total = maxIndex - minIndex;
             return total - Object.keys(this.contactByIndex).length;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     CardStorage.prototype.generateSafeContactName = function (contactName) {

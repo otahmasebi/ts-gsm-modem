@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.CardLockFacility = void 0;
 var evt_1 = require("evt");
 require("colors");
 var CardLockFacility = /** @class */ (function () {
@@ -37,12 +38,12 @@ var CardLockFacility = /** @class */ (function () {
         get: function () {
             return this.cx_CPIN_READ.pinState;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(CardLockFacility.prototype, "times", {
         get: function () { return this.cx_CPIN_READ.times; },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     CardLockFacility.prototype.retrieveCX_CPIN_READ = function () {

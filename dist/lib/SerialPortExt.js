@@ -49,6 +49,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.SerialPortError = exports.SerialPortExt = void 0;
 /// <reference path="./ambient/serialport.d.ts"/>
 var SerialPort = require("serialport");
 var runExclusive = require("run-exclusive");

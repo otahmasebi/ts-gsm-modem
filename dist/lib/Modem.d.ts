@@ -106,7 +106,7 @@ export declare class Modem {
     imsi: string;
     serviceProviderName: string | undefined;
     isVoiceEnabled: boolean | undefined;
-    readonly evtTerminate: import("evt/dist/lib/types").Evt<Error | null>;
+    readonly evtTerminate: import("evt/lib/types").Evt<Error | null>;
     private readonly unlockCodeProvider;
     private onInitializationCompleted;
     private hasSim;
@@ -155,8 +155,8 @@ export declare class Modem {
     validSimPin: string | undefined;
     private initCardLockFacility;
     private smsStack;
-    readonly evtMessage: import("evt/dist/lib/types").Evt<Message>;
-    readonly evtMessageStatusReport: import("evt/dist/lib/types").Evt<StatusReport>;
+    readonly evtMessage: import("evt/lib/types").Evt<Message>;
+    readonly evtMessageStatusReport: import("evt/lib/types").Evt<StatusReport>;
     private initSmsStack;
     sendMessage: (number: string, text: string) => Promise<Date | undefined>;
     private cardStorage;

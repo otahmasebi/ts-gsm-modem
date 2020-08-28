@@ -15,8 +15,8 @@ export interface StatusReport {
 export declare class SmsStack {
     private readonly atStack;
     private readonly debug;
-    readonly evtMessage: import("evt/dist/lib/types").Evt<Message>;
-    readonly evtMessageStatusReport: import("evt/dist/lib/types").Evt<StatusReport>;
+    readonly evtMessage: import("evt/lib/types").Evt<Message>;
+    readonly evtMessageStatusReport: import("evt/lib/types").Evt<StatusReport>;
     private evtSmsDeliver;
     private evtSmsStatusReport;
     private readonly uncompletedMultipartSms;

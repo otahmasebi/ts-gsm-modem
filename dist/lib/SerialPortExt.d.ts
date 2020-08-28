@@ -3,13 +3,13 @@
 import * as SerialPort from "serialport";
 /** Do not use on("error",) use evtError otherwise use as SerialPort */
 export declare class SerialPortExt extends SerialPort {
-    readonly evtError: import("evt/dist/lib/types").Evt<SerialPortError>;
+    readonly evtError: import("evt/lib/types").Evt<SerialPortError>;
     readonly writeHistory: (Buffer | string)[];
     /**
      * Never throw, never resolve if error ( an evtError will be posted )
      * Assert is not called after close as we have no way to test if closed.
      */
-    writeAndDrain: (buffer: string | Buffer) => Promise<void>;
+    writeAndDrain: (buffer: Buffer | string) => Promise<void>;
 }
 export declare class SerialPortError extends Error {
     readonly writeHistory: (Buffer | string)[];

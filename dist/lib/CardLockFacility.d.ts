@@ -8,7 +8,7 @@ export interface UnlockCodeRequest {
 export declare class CardLockFacility {
     private readonly atStack;
     private readonly debug;
-    readonly evtUnlockCodeRequest: import("evt/dist/lib/types").Evt<UnlockCodeRequest>;
+    readonly evtUnlockCodeRequest: import("evt/lib/types").Evt<UnlockCodeRequest>;
     readonly evtPinStateReady: import("evt").VoidEvt;
     constructor(atStack: AtStack, debug: typeof console.log);
     enterPin(pin: string): void;

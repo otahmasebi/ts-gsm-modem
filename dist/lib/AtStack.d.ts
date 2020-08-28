@@ -41,13 +41,13 @@ export declare class ModemDisconnectedError extends Error {
 export declare class AtStack {
     readonly dataIfPath: string;
     private readonly debug;
-    readonly evtUnsolicitedMessage: import("evt/dist/lib/types").Evt<AtMessage>;
+    readonly evtUnsolicitedMessage: import("evt/lib/types").Evt<AtMessage>;
     private readonly serialPort;
     private readonly serialPortAtParser;
     constructor(dataIfPath: string, debug: typeof console.log);
     private readonly _evtTerminate;
     /** A public clone of _evtTerminate ( so user can't detach the internal handler of _evtTerminate ) */
-    readonly evtTerminate: import("evt/dist/lib/types").Evt<SerialPortError | RunCommandError | ParseError | ModemNotRespondingError | ModemDisconnectedError | null>;
+    readonly evtTerminate: import("evt/lib/types").Evt<SerialPortError | RunCommandError | ParseError | ModemNotRespondingError | ModemDisconnectedError | null>;
     get terminateState(): undefined | "TERMINATING" | "TERMINATED";
     /**
      * If RESTART MT is set evtTerminate will post a disconnect.
@@ -60,11 +60,7 @@ export declare class AtStack {
     private static generateSafeRunParams;
     runCommand: {
         (command: string): Promise<RunOutputs>;
-        (command: String, params: {
-            recoverable?: boolean | undefined;
-            reportMode?: AtMessage.ReportMode | undefined;
-            retryOnErrors?: boolean | number[] | undefined;
-        }): Promise<RunOutputs>;
+        (command: String, params: RunParams['userProvided']): Promise<RunOutputs>;
     };
     private runCommandManageParams;
     private reportMode;

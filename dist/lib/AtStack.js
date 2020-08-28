@@ -60,6 +60,7 @@ var __values = (this && this.__values) || function(o) {
     throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.AtStack = exports.ModemDisconnectedError = exports.ModemNotRespondingError = exports.ParseError = exports.RunCommandError = void 0;
 var SerialPortExt_1 = require("./SerialPortExt");
 var evt_1 = require("evt");
 var runExclusive = require("run-exclusive");
@@ -195,7 +196,7 @@ var AtStack = /** @class */ (function () {
                 return "TERMINATED";
             }
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     /**

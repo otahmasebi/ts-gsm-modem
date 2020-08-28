@@ -9,7 +9,7 @@ export declare class SystemState {
     readonly prValidSim: Promise<void>;
     /** Posted when isGsmConnectivityOk() change value */
     readonly evtGsmConnectivityChange: import("evt").VoidEvt;
-    readonly evtCellSignalStrengthTierChange: import("evt/dist/lib/types").Evt<{
+    readonly evtCellSignalStrengthTierChange: import("evt/lib/types").Evt<{
         previousRssi: number;
     }>;
     private isRoaming;

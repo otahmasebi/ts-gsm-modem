@@ -60,6 +60,7 @@ var __values = (this && this.__values) || function(o) {
     throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Modem = exports.InitializationError = void 0;
 var AtStack_1 = require("./AtStack");
 var at_messages_parser_1 = require("at-messages-parser");
 var SystemState_1 = require("./SystemState");
@@ -271,14 +272,14 @@ var Modem = /** @class */ (function () {
         get: function () {
             return this.systemState.evtGsmConnectivityChange;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Modem.prototype, "evtCellSignalStrengthTierChange", {
         get: function () {
             return this.systemState.evtCellSignalStrengthTierChange;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Modem.prototype.isGsmConnectivityOk = function () {
@@ -497,14 +498,14 @@ var Modem = /** @class */ (function () {
         get: function () {
             return runExclusive.isRunning(this.runCommand, this);
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Modem.prototype, "runCommand_queuedCallCount", {
         get: function () {
             return runExclusive.getQueuedCallCount(this.runCommand, this);
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Modem.prototype.runCommand_cancelAllQueuedCalls = function () {
@@ -520,14 +521,14 @@ var Modem = /** @class */ (function () {
         get: function () {
             return this.atStack.terminateState;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Modem.prototype, "evtUnsolicitedAtMessage", {
         get: function () {
             return this.atStack.evtUnsolicitedMessage;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Modem.prototype.initCardLockFacility = function () {
@@ -752,35 +753,35 @@ var Modem = /** @class */ (function () {
         get: function () {
             return this.cardStorage.number;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Modem.prototype, "contacts", {
         get: function () {
             return this.cardStorage.contacts;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Modem.prototype, "contactNameMaxLength", {
         get: function () {
             return this.cardStorage.contactNameMaxLength;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Modem.prototype, "numberMaxLength", {
         get: function () {
             return this.cardStorage.numberMaxLength;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Modem.prototype, "storageLeft", {
         get: function () {
             return this.cardStorage.storageLeft;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     /** Issue AT\r command */
