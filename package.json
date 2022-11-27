@@ -31,7 +31,7 @@
     "logger": "github:garronej/logger",
     "node-python-messaging": "github:garronej/node-python-messaging",
     "run-exclusive": "^2.2.14",
-    "serialport": "github:EmergingTechnologyAdvisors/node-serialport#4.0.7",
+    "serialport": "github:EmergingTechnologyAdvisors/node-serialport",
     "timer-extended": "github:garronej/timer-extended",
     "trackable-map": "github:garronej/trackable-map"
   },
