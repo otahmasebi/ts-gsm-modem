@@ -26,7 +26,7 @@
     "at-messages-parser": "github:garronej/at-messages-parser",
     "colors": "^1.1.2",
     "evt": "^1.8.8",
-    "gsm-modem-connection": "github:garronej/gsm-modem-connection",
+    "gsm-modem-connection": "github:otahmasebi/gsm-modem-connection",
     "legacy-encoding": "^3.0.0",
     "logger": "github:garronej/logger",
     "node-python-messaging": "github:garronej/node-python-messaging",
